@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from hook_utils import hook_error
 from stdin_timeout import read_stdin
 
-__EVENT_NAME = "SubagentStop"
+_EVENT_NAME = "SubagentStop"
 
 # Agents whose names start with this prefix are READ-ONLY by contract
 _REVIEWER_PREFIX = "reviewer-"
@@ -479,7 +479,7 @@ def main() -> None:
 
         # Only process SubagentStop events
         event_type = event.get("hook_event_name") or event.get("type", "")
-        if event_type != __EVENT_NAME:
+        if event_type != _EVENT_NAME:
             sys.exit(0)
 
         cwd = event.get("cwd", str(Path.cwd()))

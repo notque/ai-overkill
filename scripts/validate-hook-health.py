@@ -743,7 +743,10 @@ def check_liveness() -> list[str]:
 
 
 DEFAULT_HOOK_ERRORS_JSONL = Path.home() / ".claude" / "learning" / "hook-errors.jsonl"
-DEFAULT_HOOK_ERROR_LOOKBACK_HOURS = 24.0
+# 7 days: a 24-hour window missed adr-enforcement's 1,795-crash streak (spread
+# over 8 days) while flagging only small same-day offenders. A week of lookback
+# surfaces sustained crash loops without keeping long-fixed hooks failing forever.
+DEFAULT_HOOK_ERROR_LOOKBACK_HOURS = 168.0
 
 # A hook that errors more than this many times is a repeat offender.
 _REPEAT_THRESHOLD = 5
@@ -837,7 +840,7 @@ def main() -> int:
         "--hook-error-lookback-hours",
         type=float,
         default=DEFAULT_HOOK_ERROR_LOOKBACK_HOURS,
-        help="Repeat-offender lookback window (default: 24 hours)",
+        help="Repeat-offender lookback window (default: 168 hours / 7 days)",
     )
     args = parser.parse_args()
     if args.hook_error_lookback_hours <= 0:

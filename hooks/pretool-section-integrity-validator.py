@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from hook_utils import context_output, hook_error
 from stdin_timeout import read_stdin
 
-__EVENT_NAME = "PreToolUse"
+_EVENT_NAME = "PreToolUse"
 
 # Cache INDEX data per process (one invocation = one process, so this is just
 # a guard against accidental double-load).
@@ -137,7 +137,7 @@ def main() -> None:
         )
         if debug:
             print(warning, file=sys.stderr)
-        context_output(__EVENT_NAME, warning).print_and_exit(0)
+        context_output(_EVENT_NAME, warning).print_and_exit(0)
 
     # Not in either index -- warn about potential typo.
     warning = (
@@ -146,7 +146,7 @@ def main() -> None:
     )
     if debug:
         print(warning, file=sys.stderr)
-    context_output(__EVENT_NAME, warning).print_and_exit(0)
+    context_output(_EVENT_NAME, warning).print_and_exit(0)
 
 
 if __name__ == "__main__":
