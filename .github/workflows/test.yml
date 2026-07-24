@@ -14,7 +14,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install ruff pyyaml
+      # ruff pinned: 0.16.0 began reformatting code blocks inside markdown,
+      # failing `ruff format --check` on pre-existing .md files repo-wide.
+      # Unpin only after a dedicated PR reformats under the new version.
+      - run: pip install "ruff==0.15.12" pyyaml
       # INDEX.json is generated (untracked); build it before validators read it.
       - run: python scripts/generate-skill-index.py && python scripts/generate-agent-index.py
       - run: ruff check . --config pyproject.toml
