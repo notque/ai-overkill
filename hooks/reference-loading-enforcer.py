@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.2.0
 """
 PreToolUse:Agent Hook: Reference Loading Enforcer
 
@@ -45,13 +45,9 @@ _INJECTION_MARKER = "reference loading"
 
 # The instruction to inject into agent prompts.
 _REFERENCE_LOADING_INSTRUCTION = (
-    "REFERENCE LOADING REQUIREMENT: Before starting work, read your agent .md file "
-    "or skill SKILL.md to find the Reference Loading Table. Load EVERY reference file "
-    "whose signal matches this task — load greedily, not conservatively. Multiple "
-    "matching signals = load all matching references. Reference files contain "
-    "domain-specific patterns, anti-patterns, code examples, and detection commands "
-    "that make your output expert-quality. Skipping this step means operating without "
-    "domain expertise that exists on disk."
+    "REFERENCE LOADING REQUIREMENT: Consult the Reference Loading Table in your "
+    "agent .md file or skill SKILL.md and read the references that match this task "
+    "— they carry the domain patterns and detection commands your output needs."
 )
 
 _BYPASS_ENV = "REFERENCE_ENFORCER_BYPASS"

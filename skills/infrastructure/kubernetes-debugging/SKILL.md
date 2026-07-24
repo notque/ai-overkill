@@ -31,7 +31,7 @@ Systematic diagnosis of pod failures, networking issues, and resource problems u
 | service resolution, DNS, nslookup, CoreDNS, port-forward, NetworkPolicy, ingress, egress | `references/network-debugging.md` | ~50 lines |
 | CPU throttling, memory limit, OOMKill, ephemeral storage, DiskPressure, debug container, distroless, kubectl reference, rollout, exec | `references/resource-debugging.md` | ~100 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ## Instructions
 

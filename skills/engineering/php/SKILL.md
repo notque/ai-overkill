@@ -36,7 +36,7 @@ PHP code quality and testing: strict types, PSR-12 compliance, modern language f
 | quality review process, phases, PSR-12 enforcement | `references/php-quality.md` | ~60 lines |
 | test writing process, test doubles, Prophecy, database fixtures | `references/php-testing.md` | ~50 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ---
 

@@ -72,9 +72,8 @@ DEFAULT_TOKEN_BUDGET = 500000
 # ---------------------------------------------------------------------------
 
 INJ_REFERENCE_LOADING = (
-    "Before starting work, read your agent .md file to find the Reference Loading Table. "
-    "Load EVERY reference file whose signal matches this task. "
-    "Load greedily — if multiple signals match, load all matching references."
+    "Before starting work, consult the Reference Loading Table in your agent .md file "
+    "and read the references that match this task."
 )
 
 INJ_COMPLETENESS = "Deliver the finished product. Ship the complete thing."

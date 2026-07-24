@@ -31,7 +31,7 @@ Harden Kubernetes clusters and workloads through RBAC, pod security, network iso
 | NetworkPolicy, default-deny, allow-list, egress, ingress, DNS, lateral movement, namespace isolation | `references/network-policies.md` | ~70 lines |
 | cosign, Kyverno, OPA, admission controller, Sealed Secrets, External Secrets, supply chain, misconfiguration, privileged | `references/supply-chain.md` | ~120 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ---
 

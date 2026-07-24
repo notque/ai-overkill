@@ -56,7 +56,7 @@ Kubernetes debugging, security hardening, and infrastructure tooling. Covers pod
 | kubernetes security process, RBAC + pod security + network hardening | `references/kubernetes-security.md` | ~50 lines |
 | cobaltcore overview, KVM exporter architecture, component identification | `references/cobalt-core.md` | ~50 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ---
 

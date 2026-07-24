@@ -94,7 +94,7 @@ Portrait is the road-to-aew immediate need; spritesheet is the forward-looking c
 | `--per-row` subagent orchestration | `references/subagent-delegation.md` | subagent boundary rules: who generates, who composes, who finalizes |
 | VFX issues in per-row prompts | `references/vfx-containment.md` | full containment ruleset: allowed/forbidden effects, per-state rules |
 
-Load greedily when a signal matches — references are only read on demand, so the cost is paid once per execution, not once per routing decision.
+Read the references whose signals match the task — references load on demand, so the cost is paid once per execution, not once per routing decision.
 
 ## Portrait-mode pipeline (5 phases)
 

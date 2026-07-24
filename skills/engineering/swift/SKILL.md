@@ -35,7 +35,7 @@ Swift concurrency and testing: async/await, Actors, TaskGroups, Sendable, struct
 | concurrency overview, structured concurrency patterns | `references/swift-concurrency.md` | ~30 lines |
 | XCTest, Swift Testing, test doubles, async tests, UI tests | `references/swift-testing.md` | ~250 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ---
 
