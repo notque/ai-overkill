@@ -6,11 +6,14 @@ All tests use temporary directories to avoid interference with real locks.
 
 from __future__ import annotations
 
+import fcntl
 import importlib
 import json
 import os
+import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -136,6 +139,124 @@ def test_stale_unparseable_timestamp() -> None:
     data = {"pid": os.getpid(), "timestamp": "not-a-date"}
     # Unparseable timestamp → infinite age → stale
     assert lockfile._is_stale(data) is True
+
+
+# ---------------------------------------------------------------------------
+# _steal_lock -- concurrent-steal race (regression for unlink-then-write bug)
+# ---------------------------------------------------------------------------
+
+
+def test_steal_does_not_clobber_fresh_lock(lock_dir: Path) -> None:
+    """Regression: a stealer must never remove a lock that is no longer stale.
+
+    Sequence being simulated: A and B both read a stale lock and both decide
+    to steal. A steals first and writes a fresh lock. B's steal, decided on
+    stale data, must then fail -- the old unlink-then-write implementation
+    deleted A's fresh lock and both processes believed they held the mutex.
+    """
+    path = lock_dir / "claude-toolkit-race.lock"
+    # "A" is a live process distinct from the test process.
+    proc = subprocess.Popen(["sleep", "30"])
+    try:
+        fresh = {"pid": proc.pid, "timestamp": datetime.now(timezone.utc).isoformat()}
+        path.write_text(json.dumps(fresh))
+
+        # "B" executes its steal after A's fresh lock is in place.
+        assert lockfile._steal_lock(path) is False
+
+        data = lockfile._read_lock(path)
+        assert data is not None
+        assert data["pid"] == proc.pid, "fresh lock was clobbered by a late stealer"
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_steal_succeeds_on_stale_lock(lock_dir: Path) -> None:
+    path = lock_dir / "claude-toolkit-stale.lock"
+    path.write_text(json.dumps({"pid": 4_000_000, "timestamp": "2020-01-01T00:00:00+00:00"}))
+
+    assert lockfile._steal_lock(path) is True
+    data = lockfile._read_lock(path)
+    assert data is not None
+    assert data["pid"] == os.getpid()
+
+
+def test_steal_succeeds_on_missing_lock(lock_dir: Path) -> None:
+    path = lock_dir / "claude-toolkit-gone.lock"
+    assert lockfile._steal_lock(path) is True
+    assert lockfile._read_lock(path)["pid"] == os.getpid()
+
+
+def test_steal_blocked_while_another_stealer_holds_mutex(lock_dir: Path) -> None:
+    """While another process holds the steal mutex, our steal must back off."""
+    path = lock_dir / "claude-toolkit-mutexed.lock"
+    path.write_text(json.dumps({"pid": 4_000_000, "timestamp": "2020-01-01T00:00:00+00:00"}))
+    mutex = lockfile._steal_mutex_path(path)
+
+    fd = os.open(str(mutex), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        # Simulate contention within this process: flock is per-open-file, so a
+        # second open in a child process would block. Here we spawn a child to
+        # attempt the steal while we hold the mutex.
+        driver = (
+            "import sys, pathlib, importlib\n"
+            "scripts_dir, lock_path = sys.argv[1], sys.argv[2]\n"
+            "sys.path.insert(0, scripts_dir)\n"
+            "lockfile = importlib.import_module('lockfile')\n"
+            "ok = lockfile._steal_lock(pathlib.Path(lock_path))\n"
+            "sys.exit(0 if not ok else 1)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", driver, str(Path(lockfile.__file__).parent), str(path)], timeout=30
+        )
+        assert result.returncode == 0, "child stole the lock despite held steal mutex"
+        # Lock content untouched.
+        assert lockfile._read_lock(path)["pid"] == 4_000_000
+    finally:
+        os.close(fd)
+
+
+def test_concurrent_acquire_mutual_exclusion(lock_dir: Path) -> None:
+    """N processes race to acquire (starting from a stale lock); critical
+    sections must never overlap and every process must get a turn."""
+    name = "race-stress"
+    path = lockfile._lock_path(name)
+    path.write_text(json.dumps({"pid": 4_000_000, "timestamp": "2020-01-01T00:00:00+00:00"}))
+    log = lock_dir / "critical.log"
+    log.touch()
+
+    driver = (
+        "import sys, os, time, pathlib, importlib, argparse\n"
+        "scripts_dir, lock_dir, name, log_path = sys.argv[1:5]\n"
+        "sys.path.insert(0, scripts_dir)\n"
+        "lockfile = importlib.import_module('lockfile')\n"
+        "lockfile.LOCK_DIR = pathlib.Path(lock_dir)\n"
+        "rc = lockfile.cmd_acquire(argparse.Namespace(name=name, timeout=30000))\n"
+        "if rc != 0:\n"
+        "    sys.exit(2)\n"
+        "log = open(log_path, 'a')\n"
+        "log.write(f'start {os.getpid()}\\n'); log.flush()\n"
+        "time.sleep(0.02)\n"
+        "log.write(f'end {os.getpid()}\\n'); log.flush(); log.close()\n"
+        "sys.exit(lockfile.cmd_release(argparse.Namespace(name=name)))\n"
+    )
+    n = 6
+    child_argv = [sys.executable, "-c", driver, str(Path(lockfile.__file__).parent), str(lock_dir), name, str(log)]
+    procs = [subprocess.Popen(child_argv) for _ in range(n)]
+    codes = [p.wait(timeout=60) for p in procs]
+    assert codes == [0] * n, f"acquire/release failed in children: {codes}"
+
+    lines = log.read_text().splitlines()
+    assert len(lines) == 2 * n
+    # Strict alternation: every 'start PID' is immediately followed by 'end PID'.
+    for i in range(0, len(lines), 2):
+        s_word, s_pid = lines[i].split()
+        e_word, e_pid = lines[i + 1].split()
+        assert (s_word, e_word) == ("start", "end"), f"overlapping critical sections: {lines}"
+        assert s_pid == e_pid, f"interleaved holders: {lines}"
+    assert len({line.split()[1] for line in lines}) == n
 
 
 # ---------------------------------------------------------------------------
