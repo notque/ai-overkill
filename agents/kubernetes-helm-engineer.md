@@ -76,10 +76,17 @@ This agent operates as an operator for Kubernetes and Helm operations, configuri
 
 | Skill | When to Invoke |
 |-------|---------------|
-| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. Run tests, check build, validate changed files, ver... |
-| `prometheus-grafana-engineer` | Use this agent for Prometheus and Grafana monitoring infrastructure, alerting configuration, dashboard design, and ob... |
+| `verification-before-completion` | Defense-in-depth verification before declaring any task complete: run tests, check build, validate changed files |
 
 **Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+
+### Companion Agents (dispatch via Agent tool)
+
+| Agent | When to Dispatch |
+|-------|-----------------|
+| `prometheus-grafana-engineer` | Monitoring infrastructure, alerting configuration, dashboard design |
+
+**Rule**: These are agents — the Skill tool cannot invoke them; use the Agent tool.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Helm Chart Testing**: Run `helm test` after installations (only when test pods are defined in chart).
@@ -138,8 +145,7 @@ Safety Checks: [Dry-run, context verification]
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| Pod failures, CrashLoopBackOff, OOMKilled, Pending, ImagePullBackOff | `kubernetes-troubleshooting.md` | Diagnostic commands, pod state table, error-fix mappings |
-| Helm chart development, values hierarchy, template errors, deploy safety | `helm-patterns.md` | Chart validation pipeline, failure modes, deprecated API detection |
+| Pod failures, CrashLoopBackOff, OOMKilled, helm upgrade, deploy safety | `k8s-helm-quick-reference.md` | Pod state diagnosis table, Helm chart validation pipeline |
 
 ## Error Handling
 
@@ -258,7 +264,6 @@ Load the relevant reference file based on the task type:
 
 | Task Type | Reference File | What It Covers |
 |-----------|---------------|----------------|
-| Pod failures, CrashLoopBackOff, OOMKilled, Pending, ImagePullBackOff | [references/kubernetes-troubleshooting.md](references/kubernetes-troubleshooting.md) | Diagnostic commands, pod state table, error-fix mappings |
-| Helm chart development, values hierarchy, template errors, deploy safety | [references/helm-patterns.md](references/helm-patterns.md) | Chart validation pipeline, failure modes, deprecated API detection |
+| Pod failures, CrashLoopBackOff, OOMKilled, helm upgrade, deploy safety | [references/k8s-helm-quick-reference.md](references/k8s-helm-quick-reference.md) | Pod state diagnosis table, Helm chart validation pipeline |
 
 See [shared-patterns/output-schemas.md](../skills/shared-patterns/output-schemas.md) for output format details.
