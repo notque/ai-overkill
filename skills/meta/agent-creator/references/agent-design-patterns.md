@@ -105,7 +105,7 @@ Required in every agent that has a `references/` directory. Format:
 
 - Signals are phrases or keywords that appear in the user's request or the task context
 - Each signal must map to exactly one or two reference files (progressive disclosure)
-- Signals overlap is acceptable — load greedily when multiple match
+- Signals overlap is acceptable — a task may match more than one reference
 - The Why column states what the file adds, not what it contains
 
 **Example:**

@@ -41,7 +41,7 @@ Domain skill for the [cobaltcore-dev](https://github.com/cobaltcore-dev) project
 | goroutine, concurrency, semaphore, TryLock, sync.Map, race condition, socket exhaustion, scrape overlap, ClearScrapeCache | `references/concurrency-patterns.md` | ~200 lines |
 | test, mock, moq, unit test, E2E, Kind cluster, race detector, interface_mock_gen, test-metrics.sh | `references/testing-patterns.md` | ~200 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
 
 ---
 

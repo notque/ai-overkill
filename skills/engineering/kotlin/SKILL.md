@@ -37,4 +37,4 @@ Kotlin coroutine patterns and testing: structured concurrency, Flow, StateFlow/S
 | coroutine skill overview, structured concurrency principles | `references/kotlin-coroutines.md` | ~55 lines |
 | JUnit 5, Kotest, MockK, runTest, parameterized tests, assertions | `references/kotlin-testing.md` | ~290 lines |
 
-**Load greedily.** If the user's question touches any signal keyword, load the matching reference before responding. Multiple signals matching = load all matching references.
+**Loading rule.** Read the references whose signals match the task before responding.
