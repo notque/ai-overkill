@@ -185,12 +185,13 @@ user_invocable: true  # justification: users type "/pr-workflow" directly as
 No justification = leave it `false`. User-invocable expands the system-prompt
 surface and the slash-command namespace; both are scarce.
 
-**`force_route` -- when to set `true`.** Adds `force_bonus = 2.0` to the router
-match score (see `force_bonus` in `scripts/pre-route.py`). Without it, single-trigger skills cap
-at "low" confidence and may not route at all -- the bug PR #663 fixed for
-`agent-creator`. Confidence ladder: `force_route + 2+ triggers` = high;
-`force_route + 1 trigger` = medium; `3+ triggers without force` = medium;
-otherwise low.
+**`force_route` -- when to set `true`.** The deterministic pre-route guard
+(`scripts/pre-route.py`) matches only entries with `force_route: true`: one
+trigger surviving the semantic guards routes at high confidence; skills
+without the flag are invisible to pre-route and route via the semantic
+router alone. Idiom-prone triggers need guard/companion entries in
+pre-route so ordinary English cannot false-force-route (the pinned corpora
+in `scripts/tests/test_pre_route_*.py` are the contract).
 
 Set `force_route: true` when the skill matches one of these patterns:
 

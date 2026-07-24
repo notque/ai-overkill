@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
-"""Deterministic safety-net + offline drift/benchmark tool for /do routing.
+"""Deterministic force-route guard for /do routing.
 
-Pattern-matches user requests against trigger keywords from INDEX.json files.
-In the /do flow this runs AFTER the semantic routing decision (the
-orchestrator's in-session self-route), not before it: semantic intent routing
-is primary, and this module is the deterministic safety-net. It enforces
-safety-critical force-routes (a high-confidence force_route for pr-workflow or
-a security skill overrides a disagreeing semantic pick so git/security work
-always hits quality gates) and its phrase/unigram guards continue to suppress
-false matches. It no longer short-circuits or skips the semantic route on the
-long tail.
+Matches user requests against the triggers of force_route entries ONLY
+(skills/INDEX.json `force_route: true`, plus SUPPLEMENTAL_TRIGGERS). A match
+that survives the semantic guards reports `match_type: force_route`,
+`confidence: high`; everything else falls through — semantic intent routing
+(the orchestrator's in-session self-route) decides the long tail. The guard
+exists so genuine git/security/codex requests always hit their quality gates:
+a high-confidence force match for pr-workflow or a security skill enables the
+/do fast path and overrides a disagreeing semantic pick.
 
-Offline, the same matching logic powers check-routing-drift.py and
-routing-benchmark.py. The CLI, output shape, confidence levels, and guards are
-a stable contract those tools depend on.
+Non-force keyword routing was retired 2026-07: replaying 49 real /do requests
+it fell through 43/49, and both non-force keyword matches it did produce were
+wrong. The guard/companion tables stay — they are the precision layer of the
+force-route guarantee, pinned by the ADR corpus tests
+(test_pre_route_pr_workflow/planning/public_web_deploy).
+
+Output contract (stable): matched, agent, skill, confidence, match_type,
+reasoning. Consumers: skills/meta/do/SKILL.md Phase 2, routing-ab-test.py,
+router-self-audit.py (load_entries).
 
 Usage:
-    python3 scripts/pre-route.py --request "run go tests"
-    python3 scripts/pre-route.py --request-file /tmp/req.txt --json-compact
     python3 scripts/pre-route.py --request "create a PR" --json-compact
+    python3 scripts/pre-route.py --request-file /tmp/req.txt --json-compact
 
 Exit codes:
     0 -- always (output is JSON to stdout)
@@ -543,11 +547,12 @@ def _build_pattern(trigger_lower: str) -> re.Pattern[str]:
 
 
 def build_match_table(entries: list[dict]) -> list[MatchEntry]:
-    """Compile trigger keywords into regex patterns.
+    """Compile force_route entries' trigger keywords into regex patterns.
 
-    Single-word triggers use exact word-boundary match.
-    Multi-word triggers allow up to 2 intervening words between
-    trigger words (e.g. "create PR" matches "create a PR").
+    Non-force entries are skipped: pre-route matches only force-routes; the
+    semantic router owns the long tail. Single-word triggers use exact
+    word-boundary match. Multi-word triggers allow up to 2 intervening words
+    between trigger words (e.g. "create PR" matches "create a PR").
     """
     table: list[MatchEntry] = []
 
@@ -556,6 +561,8 @@ def build_match_table(entries: list[dict]) -> list[MatchEntry]:
         entry_type = entry["type"]
         agent = entry.get("agent")
         force_route = entry.get("force_route", False)
+        if not force_route:
+            continue
 
         for trigger in entry.get("triggers", []):
             if not isinstance(trigger, str):
@@ -657,11 +664,10 @@ def _is_semantically_guarded(
 
 
 def score_matches(table: list[MatchEntry], request: str) -> dict[str, ScoredMatch]:
-    """Score each entry by matching triggers against the request.
+    """Collect force_route entries whose triggers match, ranked for tie-breaks.
 
-    Scoring:
+    Ranking (only used when multiple force entries match):
     - Each matched trigger adds 1.0 to score
-    - Force-route entries get a 2.0 bonus
     - Longer triggers get a specificity bonus (len/100)
     """
     request_lower = request.lower()
@@ -692,34 +698,21 @@ def score_matches(table: list[MatchEntry], request: str) -> dict[str, ScoredMatc
     for match in candidates.values():
         trigger_count = len(match.matched_triggers)
         specificity_bonus = match.total_chars / 100.0
-        force_bonus = 2.0 if match.force_route else 0.0
-        match.score = trigger_count + specificity_bonus + force_bonus
+        match.score = trigger_count + specificity_bonus
 
     return candidates
 
 
 def determine_confidence(match: ScoredMatch) -> str:
-    """Determine confidence level based on match characteristics.
-
-    Thresholds:
-    - force_route + 1+ trigger matches -> "high"
-    - non-force + 3+ trigger matches -> "medium"
-    - anything less -> "low" (fall through)
+    """Force match with 1+ surviving trigger -> "high"; anything else -> "low".
 
     A force_route match that reaches scoring already passed every semantic
     guard (score_matches discards guarded matches), so one surviving trigger
-    is a deterministic signal. The old ladder capped single-trigger force
-    matches at "medium", but the /do fast path and Step 1(a) safety override
-    (skills/meta/do/SKILL.md:131,258) act only on "high" — so genuine
-    one-trigger git/security requests ("commit these files", "did CI pass on
-    my PR?") were never force-protected.
+    is a deterministic signal. The /do fast path and Step 1(a) safety
+    override act only on "high".
     """
-    trigger_count = len(match.matched_triggers)
-
-    if match.force_route and trigger_count >= 1:
+    if match.force_route and len(match.matched_triggers) >= 1:
         return "high"
-    if not match.force_route and trigger_count >= 3:
-        return "medium"
     return "low"
 
 
@@ -774,7 +767,7 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
         agent = top.name
         skill = None
 
-    match_type = "force_route" if top.force_route else "trigger_keyword"
+    match_type = "force_route"  # only force entries reach the match table
     triggers_str = ", ".join(f"'{t}'" for t in top.matched_triggers)
 
     return {

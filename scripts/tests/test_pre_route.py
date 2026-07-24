@@ -1,4 +1,8 @@
-"""Tests for scripts/pre-route.py deterministic pre-router."""
+"""Tests for scripts/pre-route.py — the deterministic force-route guard.
+
+pre-route matches force_route entries only; non-force keyword routing was
+retired (2026-07). Force-route corpus pins live in test_pre_route_pr_workflow,
+test_pre_route_planning, and test_pre_route_public_web_deploy."""
 
 from __future__ import annotations
 
@@ -88,17 +92,30 @@ class TestSpecifiedRoutes:
         assert result["match_type"] == "force_route"
 
     def test_review_code_ambiguous_falls_through(self, pre_route, real_entries) -> None:
-        """'review this code' is ambiguous (1 non-force trigger) -- correctly falls through."""
+        """'review this code' hits only non-force triggers -- falls through."""
         result = pre_route.route("review this code", entries=real_entries)
-        # Single non-force trigger match -> low confidence -> fallthrough
         assert result["matched"] is False
         assert result["confidence"] == "low"
 
-    def test_structured_code_review_matches(self, pre_route, real_entries) -> None:
-        """'do a structured code review and code audit' has 3+ triggers -> matches."""
-        result = pre_route.route("do a structured code review and code audit", entries=real_entries)
-        assert result["matched"] is True
-        assert "review" in (result["skill"] or "")
+    def test_non_force_triggers_never_match(self, pre_route) -> None:
+        """Non-force entries fall through even on many trigger hits.
+
+        Pins the 2026-07 reduction: pre-route is a force-route guard; the
+        semantic router owns the long tail (live replay: 2/2 non-force
+        keyword matches were misroutes).
+        """
+        entries = [
+            {
+                "name": "keyword-skill",
+                "type": "skill",
+                "triggers": ["alpha", "beta", "gamma", "delta"],
+                "agent": None,
+                "force_route": False,
+            }
+        ]
+        result = pre_route.route("alpha beta gamma delta", entries=entries)
+        assert result["matched"] is False
+        assert result["match_type"] == "fallthrough"
 
     def test_weather_falls_through(self, pre_route, real_entries) -> None:
         """'what's the weather like' should fall through."""
@@ -235,25 +252,14 @@ class TestConfidence:
         )
         assert pre_route.determine_confidence(match) == "high"
 
-    def test_non_force_medium_confidence(self, pre_route) -> None:
-        """Non-force with 3+ triggers -> medium."""
+    def test_non_force_low_confidence(self, pre_route) -> None:
+        """Non-force never reports above low (the medium tier is retired)."""
         match = pre_route.ScoredMatch(
             name="test",
             entry_type="skill",
             agent=None,
             force_route=False,
             matched_triggers=["a", "b", "c"],
-        )
-        assert pre_route.determine_confidence(match) == "medium"
-
-    def test_non_force_low_confidence(self, pre_route) -> None:
-        """Non-force with <3 triggers -> low."""
-        match = pre_route.ScoredMatch(
-            name="test",
-            entry_type="skill",
-            agent=None,
-            force_route=False,
-            matched_triggers=["a", "b"],
         )
         assert pre_route.determine_confidence(match) == "low"
 
@@ -291,25 +297,24 @@ class TestBuildMatchTable:
 
 
 class TestScoreMatches:
-    """Test the scoring logic."""
+    """Test the force-candidate ranking logic."""
 
-    def test_force_route_bonus(self, pre_route) -> None:
-        """Force-route entries get a 2.0 bonus."""
+    def test_only_force_entries_reach_candidates(self, pre_route) -> None:
+        """Non-force entries are excluded from the match table entirely."""
         entries = [
             {"name": "forced", "type": "skill", "triggers": ["deploy"], "agent": None, "force_route": True},
             {"name": "normal", "type": "skill", "triggers": ["deploy"], "agent": None, "force_route": False},
         ]
         table = pre_route.build_match_table(entries)
         candidates = pre_route.score_matches(table, "deploy now")
-        forced = candidates["skill:forced"]
-        normal = candidates["skill:normal"]
-        assert forced.score > normal.score
+        assert "skill:forced" in candidates
+        assert "skill:normal" not in candidates
 
     def test_more_triggers_higher_score(self, pre_route) -> None:
-        """More matched triggers = higher score."""
+        """Among force entries, more matched triggers = higher rank."""
         entries = [
-            {"name": "multi", "type": "skill", "triggers": ["run", "test", "go"], "agent": None, "force_route": False},
-            {"name": "single", "type": "skill", "triggers": ["run"], "agent": None, "force_route": False},
+            {"name": "multi", "type": "skill", "triggers": ["run", "test", "go"], "agent": None, "force_route": True},
+            {"name": "single", "type": "skill", "triggers": ["run"], "agent": None, "force_route": True},
         ]
         table = pre_route.build_match_table(entries)
         candidates = pre_route.score_matches(table, "run go test")

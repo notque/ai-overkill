@@ -72,7 +72,7 @@ python3 "$SDIR/pre-route.py" --request-file "$REQUEST_FILE" --json-compact
 rm -f "$REQUEST_FILE"
 ```
 
-→`PRE_ROUTE_RESULT` (once).
+→`PRE_ROUTE_RESULT` (once). Force-route guard only: high-conf force_route match or fallthrough — the semantic route owns the long tail.
 
 **Fast path:** PRE_ROUTE_RESULT high-conf force_route + pr-workflow/security → skip 0/1, dispatch direct. Keep banner+overrides+P3+P4. `[do-route]` `health=-`. Agent: pre-route→domain→general-purpose.
 
@@ -131,7 +131,7 @@ No pair→general-purpose+objective-loop. `[cross-repo]`→`.claude/agents/`. Co
 
 **Step 1: Safety-net** (reads PRE_ROUTE_RESULT)
 
-(a) force_route pr-workflow/security disagrees → override. Git/security MUST hit quality gates. (b) Phrase guards suppress false matches → Step 0.
+(a) force_route pr-workflow/security disagrees → override. Git/security MUST hit quality gates. (b) Fallthrough (guards pre-applied in pre-route) → Step 0 decision stands.
 
 **Step 2: Apply skill override** — "review"→systematic-code-review, "debug"→workflow (systematic-debugging pipeline), "refactor"→workflow (systematic-refactoring pipeline), "TDD"→test-driven-development. Full table in INDEX.
 
