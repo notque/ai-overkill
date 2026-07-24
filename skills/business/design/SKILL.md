@@ -17,7 +17,7 @@ routing:
     - "typography"
     - "color system"
   category: business
-  not_for: "visual UI implementation or component coding (use ui-design-engineer agent); product roadmaps or feature prioritization (use product-management skill) — this skill covers design methodology: research, wireframes, accessibility audits, design-system documentation"
+  not_for: "visual UI implementation or component coding (use ui-design-engineer agent); product roadmaps or feature prioritization (use business-ops skill, PRODUCT mode) — this skill covers design methodology: research, wireframes, accessibility audits, design-system documentation"
   force_route: false
   pairs_with: []
 user-invocable: true  # justification: design work spans multiple modes; direct invocation for targeted design tasks

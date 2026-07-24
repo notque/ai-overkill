@@ -74,7 +74,7 @@ Is this an emergency to restore service?
 [See Impact Assessment section below]
 
 ### Risk Assessment
-[See Risk Assessment reference — load references/risk-assessment.md]
+[See Risk Assessment reference — load references/operations/risk-assessment.md]
 
 ### Implementation Plan
 [See Implementation Plan section below]

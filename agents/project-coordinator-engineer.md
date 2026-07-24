@@ -10,7 +10,7 @@ routing:
     - project
     - task management
     - agent coordination
-  not_for: "personal productivity and task-list tools (use productivity skill) — this agent coordinates multi-agent project execution and dependency tracking"
+  not_for: "personal productivity and task-list tools (use business-ops skill, PRODUCTIVITY mode) — this agent coordinates multi-agent project execution and dependency tracking"
   pairs_with:
     - workflow
     - subagent-driven-development

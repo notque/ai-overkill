@@ -17,17 +17,11 @@ from pathlib import Path
 # Complete mapping: skill_name → category_folder
 SKILL_MAPPING: dict[str, str] = {
     # business/ — executive + domain skills
+    # (sales, legal, finance, hr, customer-support, operations,
+    #  product-management, productivity folded into business-ops references/)
     "business-ops": "business",
-    "sales": "business",
-    "legal": "business",
-    "finance": "business",
-    "hr": "business",
     "marketing": "business",
-    "customer-support": "business",
-    "operations": "business",
-    "product-management": "business",
     "design": "business",
-    "productivity": "business",
     # code-quality/
     "code-cleanup": "code-quality",
     "code-linting": "code-quality",

@@ -13,14 +13,14 @@ Classify into exactly one mode before proceeding.
 
 | Mode | Signal Phrases | Reference to Load |
 |------|---------------|-------------------|
-| **JOURNAL ENTRY** | book, accrue, accrual, depreciation, prepaid, payroll entry, revenue recognition, deferred revenue, journal entry | `references/journal-entries.md` |
-| **RECONCILIATION** | reconcile, bank rec, subledger, GL-to-sub, intercompany, reconciling items, aging | `references/reconciliation.md` |
-| **VARIANCE** | variance, flux, budget vs actual, period-over-period, price/volume, waterfall, bridge | `references/variance-analysis.md` |
-| **STATEMENTS** | P&L, income statement, balance sheet, cash flow, financial statements, GAAP presentation | `references/financial-statements.md` |
-| **AUDIT/SOX** | SOX, control testing, sample selection, workpaper, deficiency, material weakness, ITGC, audit | `references/journal-entries.md` + `references/reconciliation.md` |
-| **CLOSE** | month-end close, close calendar, close checklist, close day, hard close, soft close | `references/reconciliation.md` + `references/journal-entries.md` |
+| **JOURNAL ENTRY** | book, accrue, accrual, depreciation, prepaid, payroll entry, revenue recognition, deferred revenue, journal entry | `references/finance/journal-entries.md` |
+| **RECONCILIATION** | reconcile, bank rec, subledger, GL-to-sub, intercompany, reconciling items, aging | `references/finance/reconciliation.md` |
+| **VARIANCE** | variance, flux, budget vs actual, period-over-period, price/volume, waterfall, bridge | `references/finance/variance-analysis.md` |
+| **STATEMENTS** | P&L, income statement, balance sheet, cash flow, financial statements, GAAP presentation | `references/finance/financial-statements.md` |
+| **AUDIT/SOX** | SOX, control testing, sample selection, workpaper, deficiency, material weakness, ITGC, audit | `references/finance/journal-entries.md` + `references/finance/reconciliation.md` |
+| **CLOSE** | month-end close, close calendar, close checklist, close day, hard close, soft close | `references/finance/reconciliation.md` + `references/finance/journal-entries.md` |
 
-Always load `references/llm-finance-failure-modes.md` as a guard rail regardless of mode.
+Always load `references/finance/llm-finance-failure-modes.md` as a guard rail regardless of mode.
 
 ---
 
@@ -30,7 +30,7 @@ Always load `references/llm-finance-failure-modes.md` as a guard rail regardless
 
 1. Detect mode from user request
 2. Load the corresponding reference file(s)
-3. Load `references/llm-finance-failure-modes.md`
+3. Load `references/finance/llm-finance-failure-modes.md`
 4. Confirm scope with user if ambiguous
 
 ### Phase 2: GATHER
@@ -102,7 +102,7 @@ Present output in the format specified by the reference file for the mode. Inclu
 
 ## LLM Failure Modes in Finance
 
-See `references/llm-finance-failure-modes.md` for the complete failure mode catalog (calculation errors, fabricated standards, materiality misapplication, period errors, account code fabrication). Universal failure modes (hallucination, overconfidence, generic output) are in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
+See `references/finance/llm-finance-failure-modes.md` for the complete failure mode catalog (calculation errors, fabricated standards, materiality misapplication, period errors, account code fabrication). Universal failure modes (hallucination, overconfidence, generic output) are in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
 
 ---
 

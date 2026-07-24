@@ -11,12 +11,12 @@ Classify into one mode before proceeding.
 
 | Mode | Signal Phrases | Reference |
 |------|---------------|-----------|
-| **TASK** | add task, prioritize tasks, task list, what's on my plate, decompose work, batch tasks | `references/task-management.md` |
-| **PLAN** | daily plan, plan my day, time blocks, plan my week, energy mapping | `references/daily-weekly-planning.md` |
-| **MEETING** | meeting agenda, optimize meeting, meeting audit, cancel this meeting, async alternative | `references/meeting-optimization.md` |
-| **STATUS** | status update, standup, weekly update, stakeholder update, progress report | `references/status-updates.md` |
-| **REVIEW** | weekly review, retro, retrospective, reflect on week, monthly review | `references/daily-weekly-planning.md` |
-| **GOAL** | set goals, OKRs, quarterly goals, goal progress, key results | `references/daily-weekly-planning.md` |
+| **TASK** | add task, prioritize tasks, task list, what's on my plate, decompose work, batch tasks | `references/productivity/task-management.md` |
+| **PLAN** | daily plan, plan my day, time blocks, plan my week, energy mapping | `references/productivity/daily-weekly-planning.md` |
+| **MEETING** | meeting agenda, optimize meeting, meeting audit, cancel this meeting, async alternative | `references/productivity/meeting-optimization.md` |
+| **STATUS** | status update, standup, weekly update, stakeholder update, progress report | `references/productivity/status-updates.md` |
+| **REVIEW** | weekly review, retro, retrospective, reflect on week, monthly review | `references/productivity/daily-weekly-planning.md` |
+| **GOAL** | set goals, OKRs, quarterly goals, goal progress, key results | `references/productivity/daily-weekly-planning.md` |
 
 If the request spans modes, pick the primary mode and note the secondary.
 
@@ -26,7 +26,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### TASK Mode
 
-**Load**: `references/task-management.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/task-management.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Capture** — Accept tasks in any format: freeform text, bullet lists, pasted meeting notes, vague intentions. Extract actionable items.
 2. **Decompose** — Apply vertical slicing (because horizontal slices create work that cannot ship independently):
@@ -51,7 +51,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### PLAN Mode
 
-**Load**: `references/daily-weekly-planning.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/daily-weekly-planning.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Gather constraints** — Ask for (conversationally, not as a wall of questions):
    - Calendar commitments for the day/week
@@ -78,7 +78,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### MEETING Mode
 
-**Load**: `references/meeting-optimization.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/meeting-optimization.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Determine operation**:
 
@@ -107,7 +107,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### STATUS Mode
 
-**Load**: `references/status-updates.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/status-updates.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Detect audience** — Different audiences need different framing:
 
@@ -138,7 +138,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### REVIEW Mode
 
-**Load**: `references/daily-weekly-planning.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/daily-weekly-planning.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Collect** — Gather data from the period:
    - What was planned vs what actually happened
@@ -173,7 +173,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### GOAL Mode
 
-**Load**: `references/daily-weekly-planning.md`, `references/llm-productivity-failure-modes.md`
+**Load**: `references/productivity/daily-weekly-planning.md`, `references/productivity/llm-productivity-failure-modes.md`
 
 1. **Determine scope**: Quarterly OKRs, annual goals, project milestones, or personal development goals.
 2. **Structure goals** using the outcome hierarchy:
@@ -199,7 +199,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ## LLM Failure Modes in Productivity Work
 
-See `references/llm-productivity-failure-modes.md` for the complete failure mode catalog (aspirational planning, unestimated tasks, generic advice, agendaless meetings, shallow reviews, activity-based status). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
+See `references/productivity/llm-productivity-failure-modes.md` for the complete failure mode catalog (aspirational planning, unestimated tasks, generic advice, agendaless meetings, shallow reviews, activity-based status). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
 
 ---
 
@@ -214,7 +214,7 @@ Used in TASK, PLAN, and GOAL modes.
 | **Weighted Scoring** | Score items against 3-5 criteria with explicit weights | Team decisions requiring transparency and defensibility |
 | **Time-to-Value** | Prioritize by shortest path to delivering user value | When facing analysis paralysis on a long backlog |
 
-Apply frameworks to the specific situation. Producing a framework explanation instead of an applied prioritization is a failure mode (see `references/llm-productivity-failure-modes.md`).
+Apply frameworks to the specific situation. Producing a framework explanation instead of an applied prioritization is a failure mode (see `references/productivity/llm-productivity-failure-modes.md`).
 
 ---
 
@@ -233,9 +233,9 @@ Apply frameworks to the specific situation. Producing a framework explanation in
 
 | Mode | Primary Reference | Secondary Reference |
 |------|------------------|-------------------|
-| TASK | `references/task-management.md` | `references/llm-productivity-failure-modes.md` |
-| PLAN | `references/daily-weekly-planning.md` | `references/llm-productivity-failure-modes.md` |
-| MEETING | `references/meeting-optimization.md` | `references/llm-productivity-failure-modes.md` |
-| STATUS | `references/status-updates.md` | `references/llm-productivity-failure-modes.md` |
-| REVIEW | `references/daily-weekly-planning.md` | `references/llm-productivity-failure-modes.md` |
-| GOAL | `references/daily-weekly-planning.md` | `references/llm-productivity-failure-modes.md` |
+| TASK | `references/productivity/task-management.md` | `references/productivity/llm-productivity-failure-modes.md` |
+| PLAN | `references/productivity/daily-weekly-planning.md` | `references/productivity/llm-productivity-failure-modes.md` |
+| MEETING | `references/productivity/meeting-optimization.md` | `references/productivity/llm-productivity-failure-modes.md` |
+| STATUS | `references/productivity/status-updates.md` | `references/productivity/llm-productivity-failure-modes.md` |
+| REVIEW | `references/productivity/daily-weekly-planning.md` | `references/productivity/llm-productivity-failure-modes.md` |
+| GOAL | `references/productivity/daily-weekly-planning.md` | `references/productivity/llm-productivity-failure-modes.md` |

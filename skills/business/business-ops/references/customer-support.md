@@ -27,12 +27,12 @@ Load only the references required by the detected mode.
 
 | Mode | Reference |
 |------|-----------|
-| TRIAGE | `references/triage-methodology.md` |
-| RESPOND | `references/response-drafting.md` |
-| KB | `references/knowledge-base.md` |
-| ESCALATE | `references/triage-methodology.md`, `references/response-drafting.md` |
-| RESEARCH | `references/knowledge-base.md` |
-| Any mode | `references/llm-support-failure-modes.md` (always load -- LLM failure awareness is non-negotiable in support) |
+| TRIAGE | `references/customer-support/triage-methodology.md` |
+| RESPOND | `references/customer-support/response-drafting.md` |
+| KB | `references/customer-support/knowledge-base.md` |
+| ESCALATE | `references/customer-support/triage-methodology.md`, `references/customer-support/response-drafting.md` |
+| RESEARCH | `references/customer-support/knowledge-base.md` |
+| Any mode | `references/customer-support/llm-support-failure-modes.md` (always load -- LLM failure awareness is non-negotiable in support) |
 
 ---
 
@@ -49,7 +49,7 @@ Load only the references required by the detected mode.
 
 **Phase 2: CLASSIFY** -- Assign category and priority.
 
-Apply the category taxonomy from `references/triage-methodology.md`:
+Apply the category taxonomy from `references/customer-support/triage-methodology.md`:
 
 | Category | When |
 |----------|------|
@@ -81,7 +81,7 @@ Assign priority P1-P4. When in doubt, err higher -- easier to de-escalate than r
 | Product | Feature requests with demand, design decisions, workflow gaps |
 | Security | Data access concerns, vulnerability reports, compliance (bypasses tier progression) |
 
-**Phase 4: RESPOND** -- Draft initial response using the category templates from `references/triage-methodology.md`.
+**Phase 4: RESPOND** -- Draft initial response using the category templates from `references/customer-support/triage-methodology.md`.
 
 **Gate**: Triage output includes: category, priority with justification, routing recommendation, suggested initial response, internal notes.
 
@@ -99,7 +99,7 @@ Assign priority P1-P4. When in doubt, err higher -- easier to de-escalate than r
 - Stakeholder level: end user, manager, executive, technical
 - History: previous communications, commitments made, tone of thread
 
-**Phase 2: CALIBRATE** -- Select tone from `references/response-drafting.md`.
+**Phase 2: CALIBRATE** -- Select tone from `references/customer-support/response-drafting.md`.
 
 | Situation | Tone | Key Characteristic |
 |-----------|------|--------------------|
@@ -149,7 +149,7 @@ Adjust by relationship stage:
 - Frequency: one-off or recurring
 - Article type: how-to, troubleshooting, FAQ, known issue, reference
 
-**Phase 2: STRUCTURE** -- Choose the right template from `references/knowledge-base.md`.
+**Phase 2: STRUCTURE** -- Choose the right template from `references/customer-support/knowledge-base.md`.
 
 | Type | Purpose | Structure |
 |------|---------|-----------|
@@ -279,7 +279,7 @@ If the research took significant effort, was a common question, or corrected a m
 
 These apply regardless of mode. Internalize them.
 
-**Empathy is not performance.** Acknowledge the customer's situation genuinely. "I understand how frustrating this must be" is fine when they're frustrated. The same phrase when they asked a simple how-to question is patronizing. Match the emotional register. Read `references/llm-support-failure-modes.md` on tone mismatch.
+**Empathy is not performance.** Acknowledge the customer's situation genuinely. "I understand how frustrating this must be" is fine when they're frustrated. The same phrase when they asked a simple how-to question is patronizing. Match the emotional register. Read `references/customer-support/llm-support-failure-modes.md` on tone mismatch.
 
 **Own it.** Active voice. "We" not "the system." "I'll investigate" not "this will be investigated." Take responsibility where appropriate. Take ownership in all customer-facing communication.
 
@@ -287,6 +287,6 @@ These apply regardless of mode. Internalize them.
 
 **Close the loop.** Every interaction ends with clear next steps: what you will do, what they need to do, when they hear from you next.
 
-**Confirm feature existence before stating it.** Say 'let me check' when uncertain. A wrong answer that sends a customer down a dead-end path is worse than "let me check and get back to you." See `references/llm-support-failure-modes.md`.
+**Confirm feature existence before stating it.** Say 'let me check' when uncertain. A wrong answer that sends a customer down a dead-end path is worse than "let me check and get back to you." See `references/customer-support/llm-support-failure-modes.md`.
 
 **Limit commitments to actions within your authority.** No timeline commitments on behalf of engineering. No policy exceptions without approval. No "we'll definitely build that." The trust cost of a broken promise exceeds the short-term relief of making one.

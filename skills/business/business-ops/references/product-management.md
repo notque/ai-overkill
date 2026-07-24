@@ -11,12 +11,12 @@ Classify into one mode before proceeding.
 
 | Mode | Signal Phrases | Reference |
 |------|---------------|-----------|
-| **SPEC** | write spec, PRD, feature requirements, acceptance criteria, user stories | `references/spec-writing.md` |
-| **ROADMAP** | roadmap, prioritize, Now/Next/Later, reprioritize, timeline, OKR alignment | `references/roadmap-planning.md` |
+| **SPEC** | write spec, PRD, feature requirements, acceptance criteria, user stories | `references/product-management/spec-writing.md` |
+| **ROADMAP** | roadmap, prioritize, Now/Next/Later, reprioritize, timeline, OKR alignment | `references/product-management/roadmap-planning.md` |
 | **STAKEHOLDER** | stakeholder update, status report, executive brief, launch announcement | (inline templates) |
-| **RESEARCH** | synthesize research, interview analysis, user feedback, personas, thematic analysis | `references/research-synthesis.md` |
+| **RESEARCH** | synthesize research, interview analysis, user feedback, personas, thematic analysis | `references/product-management/research-synthesis.md` |
 | **COMPETITIVE** | competitive brief, competitor analysis, battle card, positioning, win/loss | (inline templates) |
-| **METRICS** | metrics review, KPI, funnel analysis, retention, cohort, dashboard, OKR scoring | `references/metrics-review.md` |
+| **METRICS** | metrics review, KPI, funnel analysis, retention, cohort, dashboard, OKR scoring | `references/product-management/metrics-review.md` |
 | **SPRINT** | sprint planning, backlog grooming, capacity, sprint goal, carryover | (inline templates) |
 | **BRAINSTORM** | brainstorm, explore problem, stress-test idea, thinking partner, assumption testing | (Socratic — see below) |
 
@@ -28,7 +28,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### SPEC Mode
 
-**Load**: `references/spec-writing.md`, `references/llm-pm-failure-modes.md`
+**Load**: `references/product-management/spec-writing.md`, `references/product-management/llm-pm-failure-modes.md`
 
 1. **Understand** — Accept any input: feature name, problem statement, user request, vague idea.
 2. **Gather context** — Ask conversationally (not a wall of questions):
@@ -58,7 +58,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### ROADMAP Mode
 
-**Load**: `references/roadmap-planning.md`, `references/llm-pm-failure-modes.md`
+**Load**: `references/product-management/roadmap-planning.md`, `references/product-management/llm-pm-failure-modes.md`
 
 1. **Current state** — Get existing roadmap (paste, describe, or build from scratch).
 2. **Determine operation**:
@@ -98,7 +98,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### RESEARCH Mode
 
-**Load**: `references/research-synthesis.md`, `references/llm-pm-failure-modes.md`
+**Load**: `references/product-management/research-synthesis.md`, `references/product-management/llm-pm-failure-modes.md`
 
 1. **Gather inputs** — Accept any combination: pasted text, uploaded files, described findings.
 2. **Process** — For each source extract: observations, verbatim quotes, behaviors (vs stated preferences), pain points, positive signals, context.
@@ -136,7 +136,7 @@ If the request spans modes, pick the primary mode and note the secondary.
 
 ### METRICS Mode
 
-**Load**: `references/metrics-review.md`, `references/llm-pm-failure-modes.md`
+**Load**: `references/product-management/metrics-review.md`, `references/product-management/llm-pm-failure-modes.md`
 
 1. **Gather data** — Get metrics with comparison data (previous period, targets). Ask about known events (launches, incidents, seasonality).
 2. **Organize** — Use metrics hierarchy:
@@ -223,7 +223,7 @@ This mode is fundamentally different. The PM does not get a deliverable. They ge
 
 ## LLM Failure Modes in PM Work
 
-See `references/llm-pm-failure-modes.md` for the complete failure mode catalog (vague specs, fabricated research, generic competitive analysis, metrics without context, happy-path-only specs, framework regurgitation, scope creep enablement). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
+See `references/product-management/llm-pm-failure-modes.md` for the complete failure mode catalog (vague specs, fabricated research, generic competitive analysis, metrics without context, happy-path-only specs, framework regurgitation, scope creep enablement). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
 
 ---
 
