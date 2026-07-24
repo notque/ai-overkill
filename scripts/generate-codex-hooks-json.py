@@ -97,9 +97,6 @@ UNSUPPORTED_REGISTRATIONS = {
     ("PostToolUse", "routing-decision-recorder.py"): (
         "Codex has no PostToolUse Agent or Workflow result containing the routed decision marker."
     ),
-    ("PostToolUse", "completion-evidence-check.py"): (
-        "Codex has no PostToolUse Agent result containing the completion evidence this checker evaluates."
-    ),
     ("PostToolUse", "agent-grade-on-change.py"): (
         "Codex copy installs omit evals/harness.py, and this hook emits an ad hoc message object outside the hook schema."
     ),

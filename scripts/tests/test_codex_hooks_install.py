@@ -184,7 +184,7 @@ def test_install_sh_generates_valid_hooks_json(fake_home: Path) -> None:
     assert len(commands) == 62
     assert all("codex-hook-adapter.py" in command for command in commands)
     assert "Codex scripts: 129 mirrored scripts" in result.stdout
-    assert "Hooks: 88 automation hooks" in result.stdout
+    assert "Hooks: 87 automation hooks" in result.stdout
     assert "Scripts: 129 utility scripts" in result.stdout
 
     tool_matchers = {
