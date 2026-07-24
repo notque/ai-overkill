@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 2.0.0
 """
 PreToolUse Hook: Subagent Warm Start
 
@@ -10,6 +10,14 @@ status, ADR session info, key decisions, and discovery briefs.
 This gives subagents immediate awareness of the parent session's
 state without needing to re-discover context from scratch.
 
+v2 (session scoping): warmstart context is bound to the CURRENT session.
+Files-seen entries come from the v2 JSONL session-reads format and are
+filtered to this session id and the freshness window; v1 legacy plain-path
+lines are ignored. Credential-shaped paths (.ssh/, .env, *.pem, ...) are
+filtered out. task_plan.md, .adr-session.json, and discovery briefs are
+only injected when modified within the freshness window, so a stale plan
+or ADR pointer from a previous task cannot leak into new dispatches.
+
 Design Principles:
 - Non-blocking (always exits 0)
 - Sub-50ms execution (file reads only, no subprocess)
@@ -19,12 +27,14 @@ Design Principles:
 
 import json
 import sys
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add lib directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
-from hook_utils import context_output, empty_output
+from hook_utils import context_output, empty_output, get_session_id, is_sensitive_path
 from stdin_timeout import read_stdin
 
 EVENT_NAME = "PreToolUse"
@@ -37,12 +47,32 @@ DISCOVERIES_DIR = ".planning/discoveries"
 MAX_OUTPUT_CHARS = 4000
 MAX_FILES_SHOWN = 10
 
+# Context older than this is treated as belonging to a previous task.
+FRESHNESS_HOURS = 24
 
-def load_recent_reads(reads_path: Path, max_count: int = MAX_FILES_SHOWN) -> list[str]:
-    """Load up to max_count most recent file paths from session-reads.txt.
+
+def is_fresh_file(path: Path, hours: int = FRESHNESS_HOURS) -> bool:
+    """True when path exists and was modified within the freshness window."""
+    try:
+        return (time.time() - path.stat().st_mtime) <= hours * 3600
+    except OSError:
+        return False
+
+
+def load_recent_reads(
+    reads_path: Path,
+    session_id: str,
+    max_count: int = MAX_FILES_SHOWN,
+) -> list[str]:
+    """Load up to max_count recent file paths for the current session.
+
+    Reads the v2 JSONL format ({"ts", "session", "path"}). Entries from other
+    sessions, entries older than FRESHNESS_HOURS, credential-shaped paths, and
+    v1 legacy plain-path lines are all skipped.
 
     Args:
         reads_path: Path to the session-reads.txt file.
+        session_id: Current session id; only matching entries are returned.
         max_count: Maximum number of paths to return.
 
     Returns:
@@ -51,11 +81,34 @@ def load_recent_reads(reads_path: Path, max_count: int = MAX_FILES_SHOWN) -> lis
     if not reads_path.is_file():
         return []
 
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=FRESHNESS_HOURS)
+    paths: list[str] = []
     try:
-        content = reads_path.read_text(encoding="utf-8")
-        lines = [line.strip() for line in content.splitlines() if line.strip()]
-        # Return the most recent entries (tail of file)
-        return lines[-max_count:]
+        for line in reads_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # v1 legacy plain-path line — no session id, skip
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("session", "")) != session_id:
+                continue
+            try:
+                ts = datetime.fromisoformat(entry["ts"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts < cutoff:
+                continue
+            path = str(entry.get("path", ""))
+            if not path or is_sensitive_path(path):
+                continue
+            paths.append(path)
+        return paths[-max_count:]
     except OSError:
         return []
 
@@ -71,7 +124,7 @@ def extract_task_plan(plan_path: Path) -> dict[str, str]:
     """
     result = {"goal": "", "status": ""}
 
-    if not plan_path.is_file():
+    if not plan_path.is_file() or not is_fresh_file(plan_path):
         return result
 
     try:
@@ -108,7 +161,7 @@ def extract_decisions(plan_path: Path) -> list[str]:
     Returns:
         List of decision strings.
     """
-    if not plan_path.is_file():
+    if not plan_path.is_file() or not is_fresh_file(plan_path):
         return []
 
     try:
@@ -144,7 +197,7 @@ def load_adr_session(session_path: Path) -> dict[str, str]:
     """
     result = {"adr_path": "", "domain": ""}
 
-    if not session_path.is_file():
+    if not session_path.is_file() or not is_fresh_file(session_path):
         return result
 
     try:
@@ -171,7 +224,7 @@ def list_discoveries(discoveries_dir: Path) -> list[str]:
         return []
 
     try:
-        return sorted(f.name for f in discoveries_dir.iterdir() if f.is_file())
+        return sorted(f.name for f in discoveries_dir.iterdir() if f.is_file() and is_fresh_file(f))
     except OSError:
         return []
 
@@ -254,8 +307,10 @@ def main() -> None:
         # tool_name filter removed — matcher "Agent" in settings.json prevents
         # this hook from spawning for non-Agent tools.
 
+        session_id = event.get("session_id") or get_session_id()
+
         # Gather context from various sources
-        files = load_recent_reads(Path(SESSION_READS_FILE))
+        files = load_recent_reads(Path(SESSION_READS_FILE), session_id)
         task_plan = extract_task_plan(Path(TASK_PLAN_FILE))
         decisions = extract_decisions(Path(TASK_PLAN_FILE))
         adr_session = load_adr_session(Path(ADR_SESSION_FILE))

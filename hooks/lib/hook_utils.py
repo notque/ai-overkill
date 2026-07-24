@@ -433,6 +433,51 @@ def _hook_errors_path() -> Path:
     return Path(override) if override else _DEFAULT_HOOK_ERRORS_PATH
 
 
+# Path components that mark a file as credential-adjacent. Matched against
+# whole path segments (never substrings), so "assh/" or "renv/" cannot match.
+_SENSITIVE_PATH_DIRS = frozenset({".ssh", ".gnupg", ".aws", ".azure", ".kube", ".gcloud"})
+
+# Basename patterns for credential-shaped files.
+_SENSITIVE_BASENAME_RE = None
+
+
+def _sensitive_basename_pattern():
+    """Lazy-compile the sensitive-basename regex."""
+    global _SENSITIVE_BASENAME_RE
+    if _SENSITIVE_BASENAME_RE is None:
+        import re
+
+        _SENSITIVE_BASENAME_RE = re.compile(
+            r"^(\.env(\..*)?|.*\.(pem|key|p12|pfx)|id_[a-z0-9]+(\.pub)?"
+            r"|.*credentials.*|.*secret.*|token\.json|\.tokens|\.netrc|\.npmrc|\.pypirc)$",
+            re.IGNORECASE,
+        )
+    return _SENSITIVE_BASENAME_RE
+
+
+def is_sensitive_path(path: str) -> bool:
+    """True when a file path looks credential- or secret-bearing.
+
+    Hooks that echo file paths into model-visible context (e.g. subagent
+    warmstart) must drop these entirely — surfacing even the *path* of a key
+    file to a subagent prompt leaks information and invites a follow-up read.
+
+    Args:
+        path: Absolute or relative file path string.
+
+    Returns:
+        True if any path segment is a credential directory (.ssh, .gnupg,
+        .aws, ...) or the basename is credential-shaped (.env*, *.pem, *.key,
+        id_*, *credentials*, *secret*, token.json, ...).
+    """
+    if not path:
+        return False
+    segments = [s for s in path.replace("\\", "/").split("/") if s]
+    if any(seg in _SENSITIVE_PATH_DIRS for seg in segments):
+        return True
+    return bool(segments and _sensitive_basename_pattern().match(segments[-1]))
+
+
 # Secrets pattern used to strip sensitive values from error messages.
 _SECRETS_RE = None
 
