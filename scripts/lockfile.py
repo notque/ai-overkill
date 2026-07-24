@@ -12,6 +12,7 @@ Exit codes: 0 = success, 1 = timeout, 2 = unexpected error
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import sys
@@ -81,13 +82,44 @@ def _write_lock(path: Path) -> bool:
         return False
 
 
+def _steal_mutex_path(path: Path) -> Path:
+    """Return the sidecar mutex path that serializes steals of this lock."""
+    return path.with_name(path.name + ".steal")
+
+
 def _steal_lock(path: Path) -> bool:
-    """Remove a stale lock and write a new one."""
+    """Steal a stale lock, serialized so two stealers cannot both win.
+
+    An unconditional unlink-then-write is racy: two processes that both judged
+    the lock stale could each remove-and-rewrite it, the second one deleting
+    the first one's fresh lock -- both would then believe they hold the mutex.
+    An exclusive flock on a sidecar mutex file serializes stealers, and the
+    staleness re-check under that flock ensures a lock freshly written by a
+    competing stealer is never removed.
+
+    The mutex file is deliberately never unlinked: removing it would let two
+    processes flock different inodes and defeat the serialization. The kernel
+    releases the flock when the fd closes or the holder dies.
+    """
     try:
-        path.unlink(missing_ok=True)
+        fd = os.open(str(_steal_mutex_path(path)), os.O_CREAT | os.O_RDWR, 0o644)
     except OSError:
-        pass
-    return _write_lock(path)
+        return False
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return False  # another stealer is active; caller retries
+        data = _read_lock(path)
+        if data is not None and not _is_stale(data):
+            return False  # re-acquired by someone else while we decided to steal
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return _write_lock(path)
+    finally:
+        os.close(fd)
 
 
 def cmd_acquire(args: argparse.Namespace) -> int:
