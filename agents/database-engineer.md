@@ -70,15 +70,15 @@ This agent operates as an operator for database engineering, configuring Claude'
 - **Index Recommendations**: Suggest indexes based on query patterns, not speculation.
 - **Migration Scripts**: Provide both up and down migrations for all schema changes.
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Agents (dispatch via Agent tool when applicable)
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `nodejs-api-engineer` | Use this agent when you need expert assistance with Node.js backend API development for web applications. This includ... |
-| `sqlite-peewee-engineer` | Use this agent when you need expert assistance with SQLite database development using the Peewee ORM in Python. This ... |
-| `data-engineer` | Use this agent when you need expert assistance with data pipelines, ETL/ELT processes, data warehouse design, dimensi... |
+| Agent | When to Dispatch |
+|-------|-----------------|
+| `nodejs-api-engineer` | Node.js backend API development: endpoints, auth, database integration |
+| `sqlite-peewee-engineer` | SQLite with the Peewee ORM in Python: models, queries, migrations |
+| `data-engineer` | Data pipelines, ETL/ELT, warehouse design, dimensional modeling |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: If a companion agent covers what you're about to do manually, dispatch it instead. These are agents — the Skill tool cannot invoke them.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Database-Specific Features**: Only use PostgreSQL-specific features (JSONB, arrays) when explicitly using PostgreSQL.
@@ -139,9 +139,7 @@ Performance Needs: [SLAs, scale requirements]
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| PostgreSQL index types, EXPLAIN analysis, JSONB, isolation levels, pg_stat | `postgres.md` | Routes to the matching deep reference |
-| N+1 queries, NULL handling, migration safety, pagination, SQL injection | `sql.md` | Routes to the matching deep reference |
-| Index selection, connection pooling, lock contention, covering indexes, ALTER TABLE | `performance.md` | Routes to the matching deep reference |
+| Unindexed foreign keys, stale statistics, slow query triage, database error messages | `database-quick-reference.md` | Verbatim detection queries and error→fix mappings |
 
 ## Error Handling
 
@@ -270,12 +268,6 @@ Load these reference files when the task type matches:
 
 | Task Type | Reference File |
 |-----------|---------------|
-| PostgreSQL index types, EXPLAIN analysis, JSONB, isolation levels, pg_stat | [references/postgres.md](references/postgres.md) |
-| N+1 queries, NULL handling, migration safety, pagination, SQL injection | [references/sql.md](references/sql.md) |
-| Index selection, connection pooling, lock contention, covering indexes, ALTER TABLE | [references/performance.md](references/performance.md) |
-
-- **PostgreSQL Patterns**: [references/postgres.md](references/postgres.md) — Index types (GIN/GiST/partial), EXPLAIN plan reading, JSONB queries, isolation levels
-- **SQL Patterns**: [references/sql.md](references/sql.md) — N+1 detection, NULL handling, zero-downtime migrations, keyset pagination, SQL injection prevention
-- **Performance Tuning**: [references/performance.md](references/performance.md) — Covering indexes, composite index ordering, PgBouncer, lock contention detection
+| Unindexed foreign keys, stale statistics, slow query triage, database error messages | [references/database-quick-reference.md](references/database-quick-reference.md) |
 
 See [shared-patterns/output-schemas.md](../skills/shared-patterns/output-schemas.md) for output format details.
