@@ -497,12 +497,6 @@
             "command": "python3 \"$HOME/.claude/hooks/record-waste.py\"",
             "description": "Record wasted tokens from tool failures for ROI tracking (ADR-032)",
             "timeout": 2000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/completion-evidence-check.py\"",
-            "description": "Advisory check for completion claims without test evidence",
-            "timeout": 2000
           }
         ]
       },

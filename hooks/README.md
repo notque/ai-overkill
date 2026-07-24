@@ -95,7 +95,6 @@ Task completes: TaskCompleted
 |------|---------|-------------|
 | `adr-enforcement` | Write, Edit | Runs ADR compliance check after pipeline component files are written |
 | `agent-grade-on-change` | Edit, Write | Automatically grades agent files when they are created or modified |
-| `completion-evidence-check` | Any | Detects completion claims without test evidence and prints an advisory warning |
 | `error-learner` | Any | Detects tool errors, learns patterns, and injects fix suggestions via SQLite |
 | `posttool-bash-injection-scan` | Bash | Scans files written by Bash commands for LLM-level prompt injection patterns |
 | `posttool-lint-hint` | Write, Edit | Suggests available linters after file writes (silent when no linter applies) |
