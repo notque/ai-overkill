@@ -65,7 +65,7 @@ SKILL_FILE = REPO_ROOT / "skills" / "meta" / "do" / "SKILL.md"
 
 # (region name, start anchor, end anchor). Matched as line prefixes after strip.
 REGIONS = [
-    ("step-0b-verb-map-and-fallback", "**Step 0b: Apply the routing decision**", "**Step 1.5:"),
+    ("step-0b-verb-map-and-fallback", "**Step 0b: Apply the routing decision**", "**Step 1:"),
     ("step-2-overrides", "**Step 2: Apply skill override**", "**Step 3:"),
     ("step-4-fallback", "**Step 4: Auto-Pipeline Fallback**", "**Lazy-completion"),
     ("error-handling", "## Error Handling", "## References"),
