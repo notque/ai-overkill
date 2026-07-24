@@ -61,14 +61,14 @@ def _claude_registrations() -> set[tuple[str, str]]:
     return registrations
 
 
-def test_inventory_accounting_is_75_equals_26_plus_36_plus_13() -> None:
+def test_inventory_accounting_is_74_equals_26_plus_35_plus_13() -> None:
     """Every Claude registration has one reviewed current Codex decision."""
     entries = _entries()
     classes = Counter(entry["classification"] for entry in entries)
-    assert len(entries) == 62
-    assert classes == {"native": 26, "adapted": 36}
+    assert len(entries) == 61
+    assert classes == {"native": 26, "adapted": 35}
     assert len(UNSUPPORTED_REGISTRATIONS) == 13
-    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 75
+    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 74
 
 
 def test_supported_and_unsupported_sets_partition_claude_settings() -> None:
@@ -101,7 +101,7 @@ def test_all_supported_hook_files_exist() -> None:
 def test_apply_patch_entries_use_patch_mode_and_alias_matcher() -> None:
     """Edit/Write guards are promoted only through deterministic patch adaptation."""
     patch_entries = [entry for entry in _entries() if entry["mode"] == "patch"]
-    assert len(patch_entries) == 24
+    assert len(patch_entries) == 23
     assert {entry["event"] for entry in patch_entries} == {"PreToolUse", "PostToolUse"}
     assert {entry["matcher"] for entry in patch_entries} == {"Edit|Write"}
     assert all(entry["classification"] == "adapted" for entry in patch_entries)

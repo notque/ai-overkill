@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.1.0
 """
 PreToolUse:Agent Hook: Reference Loading Enforcer
 
@@ -12,7 +12,9 @@ unused on disk.
 
 Design:
 - Read prompt from tool_input["prompt"]
-- Check if REFERENCE_LOADING_REQUIREMENT marker is already in prompt
+- Check (case-insensitively) whether the prompt already carries a
+  reference-loading instruction — either this hook's own marker or the /do
+  dispatch text from scripts/build-dispatch.py INJ_REFERENCE_LOADING
 - If NOT present, inject the instruction via context_output
 - No file I/O — just string inspection and context injection
 - Always exits 0 (non-blocking)
@@ -34,9 +36,12 @@ from stdin_timeout import read_stdin
 
 EVENT_NAME = "PreToolUse"
 
-# Marker string used to detect whether injection has already occurred.
-# Must be unique enough to avoid false positives.
-_INJECTION_MARKER = "REFERENCE LOADING REQUIREMENT"
+# Marker used to detect whether the prompt already carries a reference-loading
+# instruction. Matched case-insensitively so it covers both this hook's own
+# injection ("REFERENCE LOADING REQUIREMENT: ...") and the /do dispatch text
+# from scripts/build-dispatch.py INJ_REFERENCE_LOADING ("... Reference Loading
+# Table ..."). Lockstep guarded by hooks/tests/test_reference_loading_enforcer.py.
+_INJECTION_MARKER = "reference loading"
 
 # The instruction to inject into agent prompts.
 _REFERENCE_LOADING_INSTRUCTION = (
@@ -94,8 +99,8 @@ def main() -> None:
     tool_input = event.get("tool_input", {})
     prompt = tool_input.get("prompt", "")
 
-    # If the injection marker is already present, do nothing.
-    if _INJECTION_MARKER in prompt:
+    # If the prompt already carries a reference-loading instruction, do nothing.
+    if _INJECTION_MARKER in prompt.lower():
         if debug:
             print("[ref-enforcer] Injection marker already present — skipping", file=sys.stderr)
         empty_output(EVENT_NAME).print_and_exit()

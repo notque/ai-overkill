@@ -58,7 +58,6 @@ PreToolUse:pretool-synthesis-gate.py matcher=Edit|Write class=adapted mode=patch
 PreToolUse:pretool-plan-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-prompt-injection-scanner.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pipeline-phase-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
-PreToolUse:reference-loading-gate.py matcher=Edit|Write class=adapted mode=patch failure=open
 PreToolUse:pretool-adr-creation-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-file-backup.py matcher=Edit|Write class=adapted mode=patch failure=open
 

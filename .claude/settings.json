@@ -261,12 +261,6 @@
             "command": "python3 \"$HOME/.claude/hooks/pipeline-phase-gate.py\"",
             "description": "Pipeline phase gate: blocks edits that skip required pipeline phases",
             "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/reference-loading-gate.py\"",
-            "description": "Advisory: remind to load reference files before editing components with references/ (once per component per session)",
-            "timeout": 3000
           }
         ]
       },
