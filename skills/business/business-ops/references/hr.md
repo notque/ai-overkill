@@ -13,17 +13,17 @@ Classify the request into exactly one mode. If the request spans modes, choose t
 
 | Mode | Signal Phrases | References |
 |------|---------------|------------|
-| **RECRUITING** | Pipeline, candidates, sourcing, screening, hiring status, time to fill | `references/recruiting.md` |
-| **PERFORMANCE** | Review, self-assessment, calibration, feedback, rating, promotion case | `references/performance-management.md` |
-| **COMPENSATION** | Pay, salary, equity, comp bands, benchmarking, offer competitive, retention risk | `references/compensation.md` |
-| **OFFER** | Draft offer, offer letter, comp package, signing bonus, start date | `references/compensation.md` |
-| **INTERVIEW** | Interview plan, questions, scorecard, evaluation rubric, debrief | `references/recruiting.md` |
-| **ONBOARDING** | New hire, first week, 30/60/90, onboarding checklist, buddy | `references/recruiting.md` |
-| **ORG-PLANNING** | Headcount, reorg, team structure, span of control, org design | `references/org-planning.md` |
-| **PEOPLE-ANALYTICS** | Attrition, headcount report, diversity metrics, org health, flight risk | `references/org-planning.md` |
+| **RECRUITING** | Pipeline, candidates, sourcing, screening, hiring status, time to fill | `references/hr/recruiting.md` |
+| **PERFORMANCE** | Review, self-assessment, calibration, feedback, rating, promotion case | `references/hr/performance-management.md` |
+| **COMPENSATION** | Pay, salary, equity, comp bands, benchmarking, offer competitive, retention risk | `references/hr/compensation.md` |
+| **OFFER** | Draft offer, offer letter, comp package, signing bonus, start date | `references/hr/compensation.md` |
+| **INTERVIEW** | Interview plan, questions, scorecard, evaluation rubric, debrief | `references/hr/recruiting.md` |
+| **ONBOARDING** | New hire, first week, 30/60/90, onboarding checklist, buddy | `references/hr/recruiting.md` |
+| **ORG-PLANNING** | Headcount, reorg, team structure, span of control, org design | `references/hr/org-planning.md` |
+| **PEOPLE-ANALYTICS** | Attrition, headcount report, diversity metrics, org health, flight risk | `references/hr/org-planning.md` |
 | **POLICY** | PTO, benefits, leave, expenses, handbook, remote work policy | (no reference — use user-provided policy docs) |
 
-**Always load**: `references/llm-hr-failure-modes.md` — applies to every mode.
+**Always load**: `references/hr/llm-hr-failure-modes.md` — applies to every mode.
 
 ---
 
@@ -53,7 +53,7 @@ HR content touches people's careers, livelihoods, and legal rights. These guardr
 - Define role: title, level, team, location, hiring manager
 - Establish pipeline stages: Sourced → Screen → Interview → Debrief → Offer → Accepted
 - Set target metrics: time-to-fill, pipeline velocity, source mix
-- Design job posting — check against `references/llm-hr-failure-modes.md` for biased language (because gendered/exclusionary language reduces qualified applicant pools by 10-40%)
+- Design job posting — check against `references/hr/llm-hr-failure-modes.md` for biased language (because gendered/exclusionary language reduces qualified applicant pools by 10-40%)
 
 **Gate**: Role defined. Pipeline stages agreed. Posting reviewed for bias.
 
@@ -113,7 +113,7 @@ Manager review:
 - Development plan: skill → current level → target → actions
 - Compensation recommendation with justification
 
-**Constraint**: Describe observable behavior with specific examples ("documentation was incomplete on 3 of 5 deliverables") — because personality feedback triggers defensiveness and has no actionable path. See `references/llm-hr-failure-modes.md`.
+**Constraint**: Describe observable behavior with specific examples ("documentation was incomplete on 3 of 5 deliverables") — because personality feedback triggers defensiveness and has no actionable path. See `references/hr/llm-hr-failure-modes.md`.
 
 **Gate**: Review content complete. All feedback behavior-based. Development areas actionable.
 
@@ -239,7 +239,7 @@ Manager review:
 | Error | Cause | Solution |
 |-------|-------|----------|
 | No compensation data | User asks "what should we pay" without data | State limitation explicitly. Offer to analyze user-provided data or recommend public sources (Levels.fyi, Glassdoor, Radford). |
-| Biased language in output | LLM generates gendered, ageist, or exclusionary phrasing | Run output against `references/llm-hr-failure-modes.md` bias checklist. Rewrite flagged phrases. |
+| Biased language in output | LLM generates gendered, ageist, or exclusionary phrasing | Run output against `references/hr/llm-hr-failure-modes.md` bias checklist. Rewrite flagged phrases. |
 | Jurisdiction unknown | Legal advice requested without location | Ask for jurisdiction before proceeding. Never default to US employment law. |
 | Confidentiality scope unclear | User shares individual comp/performance data | Confirm intended audience. Remind that HR data is need-to-know. Minimize PII in outputs. |
 | Template vs. real data confusion | User treats template placeholders as recommendations | Label all templates explicitly: "[PLACEHOLDER — replace with actual data]". |
@@ -251,8 +251,8 @@ Manager review:
 
 | Reference | When to Load | Content |
 |-----------|-------------|---------|
-| `references/recruiting.md` | RECRUITING, INTERVIEW, ONBOARDING modes | Pipeline stages, velocity metrics, interview frameworks, evaluation rubrics, onboarding checklists |
-| `references/performance-management.md` | PERFORMANCE mode | Review structure, calibration methodology, feedback patterns, development planning |
-| `references/compensation.md` | COMPENSATION, OFFER modes | Market benchmarking, internal equity analysis, offer structuring, equity modeling |
-| `references/org-planning.md` | ORG-PLANNING, PEOPLE-ANALYTICS modes | Headcount modeling, org design principles, capacity planning, people analytics |
-| `references/llm-hr-failure-modes.md` | **Every mode** | Bias detection, fabrication risks, compliance gaps, inappropriate language patterns |
+| `references/hr/recruiting.md` | RECRUITING, INTERVIEW, ONBOARDING modes | Pipeline stages, velocity metrics, interview frameworks, evaluation rubrics, onboarding checklists |
+| `references/hr/performance-management.md` | PERFORMANCE mode | Review structure, calibration methodology, feedback patterns, development planning |
+| `references/hr/compensation.md` | COMPENSATION, OFFER modes | Market benchmarking, internal equity analysis, offer structuring, equity modeling |
+| `references/hr/org-planning.md` | ORG-PLANNING, PEOPLE-ANALYTICS modes | Headcount modeling, org design principles, capacity planning, people analytics |
+| `references/hr/llm-hr-failure-modes.md` | **Every mode** | Bias detection, fabrication risks, compliance gaps, inappropriate language patterns |

@@ -13,17 +13,17 @@ Classify the request into exactly one mode. If it spans multiple, choose the pri
 
 | Mode | Signal Phrases | Reference |
 |------|---------------|-----------|
-| **RUNBOOK** | runbook, procedure, on-call, playbook, step-by-step, ops task | `references/runbook-authoring.md` |
-| **RISK** | risk assessment, risk register, what could go wrong, risk matrix | `references/risk-assessment.md` |
-| **VENDOR** | vendor review, vendor evaluation, contract review, procurement | `references/vendor-management.md` |
-| **PROCESS** | process doc, SOP, RACI, workflow documentation, process map | `references/process-documentation.md` |
-| **CHANGE** | change request, change management, CAB, rollout, deployment change | `references/change-management.md` |
-| **CAPACITY** | capacity plan, resource allocation, utilization, headcount planning | `references/process-documentation.md` |
-| **COMPLIANCE** | compliance, audit prep, SOC 2, ISO 27001, GDPR, regulatory | `references/risk-assessment.md` |
+| **RUNBOOK** | runbook, procedure, on-call, playbook, step-by-step, ops task | `references/operations/runbook-authoring.md` |
+| **RISK** | risk assessment, risk register, what could go wrong, risk matrix | `references/operations/risk-assessment.md` |
+| **VENDOR** | vendor review, vendor evaluation, contract review, procurement | `references/operations/vendor-management.md` |
+| **PROCESS** | process doc, SOP, RACI, workflow documentation, process map | `references/operations/process-documentation.md` |
+| **CHANGE** | change request, change management, CAB, rollout, deployment change | `references/operations/change-management.md` |
+| **CAPACITY** | capacity plan, resource allocation, utilization, headcount planning | `references/operations/process-documentation.md` |
+| **COMPLIANCE** | compliance, audit prep, SOC 2, ISO 27001, GDPR, regulatory | `references/operations/risk-assessment.md` |
 | **STATUS** | status report, weekly update, project health, KPIs | (no deep reference needed) |
-| **OPTIMIZE** | process improvement, bottleneck, streamline, too many steps | `references/process-documentation.md` |
+| **OPTIMIZE** | process improvement, bottleneck, streamline, too many steps | `references/operations/process-documentation.md` |
 
-Always load `references/llm-ops-failure-modes.md` regardless of mode. It contains the failure patterns that apply across all operations work.
+Always load `references/operations/llm-ops-failure-modes.md` regardless of mode. It contains the failure patterns that apply across all operations work.
 
 ---
 
@@ -44,7 +44,7 @@ Always load `references/llm-ops-failure-modes.md` regardless of mode. It contain
 
 **Phase 2: AUTHOR** -- Write the procedure with painful specificity.
 
-Load `references/runbook-authoring.md`.
+Load `references/operations/runbook-authoring.md`.
 
 Critical rules:
 - Every step has: exact command/action, expected result, failure handling
@@ -80,7 +80,7 @@ Critical rules:
 
 **Phase 1: IDENTIFY** -- Enumerate risks systematically by category.
 
-Load `references/risk-assessment.md`.
+Load `references/operations/risk-assessment.md`.
 
 | Category | What to Look For |
 |----------|-----------------|
@@ -132,7 +132,7 @@ For each High/Critical risk:
 
 **Phase 1: EVALUATE** -- Gather structured information.
 
-Load `references/vendor-management.md`.
+Load `references/operations/vendor-management.md`.
 
 Required inputs:
 - Vendor name and what they provide
@@ -183,7 +183,7 @@ TCO must include: license, implementation, training, support, ongoing maintenanc
 
 **Phase 1: MAP** -- Capture how the process actually works today.
 
-Load `references/process-documentation.md`.
+Load `references/operations/process-documentation.md`.
 
 - Map the real process, not the idealized version. "We're supposed to do X but actually we do Y" is the most valuable input.
 - Capture every step, decision point, handoff, and exception
@@ -224,7 +224,7 @@ RACI rules:
 
 **Phase 1: ASSESS** -- Define the change and its impact.
 
-Load `references/change-management.md`.
+Load `references/operations/change-management.md`.
 
 - What is changing and why (business justification, not just "improvement")
 - Who is affected: users, systems, processes, teams
@@ -321,7 +321,7 @@ Communication rules:
 
 **Phase 2: GAP** -- Find what is missing or deficient.
 
-Load `references/risk-assessment.md` for risk-based prioritization of gaps.
+Load `references/operations/risk-assessment.md` for risk-based prioritization of gaps.
 
 - Requirements vs. current state for each control
 - Evidence gaps: what evidence is needed but not collected
@@ -369,7 +369,7 @@ Rules:
 
 **Phase 1: MAP** -- Document current state with timing.
 
-Load `references/process-documentation.md`.
+Load `references/operations/process-documentation.md`.
 
 - Every step, decision point, and handoff with time estimates
 - Identify: who, what, how long, what triggers, what blocks
@@ -412,9 +412,9 @@ Load `references/process-documentation.md`.
 
 | Mode | Reference | Content |
 |------|-----------|---------|
-| RUNBOOK | `references/runbook-authoring.md` | Step structure, verification checklists, rollback procedures, escalation paths |
-| RISK, COMPLIANCE | `references/risk-assessment.md` | Probability x impact matrix, risk categories, mitigation planning, residual risk tracking |
-| VENDOR | `references/vendor-management.md` | Vendor scorecard, due diligence checklist, contract review triggers, performance monitoring |
-| PROCESS, CAPACITY, OPTIMIZE | `references/process-documentation.md` | Process mapping, RACI matrices, bottleneck analysis, optimization methodology |
-| CHANGE | `references/change-management.md` | Change request workflows, impact assessment, stakeholder communication, rollback criteria |
-| ALL | `references/llm-ops-failure-modes.md` | LLM failure patterns in operations: vague procedures, underestimated risks, generic templates |
+| RUNBOOK | `references/operations/runbook-authoring.md` | Step structure, verification checklists, rollback procedures, escalation paths |
+| RISK, COMPLIANCE | `references/operations/risk-assessment.md` | Probability x impact matrix, risk categories, mitigation planning, residual risk tracking |
+| VENDOR | `references/operations/vendor-management.md` | Vendor scorecard, due diligence checklist, contract review triggers, performance monitoring |
+| PROCESS, CAPACITY, OPTIMIZE | `references/operations/process-documentation.md` | Process mapping, RACI matrices, bottleneck analysis, optimization methodology |
+| CHANGE | `references/operations/change-management.md` | Change request workflows, impact assessment, stakeholder communication, rollback criteria |
+| ALL | `references/operations/llm-ops-failure-modes.md` | LLM failure patterns in operations: vague procedures, underestimated risks, generic templates |

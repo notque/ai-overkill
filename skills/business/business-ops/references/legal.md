@@ -28,14 +28,14 @@ Load only the references required by the detected mode.
 
 | Mode | References to Load |
 |------|-------------------|
-| CONTRACT | `references/contract-review.md` |
-| COMPLIANCE | `references/compliance-frameworks.md`, `references/german-business-compliance.md` |
-| NDA | `references/nda-triage.md` |
-| RISK | `references/risk-assessment.md` |
-| WRITING | `references/legal-writing.md` |
-| VENDOR | `references/contract-review.md` (for gap analysis context) |
+| CONTRACT | `references/legal/contract-review.md` |
+| COMPLIANCE | `references/legal/compliance-frameworks.md`, `references/legal/german-business-compliance.md` |
+| NDA | `references/legal/nda-triage.md` |
+| RISK | `references/legal/risk-assessment.md` |
+| WRITING | `references/legal/legal-writing.md` |
+| VENDOR | `references/legal/contract-review.md` (for gap analysis context) |
 
-Always load `references/llm-legal-failure-modes.md` for every mode. LLM failure awareness is non-negotiable in legal work.
+Always load `references/legal/llm-legal-failure-modes.md` for every mode. LLM failure awareness is non-negotiable in legal work.
 
 ---
 
@@ -51,7 +51,7 @@ Always load `references/llm-legal-failure-modes.md` for every mode. LLM failure 
 
 **Phase 2: ANALYZE** -- Clause-by-clause review.
 
-Load `references/contract-review.md` for the full clause analysis methodology.
+Load `references/legal/contract-review.md` for the full clause analysis methodology.
 
 1. Identify contract type (SaaS, services, license, procurement, partnership)
 2. Read entire contract before flagging -- clauses interact (uncapped indemnity may be mitigated by broad LOL)
@@ -113,7 +113,7 @@ Lead with Tier 1. Trade Tier 3 to secure Tier 2. Escalate before making any Tier
 
 **Phase 2: MAP** -- Identify applicable regulations.
 
-Load `references/compliance-frameworks.md` for regulation-specific requirements.
+Load `references/legal/compliance-frameworks.md` for regulation-specific requirements.
 
 Map all potentially applicable frameworks. Check for overlapping or conflicting requirements across jurisdictions.
 
@@ -137,7 +137,7 @@ For each risk area, assess severity and mitigation path.
 
 **Framework**: ACCEPT -> SCREEN -> CLASSIFY -> REPORT
 
-Load `references/nda-triage.md` for the full screening checklist and common deviations catalog.
+Load `references/legal/nda-triage.md` for the full screening checklist and common deviations catalog.
 
 **Phase 1: ACCEPT** -- Accept NDA in any format.
 
@@ -163,7 +163,7 @@ Agreement structure, definition scope, receiving party obligations, standard car
 
 **Framework**: IDENTIFY -> SCORE -> CLASSIFY -> DOCUMENT
 
-Load `references/risk-assessment.md` for the full severity/likelihood matrix and documentation standards.
+Load `references/legal/risk-assessment.md` for the full severity/likelihood matrix and documentation standards.
 
 **Phase 1: IDENTIFY** -- Define the risk clearly with background and context.
 
@@ -192,7 +192,7 @@ Load `references/risk-assessment.md` for the full severity/likelihood matrix and
 
 **Framework**: CLASSIFY -> DRAFT -> REVIEW
 
-Load `references/legal-writing.md` for format templates and escalation triggers.
+Load `references/legal/legal-writing.md` for format templates and escalation triggers.
 
 **Phase 1: CLASSIFY** -- Determine document type.
 
@@ -240,7 +240,7 @@ Flag: agreements expired but with surviving obligations, approaching expirations
 
 ## LLM Failure Mode Awareness
 
-Legal analysis is a high-risk domain for LLM failures. Load `references/llm-legal-failure-modes.md` and apply these guards on every mode:
+Legal analysis is a high-risk domain for LLM failures. Load `references/legal/llm-legal-failure-modes.md` and apply these guards on every mode:
 
 | Failure Mode | Guard |
 |-------------|-------|

@@ -25,17 +25,17 @@ Classify the request into exactly one mode. If the request spans multiple, choos
 
 ## Reference Loading Table
 
-Load only the references required by the detected mode. Always load `references/llm-sales-failure-modes.md` for any mode.
+Load only the references required by the detected mode. Always load `references/sales/llm-sales-failure-modes.md` for any mode.
 
 | Mode | Load These References |
 |------|----------------------|
-| CALL-PREP | `references/call-prep.md`, `references/llm-sales-failure-modes.md` |
-| PIPELINE | `references/pipeline-analysis.md`, `references/llm-sales-failure-modes.md` |
-| OUTREACH | `references/outreach-patterns.md`, `references/llm-sales-failure-modes.md` |
-| COMPETITIVE | `references/competitive-intelligence.md`, `references/llm-sales-failure-modes.md` |
-| FORECAST | `references/pipeline-analysis.md`, `references/llm-sales-failure-modes.md` |
-| CALL-SUMMARY | `references/call-prep.md`, `references/llm-sales-failure-modes.md` |
-| RESEARCH | `references/call-prep.md`, `references/competitive-intelligence.md`, `references/llm-sales-failure-modes.md` |
+| CALL-PREP | `references/sales/call-prep.md`, `references/sales/llm-sales-failure-modes.md` |
+| PIPELINE | `references/sales/pipeline-analysis.md`, `references/sales/llm-sales-failure-modes.md` |
+| OUTREACH | `references/sales/outreach-patterns.md`, `references/sales/llm-sales-failure-modes.md` |
+| COMPETITIVE | `references/sales/competitive-intelligence.md`, `references/sales/llm-sales-failure-modes.md` |
+| FORECAST | `references/sales/pipeline-analysis.md`, `references/sales/llm-sales-failure-modes.md` |
+| CALL-SUMMARY | `references/sales/call-prep.md`, `references/sales/llm-sales-failure-modes.md` |
+| RESEARCH | `references/sales/call-prep.md`, `references/sales/competitive-intelligence.md`, `references/sales/llm-sales-failure-modes.md` |
 
 ---
 
@@ -55,7 +55,7 @@ Accept whatever they provide. Missing fields become research targets, not blocke
 
 Search for: company news (last 30 days), funding/leadership changes, attendee LinkedIn profiles, company product/service description, industry context. Extract: what the company does, recent trigger events, attendee backgrounds, hiring signals.
 
-Source every company fact from search results. State 'not found' for missing data. Do not invent revenue figures, employee counts, or funding rounds that were not found in search results. See `references/llm-sales-failure-modes.md`.
+Source every company fact from search results. State 'not found' for missing data. Do not invent revenue figures, employee counts, or funding rounds that were not found in search results. See `references/sales/llm-sales-failure-modes.md`.
 
 **Gate**: Company profile assembled from verified sources. Gaps explicitly noted.
 
@@ -143,7 +143,7 @@ Priority order:
 4. Company initiative -- relevant to their priorities
 5. Role-based pain point -- least personal, last resort
 
-Ground every opening in specific research. Reference a finding only true of this prospect. See `references/outreach-patterns.md` for anti-template patterns.
+Ground every opening in specific research. Reference a finding only true of this prospect. See `references/sales/outreach-patterns.md` for anti-template patterns.
 
 **Gate**: Hook selected with source. Opening line drafted from real research.
 
@@ -181,7 +181,7 @@ For each competitor, search for: product features, pricing model, recent announc
 
 Also search: "[Your company] vs [Competitor]" for existing comparisons.
 
-Never fabricate pricing, features, or customer claims. If pricing is not publicly available, state "pricing not publicly listed" rather than guessing. See `references/llm-sales-failure-modes.md`.
+Never fabricate pricing, features, or customer claims. If pricing is not publicly available, state "pricing not publicly listed" rather than guessing. See `references/sales/llm-sales-failure-modes.md`.
 
 **Gate**: Each competitor researched from public sources. No fabricated claims.
 
@@ -230,7 +230,7 @@ Risk adjustments: no activity 14+ days (-10%), close date in past (-20%), single
 
 Classify each deal: Commit (high confidence, would stake forecast on it) or Upside (could close but has risk).
 
-Do not inflate forecast numbers. Better to under-promise than to include deals the user knows are unlikely. See `references/llm-sales-failure-modes.md`.
+Do not inflate forecast numbers. Better to under-promise than to include deals the user knows are unlikely. See `references/sales/llm-sales-failure-modes.md`.
 
 **Gate**: Weighted forecast calculated. Commit vs upside classified. Risk adjustments applied.
 
@@ -318,7 +318,7 @@ Sections: Quick Take, Company Profile (table), Recent News, Hiring Signals, Key 
 
 ## LLM Failure Modes
 
-See `references/llm-sales-failure-modes.md` for the complete failure mode catalog (fabricated company details, invented history, generic outreach, hallucinated financials, optimistic forecasting, template personalization, fake competitor claims, over-promising, ignoring disqualification signals). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
+See `references/sales/llm-sales-failure-modes.md` for the complete failure mode catalog (fabricated company details, invented history, generic outreach, hallucinated financials, optimistic forecasting, template personalization, fake competitor claims, over-promising, ignoring disqualification signals). Universal failure modes in `skills/shared-patterns/llm-domain-failure-modes-base.md`.
 
 ---
 

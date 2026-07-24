@@ -8,7 +8,7 @@ read_when:
 
 ## What This Gives You
 
-You describe work in plain English. The system routes it to the right pipeline, with quality checks built in. 139 skills behind a single command, and you never need to know which one fired.
+You describe work in plain English. The system routes it to the right pipeline, with quality checks built in. 131 skills behind a single command, and you never need to know which one fired.
 
 ## Interface
 
