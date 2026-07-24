@@ -74,7 +74,7 @@ rm -f "$REQUEST_FILE"
 
 →`PRE_ROUTE_RESULT` (once).
 
-**Fast path:** PRE_ROUTE_RESULT high-conf force_route + pr-workflow/security → skip 0/1.5/1, dispatch direct. Keep banner+overrides+P3+P4. `[do-route]` `health=-`. Agent: pre-route→domain→general-purpose.
+**Fast path:** PRE_ROUTE_RESULT high-conf force_route + pr-workflow/security → skip 0/1, dispatch direct. Keep banner+overrides+P3+P4. `[do-route]` `health=-`. Agent: pre-route→domain→general-purpose.
 
 **Step 0: Self-route**
 
@@ -128,14 +128,6 @@ route.agent ||= "general-purpose"
 ```
 
 No pair→general-purpose+objective-loop. `[cross-repo]`→`.claude/agents/`. Code→domain agents.
-
-**Step 1.5: Health (shadow-only)**
-
-```bash
-python3 "$SDIR/learning-db.py" route-weights --json
-```
-
-`health_adjust()` → keep|demote|tiebreak. **Recorded, never alters route.** Activation gated on first negative signal (`docs/route-loop-validation.md`). Demote: conf<0.30+fail>=3+n>=5. Tiebreak: conf<0.35+healthier alt. Force-route/security→keep. n<5→keep. `build-dispatch.py` emits marker on DECISION.
 
 **Step 1: Safety-net** (reads PRE_ROUTE_RESULT)
 
@@ -227,7 +219,7 @@ python3 "$SDIR/build-dispatch.py" --json '{
   "model_effort": "<low|medium|high|xhigh|max>",
   "provider": "<anthropic|openai|other>",
   "manual_model_override": false,
-  "health": {"confidence": 0.72, "n": 6, "failure": 0, "action": "keep", "alts": ["k1","k2"]},
+  "health": "-",
   "stack": ["s1","s2"],
   "task_spec": {"intent": "...", "constraints": "...", "acceptance": "...",
                 "files": "...", "operator_context": "..."},
@@ -236,7 +228,7 @@ python3 "$SDIR/build-dispatch.py" --json '{
 }'
 ```
 
-`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: 1.5 (`-` if none). `stack`: Phase 3. `task_spec`: mandatory Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
+`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `stack`: Phase 3. `task_spec`: mandatory Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
 
 `[do-route]` = SOLE signal for `routing-decision-recorder`. Sub-agents excluded.
 

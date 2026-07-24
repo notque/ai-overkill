@@ -10,6 +10,22 @@ read_when:
 Branch: `feat/route-sensor`. Date: 2026-06-10. Audience: a skeptical reader
 who wants proof, not prose.
 
+## Update 2026-07-24: in-context weights read retired
+
+The Step 1.5 read (`learning-db.py route-weights --json`) is removed from
+`/do`. Cost: 42,659 bytes (~10,700 tokens) injected into the coordinator on
+every routing decision. Yield across 1,037 routed dispatches: would-action
+`keep` 81/81; `route-signal-check.py` NO-SIGNAL — 0 would-demote,
+0 would-tiebreak. The actuator was already dropped (PR #755), so the read
+bought telemetry the policy never used to change a route.
+
+Still live: the route event log, three-way outcome finalization, the
+orchestrator-reported `route-failure` channel, and the `[do-route]` marker
+format — the marker now always carries `health=-`. The would-action leg of
+the re-propose condition below cannot fire (no would-action is computed);
+re-proposal now keys on the first routing-relevant failure event alone.
+Re-proposing the actuator re-introduces the weights read with it.
+
 Working notes: the `routing-loop-value-eval` ADR (local-only; the `adr/` directory is gitignored).
 
 ---

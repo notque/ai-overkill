@@ -44,9 +44,11 @@ def script_name(request):
 
 
 def test_sdir_scripts_are_not_empty():
-    """Sanity: SKILL.md must reference at least the mandatory scripts."""
-    assert len(SDIR_SCRIPTS) >= 3, (
-        f"Expected at least 3 $SDIR scripts in SKILL.md, found {len(SDIR_SCRIPTS)}: {SDIR_SCRIPTS}"
+    """Sanity: SKILL.md must reference the mandatory scripts (pre-route.py,
+    build-dispatch.py). Floor of 2 catches the extraction regex silently
+    matching nothing."""
+    assert len(SDIR_SCRIPTS) >= 2, (
+        f"Expected at least 2 $SDIR scripts in SKILL.md, found {len(SDIR_SCRIPTS)}: {SDIR_SCRIPTS}"
     )
 
 
