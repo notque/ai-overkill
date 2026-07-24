@@ -76,7 +76,7 @@ If data needs filtering, aggregation, confidence, retention, or replay, store it
 
 ### Routing confidence and force_route
 
-Skills route at confidence tiers driven by trigger-match count plus a `force_route` bonus; the tier mapping is implementation detail — see `force_bonus` in [`scripts/pre-route.py`](../scripts/pre-route.py) and the per-skill `force_route` flag in skills/INDEX.json (schema: `scripts/generate-skill-index.py`).
+Deterministic pre-route matches `force_route` triggers only: a match that survives the semantic guards routes at high confidence, everything else falls through to the semantic route — see `determine_confidence` in [`scripts/pre-route.py`](../scripts/pre-route.py) and the per-skill `force_route` flag in skills/INDEX.json (schema: `scripts/generate-skill-index.py`).
 
 `force_route: true` belongs on umbrella, setup, and methodology skills where a single high-specificity trigger phrase carries unambiguous intent (`pr-workflow`, `install`, `quick`). Domain task skills earn confidence through multiple trigger matches — preventing misroute when phrases like "fix" or "review" overlap.
 
