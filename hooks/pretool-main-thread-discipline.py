@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from hook_utils import get_session_id, hook_error
 from stdin_timeout import read_stdin
 
-__EVENT_NAME = "PreToolUse"
+_EVENT_NAME = "PreToolUse"
 
 # Bash command patterns that are safe for the main thread during /do sessions.
 # These cover the routing bookkeeping calls described in skills/meta/do/SKILL.md.
