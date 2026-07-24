@@ -246,6 +246,10 @@ _SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # Token files
     (re.compile(r"/token\.json$"), "token", "token.json"),
     (re.compile(r"/\.tokens$"), "token", ".tokens file"),
+    # Guard control plane (audit S1): .guard-whitelist/.guard-patterns configure
+    # THIS gate's dangerous/sensitive checks — writing one IS the disarm act, and
+    # no agent flow legitimately writes them (owner-authored config only).
+    (re.compile(r"/\.guard-(?:whitelist|patterns)$"), "guard-config", ".guard-* guard config"),
 ]
 
 _SENSITIVE_EXCEPTIONS: list[re.Pattern[str]] = [
@@ -710,11 +714,15 @@ def _load_guard_whitelist() -> list[str]:
 
 
 def _is_whitelisted(command: str, whitelist: list[str]) -> bool:
-    """Check if the command matches any whitelist entry."""
-    for entry in whitelist:
-        if entry in command:
-            return True
-    return False
+    """True if the FULL command exactly matches a whitelist entry.
+
+    Full-command anchoring, not substring containment: substring matching let
+    any command smuggle a whitelisted string past the guard (a `node_modules`
+    entry allowed `echo node_modules && rm -rf /` — audit S1). One entry
+    whitelists exactly one command, nothing more.
+    """
+    cmd = command.strip()
+    return any(entry == cmd for entry in whitelist)
 
 
 def _load_guard_patterns() -> list[tuple[re.Pattern[str], str, str]]:
@@ -934,7 +942,9 @@ def check_dangerous_command(command: str) -> None:
     for pattern, category, description in _DANGEROUS_PATTERNS:
         if pattern.search(command):
             if _is_whitelisted(command, whitelist):
-                return
+                # Skip THIS rule only — a whitelist hit must never end the whole
+                # scan (`return` here let one hit disarm every later rule, audit S1).
+                continue
             _block(
                 f"[dangerous-command] BLOCKED: {description} ({category})\n"
                 f"[dangerous-command] Command: {command}\n"
@@ -1124,6 +1134,75 @@ def check_sensitive_file(file_path: str, *, deny: bool = True) -> None:
                 f"[sensitive-file-guard] To allow: set SENSITIVE_FILE_GUARD_BYPASS=1 or add exception to .guard-patterns",
                 reason=f"Write to sensitive file blocked ({category}: {description}). Path: {file_path}. Set SENSITIVE_FILE_GUARD_BYPASS=1 or add an exception to .guard-patterns to allow.",
             )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 5b. GUARD SELF-PROTECTION (audit S1)
+# ═══════════════════════════════════════════════════════════════
+#
+# ~/.claude/hooks symlinks into this repo, so a Write/Edit to hooks/<hook>.py —
+# via EITHER path — changes LIVE enforcement code mid-session, and an edit to
+# settings.json can plant *_BYPASS=1 in the env block and disarm every guard.
+# Deny Write/Edit to those files unless the edit happens on a feature branch:
+# the repo's documented development flow (branch → PR → review → merge). Direct
+# edits on main/master, or outside any git repo (the deployed
+# ~/.claude/settings.json), are the disarm shape and are denied.
+#
+# Residual (accepted): a feature-branch edit is still live immediately (same
+# file). This check is a speed bump against casual self-disarm, not a sandbox —
+# the gate fails open by design, so a determined actor is stopped by review and
+# telemetry, not by this check. Every allowed guard edit emits an audit line.
+# The bypass env is honored but deliberately NOT advertised in the deny message
+# (same posture as the sysadmin/public-server guards).
+_GUARD_INTEGRITY_BYPASS_ENV = "GUARD_INTEGRITY_BYPASS"
+_SETTINGS_BASENAMES = frozenset({"settings.json", "settings.local.json"})
+
+
+def _live_hooks_dir() -> Path | None:
+    """Resolved deployed-hooks directory (~/.claude/hooks), or None.
+
+    resolve() follows the deployment symlink into the repo, so a write addressed
+    via either the deployed path or the repo working copy maps to the same
+    protected directory.
+    """
+    try:
+        live = Path.home() / ".claude" / "hooks"
+        return live.resolve() if live.is_dir() else None
+    except OSError:
+        return None
+
+
+def check_guard_integrity(file_path: str) -> None:
+    """Deny Write/Edit to live enforcement files except on a feature branch."""
+    if os.environ.get(_GUARD_INTEGRITY_BYPASS_ENV) == "1":
+        return
+    try:
+        resolved = Path(file_path).resolve()
+    except OSError:
+        resolved = Path(file_path)
+    live = _live_hooks_dir()
+    in_live_hooks = live is not None and (resolved == live or live in resolved.parents)
+    is_settings = resolved.name in _SETTINGS_BASENAMES and resolved.parent.name == ".claude"
+    if not in_live_hooks and not is_settings:
+        return
+    if _is_worktree_on_feature_branch(str(resolved.parent)):
+        # Audit line: every guard-file edit is visible in verbose mode/telemetry.
+        print(
+            f"[guard-integrity] AUDIT: feature-branch edit of enforcement file allowed: {file_path}",
+            file=sys.stderr,
+        )
+        return
+    target_kind = "live hook code" if in_live_hooks else "Claude settings"
+    _block(
+        f"[guard-integrity] BLOCKED: direct edit of {target_kind}: {file_path}\n"
+        f"[guard-integrity] Deployed hooks and settings.json are live enforcement controls.\n"
+        f"[guard-integrity] Edit them on a feature branch (git checkout -b) and land via a reviewed PR.",
+        reason=(
+            f"Editing {target_kind} ({file_path}) outside a feature branch is blocked — "
+            f"deployed hooks and settings.json are live enforcement controls. "
+            f"Create a feature branch (git checkout -b fix/<slug>) and land the change via a reviewed PR."
+        ),
+    )
 
 
 _PUBLIC_SERVER_DENY_MSG = (
@@ -2319,12 +2398,14 @@ def main() -> None:
             return
         cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR", "")
         check_creation_gate(file_path, cwd=cwd)
+        check_guard_integrity(file_path)
         check_sensitive_file(file_path)
 
     elif tool == "Edit":
         file_path = tool_input.get("file_path", "")
         if not file_path:
             return
+        check_guard_integrity(file_path)
         check_sensitive_file(file_path)
 
     elif tool == "Read":
