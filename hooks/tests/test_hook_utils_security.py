@@ -320,3 +320,54 @@ class TestAsyncRewake:
         data = json.loads(out.getvalue().strip().splitlines()[0])
         assert data["rewakeSummary"] == "ONE-LINE-SUMMARY"
         assert "CONTEXT-BODY" in err.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# is_sensitive_path
+# ---------------------------------------------------------------------------
+
+
+class TestIsSensitivePath:
+    """Credential-shaped paths are flagged; ordinary source paths are not."""
+
+    def test_credential_directories_flagged(self):
+        from hook_utils import is_sensitive_path
+
+        for p in (
+            "/home/u/.ssh/deploy_ed25519.pub",
+            "/home/u/.ssh/id_rsa",
+            "/home/u/.gnupg/pubring.kbx",
+            "/home/u/.aws/config",
+            "relative/.kube/config",
+        ):
+            assert is_sensitive_path(p), p
+
+    def test_credential_basenames_flagged(self):
+        from hook_utils import is_sensitive_path
+
+        for p in (
+            "/app/.env",
+            "/app/.env.production",
+            "/certs/server.pem",
+            "/certs/tls.key",
+            "/home/u/id_ed25519.pub",
+            "/srv/service-account-credentials.json",
+            "/srv/client_secret.json",
+            "/home/u/token.json",
+            "/home/u/.netrc",
+        ):
+            assert is_sensitive_path(p), p
+
+    def test_ordinary_paths_not_flagged(self):
+        from hook_utils import is_sensitive_path
+
+        for p in (
+            "/app/main.py",
+            "/repo/hooks/adr-enforcement.py",
+            "/docs/environment.md",  # 'env' substring must not match
+            "/src/assh/parser.go",  # '.ssh' must match whole segments only
+            "/lib/monkey.rb",  # '.key' suffix check is on basename pattern, not substring
+            "README.md",
+            "",
+        ):
+            assert not is_sensitive_path(p), p

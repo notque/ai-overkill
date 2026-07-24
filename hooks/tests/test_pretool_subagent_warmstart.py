@@ -89,45 +89,93 @@ class TestToolNameFiltering:
 # ---------------------------------------------------------------------------
 
 
+def _jsonl(paths: list[str], session: str = "sess-1", ts: str | None = None) -> str:
+    """Build v2 JSONL session-reads content for the given paths."""
+    from datetime import datetime, timezone
+
+    stamp = ts or datetime.now(timezone.utc).isoformat()
+    return "".join(json.dumps({"ts": stamp, "session": session, "path": p}) + "\n" for p in paths)
+
+
 class TestLoadRecentReads:
-    """Test reading session-reads.txt."""
+    """Test reading the v2 JSONL session-reads format."""
 
     def test_missing_file_returns_empty(self, tmp_path):
         """Non-existent file returns empty list."""
-        result = load_recent_reads(tmp_path / "nonexistent.txt")
+        result = load_recent_reads(tmp_path / "nonexistent.txt", "sess-1")
         assert result == []
 
     def test_reads_file_paths(self, tmp_path):
-        """File with paths returns them as list."""
+        """File with current-session entries returns their paths."""
         reads_file = tmp_path / "session-reads.txt"
-        reads_file.write_text("/a.py\n/b.go\n/c.rs\n")
-        result = load_recent_reads(reads_file)
+        reads_file.write_text(_jsonl(["/a.py", "/b.go", "/c.rs"]))
+        result = load_recent_reads(reads_file, "sess-1")
         assert result == ["/a.py", "/b.go", "/c.rs"]
 
     def test_caps_at_max_count(self, tmp_path):
         """Only returns up to max_count most recent entries."""
         reads_file = tmp_path / "session-reads.txt"
-        paths = [f"/file{i}.py" for i in range(30)]
-        reads_file.write_text("\n".join(paths) + "\n")
-        result = load_recent_reads(reads_file, max_count=5)
-        assert len(result) == 5
-        # Should be the last 5 entries
+        reads_file.write_text(_jsonl([f"/file{i}.py" for i in range(30)]))
+        result = load_recent_reads(reads_file, "sess-1", max_count=5)
         assert result == [f"/file{i}.py" for i in range(25, 30)]
 
     def test_skips_empty_lines(self, tmp_path):
         """Empty lines in the file are ignored."""
         reads_file = tmp_path / "session-reads.txt"
-        reads_file.write_text("/a.py\n\n\n/b.py\n")
-        result = load_recent_reads(reads_file)
+        reads_file.write_text(_jsonl(["/a.py"]) + "\n\n" + _jsonl(["/b.py"]))
+        result = load_recent_reads(reads_file, "sess-1")
         assert result == ["/a.py", "/b.py"]
 
-    def test_default_max_is_20(self, tmp_path):
-        """Default max_count should be MAX_FILES_SHOWN (20)."""
+    def test_default_max_is_max_files_shown(self, tmp_path):
+        """Default max_count should be MAX_FILES_SHOWN."""
         reads_file = tmp_path / "session-reads.txt"
-        paths = [f"/file{i}.py" for i in range(25)]
-        reads_file.write_text("\n".join(paths) + "\n")
-        result = load_recent_reads(reads_file)
+        reads_file.write_text(_jsonl([f"/file{i}.py" for i in range(25)]))
+        result = load_recent_reads(reads_file, "sess-1")
         assert len(result) == MAX_FILES_SHOWN
+
+    def test_other_session_entries_excluded(self, tmp_path):
+        """Entries from a different session never leak into warmstart.
+
+        Regression: a fresh repo-audit session received a previous session's
+        file list (and task description) on every dispatch.
+        """
+        reads_file = tmp_path / "session-reads.txt"
+        reads_file.write_text(_jsonl(["/old-task/a.py"], session="sess-OLD") + _jsonl(["/current/b.py"]))
+        assert load_recent_reads(reads_file, "sess-1") == ["/current/b.py"]
+
+    def test_stale_entries_excluded(self, tmp_path):
+        """Same-session entries older than the freshness window are excluded."""
+        from datetime import datetime, timedelta, timezone
+
+        old_ts = (datetime.now(timezone.utc) - timedelta(hours=mod.FRESHNESS_HOURS + 1)).isoformat()
+        reads_file = tmp_path / "session-reads.txt"
+        reads_file.write_text(_jsonl(["/stale.py"], ts=old_ts) + _jsonl(["/fresh.py"]))
+        assert load_recent_reads(reads_file, "sess-1") == ["/fresh.py"]
+
+    def test_legacy_v1_plain_lines_ignored(self, tmp_path):
+        """v1 plain-path lines carry no session id and are never injected."""
+        reads_file = tmp_path / "session-reads.txt"
+        reads_file.write_text("/v1/legacy.py\n" + _jsonl(["/v2/current.py"]))
+        assert load_recent_reads(reads_file, "sess-1") == ["/v2/current.py"]
+
+    def test_sensitive_paths_filtered(self, tmp_path):
+        """Credential-shaped paths are dropped even if present in the file.
+
+        Regression: a .ssh public-key path was surfaced in the injected
+        'files seen' list.
+        """
+        reads_file = tmp_path / "session-reads.txt"
+        reads_file.write_text(
+            _jsonl(
+                [
+                    "/home/u/.ssh/deploy_ed25519.pub",
+                    "/app/.env",
+                    "/certs/tls.key",
+                    "/app/main.py",
+                ]
+            )
+        )
+        assert load_recent_reads(reads_file, "sess-1") == ["/app/main.py"]
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +222,22 @@ class TestExtractTaskPlan:
         result = extract_task_plan(plan)
         assert result["goal"] == ""
         assert "Phase 3" in result["status"]
+
+    def test_stale_plan_excluded(self, tmp_path):
+        """A task_plan.md older than the freshness window is not injected.
+
+        Regression: a stale plan goal from a finished task was injected into
+        every dispatch of an unrelated later session.
+        """
+        import os
+        import time
+
+        plan = tmp_path / "task_plan.md"
+        plan.write_text("# Task Plan\n\n## Goal\nOld unrelated task\n")
+        old = time.time() - (mod.FRESHNESS_HOURS + 1) * 3600
+        os.utime(plan, (old, old))
+        assert extract_task_plan(plan) == {"goal": "", "status": ""}
+        assert extract_decisions(plan) == []
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +327,17 @@ class TestLoadAdrSession:
         result = load_adr_session(session_file)
         assert result["adr_path"] == ""
         assert result["domain"] == ""
+
+    def test_stale_adr_session_excluded(self, tmp_path):
+        """An .adr-session.json older than the freshness window is not injected."""
+        import os
+        import time
+
+        session_file = tmp_path / ".adr-session.json"
+        session_file.write_text(json.dumps({"adr_path": "adr/old.md", "domain": "hooks"}))
+        old = time.time() - (mod.FRESHNESS_HOURS + 1) * 3600
+        os.utime(session_file, (old, old))
+        assert load_adr_session(session_file) == {"adr_path": "", "domain": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -503,12 +578,12 @@ class TestGracefulDegradation:
         """Some context files present, some missing."""
         monkeypatch.chdir(tmp_path)
 
-        # Only create session-reads.txt
+        # Only create session-reads.txt (v2 format, current session)
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
-        (claude_dir / "session-reads.txt").write_text("/a.py\n/b.go\n")
+        (claude_dir / "session-reads.txt").write_text(_jsonl(["/a.py", "/b.go"], session="sess-e2e"))
 
-        event = {"tool_name": "Agent", "tool_input": {"prompt": "do work"}}
+        event = {"tool_name": "Agent", "session_id": "sess-e2e", "tool_input": {"prompt": "do work"}}
         stdout, stderr, code = run_hook(event)
 
         assert code == 0
@@ -517,6 +592,21 @@ class TestGracefulDegradation:
         assert "[warmstart] Files seen (2):" in context
         # No task plan or ADR sections since those files don't exist
         assert "[warmstart] ADR session:" not in context
+
+    def test_other_session_reads_not_injected_end_to_end(self, tmp_path, monkeypatch):
+        """A dispatch in a new session sees none of the old session's files."""
+        monkeypatch.chdir(tmp_path)
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "session-reads.txt").write_text(_jsonl(["/old/a.py", "/old/b.py"], session="sess-OLD"))
+
+        event = {"tool_name": "Agent", "session_id": "sess-NEW", "tool_input": {"prompt": "audit repo"}}
+        stdout, stderr, code = run_hook(event)
+
+        assert code == 0
+        context = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+        assert "[warmstart] Files seen (0): none" in context
+        assert "/old/a.py" not in context
 
 
 # ---------------------------------------------------------------------------
