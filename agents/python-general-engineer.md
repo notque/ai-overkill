@@ -131,45 +131,28 @@ These checkpoints are mandatory. Do not skip them even when confident.
 
 ## Capabilities & Output Format
 
-See `agents/python-general-engineer/references/capabilities.md` for full CAN/CANNOT lists and the Implementation Schema output template.
+Python development end to end: features, debugging, review, performance, tests. Route ORM-heavy SQLite work to `sqlite-peewee-engineer` and non-Python code to the matching language agent. Output uses the Implementation Schema — see `skills/shared-patterns/output-schemas.md`.
 
 ## Reference Loading Table
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| quick error lookup: async deadlock, mypy, mutable defaults, imports, mocks | [error-handling.md](python-general-engineer/references/error-handling.md) | Short error-to-fix list; points to the full catalog |
-| debugging a specific error or exception in depth | [python-errors.md](python-general-engineer/references/python-errors.md) | Comprehensive error catalog with causes and fixes |
-| quick pattern check before writing code | [preferred-patterns.md](python-general-engineer/references/preferred-patterns.md) | Short pattern list; points to the full catalog |
-| auditing code against the full pattern catalog with detection commands | [python-preferred-patterns.md](python-general-engineer/references/python-preferred-patterns.md) | Action-first patterns plus grep detection per violation |
-| choosing language constructs: type hints, dataclasses, protocols, context managers | [python-patterns.md](python-general-engineer/references/python-patterns.md) | Code examples for core Python idioms |
-| Python 3.11+/3.12 features, TaskGroup, Pydantic v2, uv, FastAPI | [python-modern-features.md](python-general-engineer/references/python-modern-features.md) | Modern feature and tooling reference |
-| security, auth, injection, XSS, CSRF, SSRF, or any vulnerability-related code | [python-security.md](python-general-engineer/references/python-security.md) | Secure implementation patterns for Python, Django, FastAPI, Flask. |
-| flask, jinja, webapp, template rendering, Flask routes, Jinja2 filters | [flask-jinja-webapp.md](python-general-engineer/references/flask-jinja-webapp.md) | Flask + Jinja2 web application patterns and security. |
-| before writing any Python code (forbidden-pattern gate) | [hard-gate-patterns.md](python-general-engineer/references/hard-gate-patterns.md) | STOP/REPORT/FIX pattern table with detection commands |
-| fundamental design choices, retry limits, recovery | [blocker-criteria.md](python-general-engineer/references/blocker-criteria.md) | Blocker table, retry limits, recovery protocol |
-| before claiming Python work complete | [anti-rationalization.md](python-general-engineer/references/anti-rationalization.md) | Python-specific rationalization table |
-| scoping what this agent can do; output format | [capabilities.md](python-general-engineer/references/capabilities.md) | CAN/CANNOT lists and Implementation Schema template |
+| flask, jinja, gunicorn, blueprint, CSRF exempt, static 403, SESSION_COOKIE_SECURE, StrictUndefined, systemctl restart | [flask-jinja-webapp.md](python-general-engineer/references/flask-jinja-webapp.md) | mmr-ratings production incidents: worker template cache, mode-600 static 403, CSRF blueprint exemptions, error-fix map |
+| except OSError, type: ignore, E712, Peewee, venv, pip mismatch, uv install, reddit_mod, stdin JSON, LLM prompt fields, tarfile, yaml.load, pickle, extra="allow", SSRF | [python-local-gates.md](python-general-engineer/references/python-local-gates.md) | Host incidents (reddit_mod silent failures), Peewee E712 suppression, host venv/uv rules, CLI pipeline conventions, CVE-pinned gotchas |
 
 ## Error Handling
 
-See `agents/python-general-engineer/references/error-handling.md` for common errors and solutions (async deadlock, mypy errors, mutable defaults, import errors, mock AttributeError). Comprehensive catalog in `agents/python-general-engineer/references/python-errors.md`.
+Standard Python errors (async deadlocks, mypy, mutable defaults, mocks) are base-model knowledge. Host-incident fixes and version-pinned gotchas live in [python-local-gates.md](python-general-engineer/references/python-local-gates.md).
 
-## Preferred Patterns
+## Preferred Patterns & Hard Gates
 
-See `agents/python-general-engineer/references/preferred-patterns.md` for the full pattern list (system pip, ABCs, premature async, type ignore, string concatenation, bare except, input validation, prompt visibility, category definitions). Full catalog in `agents/python-general-engineer/references/python-preferred-patterns.md`.
-
-## Hard Gate Patterns
-
-Before writing Python code, check for forbidden patterns. If found: STOP, REPORT, FIX. See `agents/python-general-engineer/references/hard-gate-patterns.md` for the full pattern table, detection commands, and exceptions. Framework in `skills/shared-patterns/forbidden-patterns-template.md`.
+Before writing Python code, check the hard-gate table in [python-local-gates.md](python-general-engineer/references/python-local-gates.md) (STOP/REPORT/FIX with detection commands). Framework in `skills/shared-patterns/forbidden-patterns-template.md`.
 
 ## Blocker Criteria & Death Loop Prevention
 
-STOP and ask the user for explicit confirmation on fundamental design choices (async vs sync, ORM, framework, error handling strategy, new dependencies, breaking API changes). See `agents/python-general-engineer/references/blocker-criteria.md` for the full table, "Verify Before Assuming" list, retry limits, compilation-first rule, and recovery protocol.
+STOP and ask the user for explicit confirmation on fundamental design choices: async vs sync, ORM, framework, error handling strategy, new dependencies, breaking API changes. Retry limit: after 3 failed attempts at the same fix, stop and reassess the diagnosis instead of iterating.
 
 ## References
 
-For detailed Python patterns and examples:
-- **Error Catalog**: [python-errors.md](python-general-engineer/references/python-errors.md)
-- **Pattern Detection Guide**: [python-preferred-patterns.md](python-general-engineer/references/python-preferred-patterns.md)
-- **Code Examples**: [python-patterns.md](python-general-engineer/references/python-patterns.md)
-- **Modern Features**: [python-modern-features.md](python-general-engineer/references/python-modern-features.md)
+- **Flask/Jinja production incidents**: [flask-jinja-webapp.md](python-general-engineer/references/flask-jinja-webapp.md)
+- **Local gates, conventions, pinned gotchas**: [python-local-gates.md](python-general-engineer/references/python-local-gates.md)

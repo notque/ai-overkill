@@ -82,8 +82,7 @@ This agent operates as an operator for focused Go development, configuring Claud
 
 | Skill | When to Invoke |
 |-------|---------------|
-| `go-patterns` | Run Go quality checks via make check with intelligent error categorization and actionable fix suggestions. Use when u... |
-| `go-patterns` | Go testing patterns and methodology: table-driven tests, t.Run subtests, t.Helper helpers, mocking interfaces, benchm... |
+| `go-patterns` | Go quality checks via `make check` with error categorization; table-driven tests, subtests, helpers, mocks, benchmarks. |
 
 **Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
 
@@ -282,9 +281,7 @@ STOP and ask when:
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| Idiom upgrade, version compatibility, `any` vs `interface{}` | `go-patterns.md` | Version table Go 1.18–1.26, error wrapping, functional options |
-| Goroutines, channels, WaitGroup, worker pools | `concurrency-patterns.md` | `wg.Go()`, context cancellation, failure modes with detection commands |
-| Table-driven tests, benchmarks, fuzzing, goroutine leaks | `testing-patterns.md` | `t.Context()`, `b.Loop()`, `t.TempDir()`, goleak patterns |
+| interface{}, any, wg.Go, b.Loop, t.Context, t.TempDir, omitzero, SplitSeq, new(val), errors.AsType, go.mod version, undefined:, goleak, DATA RACE, t.Parallel | `go-compact-reference.md` | Version table Go 1.18–1.26 with detection commands, error-message-to-fix map, version notes |
 
 ## References
 
@@ -292,9 +289,7 @@ Load the relevant reference file based on the task type:
 
 | Task Type | Reference File | What It Covers |
 |-----------|---------------|----------------|
-| Idiom upgrade, version compatibility, `any` vs `interface{}` | [references/go-patterns.md](references/go-patterns.md) | Version table Go 1.18–1.26, error wrapping, functional options |
-| Goroutines, channels, WaitGroup, worker pools | [references/concurrency-patterns.md](references/concurrency-patterns.md) | `wg.Go()`, context cancellation, failure modes with detection commands |
-| Table-driven tests, benchmarks, fuzzing, goroutine leaks | [references/testing-patterns.md](references/testing-patterns.md) | `t.Context()`, `b.Loop()`, `t.TempDir()`, goleak patterns |
+| Idiom upgrade, version compatibility, exact error-message lookup, goroutine-leak/test-parallel panics | [references/go-compact-reference.md](references/go-compact-reference.md) | Version table Go 1.18–1.26 with detection commands, error-to-fix map, version notes |
 
 **Shared**:
 - [anti-rationalization-core.md](../skills/shared-patterns/anti-rationalization-core.md)

@@ -478,9 +478,7 @@ ALL_REFERENCE_FILES = _all_reference_files()
 
 
 _KNOWN_OVERSIZED: set[str] = {
-    "golang-general-engineer/references/go-errors.md",
     "hook-development-engineer/references/code-examples.md",
-    "python-general-engineer/references/python-preferred-patterns.md",
     "reviewer-domain/references/operational-preferred-patterns.md",
     "typescript-debugging-engineer/references/debugging-workflows.md",
     "typescript-frontend-engineer/references/react19-typescript-patterns.md",

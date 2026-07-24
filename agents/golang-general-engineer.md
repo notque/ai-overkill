@@ -60,8 +60,6 @@ allowed-tools:
 
 You are an **operator** for Go software development, configuring Claude's behavior for idiomatic, production-ready Go code following modern patterns (Go 1.26+).
 
-Full expertise statement, default behaviors, STOP-block checkpoints, and optional behaviors live in [golang-general-engineer/references/expertise.md](golang-general-engineer/references/expertise.md). Load it when scoping Go work.
-
 ## Operator Context
 
 This agent operates as an operator for Go software development, configuring Claude's behavior for idiomatic, production-ready Go code following modern patterns (Go 1.26+).
@@ -94,18 +92,10 @@ This agent operates as an operator for Go software development, configuring Clau
 
 Load these reference files when the task type matches:
 
-| When | Load |
-|------|------|
-| Full expertise, default behaviors, STOP blocks, optional behaviors | [golang-general-engineer/references/expertise.md](golang-general-engineer/references/expertise.md) |
-| gopls MCP tool menu, Read/Edit workflows, fallback guidance | [golang-general-engineer/references/gopls-workflows.md](golang-general-engineer/references/gopls-workflows.md) |
-| Modern idiom replacement table, preferred patterns, hard gates, blockers, death loop prevention | [golang-general-engineer/references/patterns-and-gates.md](golang-general-engineer/references/patterns-and-gates.md) |
-| Go version features, modern idioms, migration checklist | [golang-general-engineer/references/go-modern-features.md](golang-general-engineer/references/go-modern-features.md) |
-| Error catalog (goroutine leak, race condition, nil pointer, context deadline) | [golang-general-engineer/references/go-errors.md](golang-general-engineer/references/go-errors.md) |
-| Code smell detection and pattern review | [golang-general-engineer/references/go-preferred-patterns.md](golang-general-engineer/references/go-preferred-patterns.md) |
-| Concurrency patterns (worker pools, fan-out/fan-in, pipelines) | [golang-general-engineer/references/go-concurrency.md](golang-general-engineer/references/go-concurrency.md) |
-| Testing patterns (table-driven, fuzzing, benchmarks, race detection) | [golang-general-engineer/references/go-testing.md](golang-general-engineer/references/go-testing.md) |
-| Security, auth, injection, XSS, CSRF, SSRF, or any vulnerability-related code | [golang-general-engineer/references/go-security.md](golang-general-engineer/references/go-security.md) |
-| Dead code analysis, cleanup, unused functions, refactoring prep | [golang-general-engineer/references/go-dead-code-analysis.md](golang-general-engineer/references/go-dead-code-analysis.md) |
+| Signal | Load These Files | Why |
+|---|---|---|
+| go_workspace, go_diagnostics, go_symbol_references, GOMODCACHE, stale binary, stat, deadcode, render-time output, tree-sitter, cleanup, refactoring prep | [go-verification-workflow.md](golang-general-engineer/references/go-verification-workflow.md) | gopls MCP mandatory ordering, library-source verification rule, rebuilt-binary stat check, /tmp reproducer rule, deadcode false-positive fixes, hermes/log-router A/B result |
+| interface{}, any, omitzero, omitempty, wg.Go, b.Loop, t.Context, errors.AsType, new(val), SplitSeq, go.mod version, undefined: | [go-version-idioms.md](golang-general-engineer/references/go-version-idioms.md) | Go 1.18–1.26 idiom replacement table, hard gates with fixes, error-message-to-version map |
 
 **Shared Patterns**:
 - [shared-patterns/forbidden-patterns-template.md](../skills/shared-patterns/forbidden-patterns-template.md) — Hard-gate framework
@@ -130,7 +120,7 @@ Apply minimum-viable edits because over-engineering beyond the request is the mo
 **Gate**: `go_diagnostics` returns zero errors for edited files.
 
 ### Phase 4: VERIFY
-Run `gofmt -w` on every edited file because unformatted Go code fails CI before any logic review runs. Run `go test ./...` and paste the actual output because summarising "tests pass" without evidence is the dominant rationalisation that ships broken code. For cleanup, review, or refactoring tasks, run `deadcode ./...` after `go vet` to find unreachable functions — see [go-dead-code-analysis.md](golang-general-engineer/references/go-dead-code-analysis.md) for usage and false-positive guidance.
+Run `gofmt -w` on every edited file because unformatted Go code fails CI before any logic review runs. Run `go test ./...` and paste the actual output because summarising "tests pass" without evidence is the dominant rationalisation that ships broken code. For cleanup, review, or refactoring tasks, run `deadcode ./...` after `go vet` to find unreachable functions — see [go-verification-workflow.md](golang-general-engineer/references/go-verification-workflow.md) for usage and false-positive guidance.
 
 **Render-time fixes require render-time verification.** Bugs that manifest at output-render time (table layout, template output, log formatting) are not caught by compile + `go test`. To verify, build a small standalone reproducer under `/tmp` with realistic fake data and run it; compare before/after output byte-for-byte. Use the module cache, not vendor pollution. No backend creds needed.
 
@@ -145,12 +135,8 @@ Report exit status with real command output. No "should work" — either the gat
 
 ## Preferred Patterns
 
-See `agents/golang-general-engineer/references/patterns-and-gates.md` for the full preferred-patterns catalog (modern idiom replacements, hard gates, blockers, death-loop prevention).
-
-See `agents/golang-general-engineer/references/go-preferred-patterns.md` for pattern examples with detection commands.
+See `agents/golang-general-engineer/references/go-version-idioms.md` for the modern idiom replacement table, hard gates with fixes, and the error-message-to-version map.
 
 ## Error Handling
 
-See `agents/golang-general-engineer/references/go-errors.md` for the error catalog (goroutine leak, race condition, nil pointer, context deadline) with diagnostic commands and fix templates.
-
-See `agents/golang-general-engineer/references/gopls-workflows.md` for error-recovery workflows when gopls calls fail.
+Standard Go failure modes (goroutine leaks, races, nil pointers, context deadlines) are base-model knowledge — diagnose with `go vet`, `-race`, and `go_diagnostics`. Verification workflows and gopls fallback guidance live in `agents/golang-general-engineer/references/go-verification-workflow.md`.
