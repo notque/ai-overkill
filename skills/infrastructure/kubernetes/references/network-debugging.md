@@ -52,7 +52,7 @@ curl -v http://localhost:8080/healthz
 
 ## NetworkPolicy Blocking Traffic
 
-See kubernetes-security skill for full policy patterns.
+See kubernetes-security.md for full policy patterns.
 
 ```bash
 # List network policies in the namespace

@@ -30,7 +30,7 @@ routing:
     - "security feed audit"
   category: infrastructure
   pairs_with:
-    - kubernetes-debugging
+    - kubernetes
     - condition-based-waiting
     - e2e-testing
 ---

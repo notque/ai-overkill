@@ -2,6 +2,8 @@
 
 Apply PHPUnit testing patterns for PHP projects: unit tests with data providers, test doubles (stubs, mocks, Prophecy), database testing (Laravel/Symfony), HTTP testing, and coverage configuration.
 
+Full code examples, the failure modes table, and the commands reference live in `testing-patterns.md` — load it before writing tests.
+
 ## Phase 1: IDENTIFY
 
 Determine what needs testing:

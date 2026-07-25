@@ -198,7 +198,7 @@ Set `force_route: true` when the skill matches one of these patterns:
 | Pattern | Examples |
 |---------|----------|
 | Umbrella / lifecycle (one trigger phrase = one phase) | `planning`, `feature-lifecycle`, `pr-workflow` |
-| Setup or installation (user states explicit intent) | `install`, `fish-shell-config` |
+| Setup or installation (user states explicit intent) | `install`, `shell-config` |
 | Framework scaffolding (no semantic ambiguity) | `agent-creator` |
 | Deterministic methodology tools (user names the tool) | `quick`, `python-quality-gate`, `go-patterns` |
 | Trace/diagnostic queries (verb + noun is unambiguous) | `explanation-traces` |

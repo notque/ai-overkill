@@ -7,10 +7,10 @@ Fish is not POSIX. Every pattern here targets Fish 3.0+ (supports `$()`, `&&`, `
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| migrations | `bash-migration.md` | Loads detailed guidance from `bash-migration.md`. |
-| editing fish config: variable assignment, PATH management, conditionals, tool integration | `fish-preferred-patterns.md` | Loads detailed guidance from `fish-preferred-patterns.md`. |
+| migrating from Bash: converting `.bashrc`/`.bash_aliases`, `source`, `export`, `[[` in Fish file | `fish-bash-migration.md` | Full Bash-to-Fish syntax translation table. |
+| editing fish config: variable assignment, PATH management, conditionals; error audit: "unknown command", PATH not persisting, abbreviation not working, broken conf.d | `fish-preferred-patterns.md` | Failure mode catalog with detection commands and error-fix mappings. |
 | syntax lookup: variable scope, PATH, functions, abbreviations, conditionals, debugging | `fish-quick-reference.md` | Loads detailed guidance from `fish-quick-reference.md`. |
-| wiring dev tools into fish: Go, Rust, Node, Python, Docker, PATH and init hooks | `tool-integrations.md` | Loads detailed guidance from `tool-integrations.md`. |
+| wiring dev tools into fish: Go, Rust, Node, Python, Docker, PATH and init hooks | `fish-tool-integrations.md` | Loads detailed guidance from `fish-tool-integrations.md`. |
 
 ## Instructions
 
@@ -230,3 +230,18 @@ Solution: Use a function instead. Move the logic from `abbr` to a file in `funct
 Cause: Missing `-x` (export) flag on `set`
 Solution: Use `set -gx VAR value` to make variable visible to subprocesses. Check with `set --show VAR` to inspect current scope and export status.
 
+## Worked Examples
+
+### Setting Up a New Fish Config
+User says: "Set up my Fish shell config"
+1. Confirm Fish context
+2. Create modular structure in `~/.config/fish/`
+3. Write `conf.d/00-path.fish`, `conf.d/10-env.fish`, `conf.d/20-abbreviations.fish`
+4. Syntax-check all files
+
+### Migrating a Bash Alias File
+User says: "Convert my .bash_aliases to Fish"
+1. Read `.bash_aliases`, confirm Fish target
+2. Determine which become abbreviations vs functions
+3. Write abbreviations to `conf.d/`, functions to `functions/`
+4. Syntax-check, test in clean shell

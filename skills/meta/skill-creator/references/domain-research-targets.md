@@ -88,7 +88,7 @@ existing sapcc references
 
 ---
 
-## Kubernetes (kubernetes-debugging, kubernetes-security)
+## Kubernetes (kubernetes umbrella: debugging + security references)
 
 **Primary sources**
 - [Kubernetes official docs](https://kubernetes.io/docs/) — especially Concepts and

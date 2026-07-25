@@ -49,7 +49,7 @@ Kubernetes debugging, security hardening, and infrastructure tooling. Covers pod
 | PodSecurity, SecurityContext, runAsNonRoot, readOnlyRootFilesystem, restricted, baseline | `references/pod-security.md` | ~90 lines |
 | NetworkPolicy, default-deny, allow-list, namespace isolation | `references/network-policies.md` | ~70 lines |
 | cosign, Kyverno, OPA, admission controller, Sealed Secrets, External Secrets | `references/supply-chain.md` | ~120 lines |
-| kvm-exporter, libvirt, hypervisor, collector, scrape, steal time, NUMA | `references/kvm-exporter.md` | ~800 lines |
+| kvm-exporter, metrics, prometheus, libvirt, hypervisor, collector, scrape, steal time, NUMA, cgroups, cloud hypervisor | `references/cobalt-kvm-exporter.md` | ~800 lines |
 | cobaltcore concurrency, goroutine, semaphore, TryLock | `references/cobalt-concurrency-patterns.md` | ~200 lines |
 | cobaltcore testing, mock, moq, Kind cluster | `references/cobalt-testing-patterns.md` | ~200 lines |
 | kubernetes debugging process, triage flow, diagnosis routing | `references/kubernetes-debugging.md` | ~50 lines |
