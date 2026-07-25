@@ -344,19 +344,19 @@ The biggest risk: rationalization. "Already done" (assumption). "Code looks corr
 
 Owner model-selection policy (ADR `model-selection-policy`; operational table in `skills/meta/do/SKILL.md`, Model Selection):
 
-**Harness-native routing:** each harness defaults to its own provider's model lane. Cross-provider dispatch is manual-only, never automatic. Start low, escalate on miss — high tiers cost 3-6x per Pass@1 point. Plan budget ($200/month per provider) makes cost a first-class constraint. Two decision axes: DeepSWE Pass@1 (agentic completion) + owner-observed felt quality (fable > sol noticeable, opus > gpt-5.5 marginal); ties resolve in favor of felt quality.
+**Harness-native routing:** each harness defaults to its own provider's model lane. Cross-provider dispatch is manual-only, never automatic. Start low, escalate on miss — high tiers cost 3-6x per Pass@1 point where measured. Plan budget ($200/month per provider) makes cost a first-class constraint. Three decision axes: the current session model (the harness runs Opus 5, the owner-directed Anthropic-lane default at every task class), DeepSWE Pass@1 (agentic completion) where a model has been measured, and owner-observed felt quality (fable > sol noticeable, opus > gpt-5.5 marginal); ties resolve in favor of felt quality.
 
 | Task class | Anthropic lane (Claude Code) | OpenAI lane (Codex CLI) |
 |---|---|---|
 | Deterministic | Scripts — no LLM dispatch | Scripts — no LLM dispatch |
-| Low-risk | `fable` / `low` (60 P@1 / $3.76) | `gpt-5.6-terra` / `high` (54 P@1 / $1.13) |
-| Standard | `fable` / `medium` (65 / $6.09) | `gpt-5.6-sol` / `high` (69 / $3.47) |
-| High-risk | `fable` / `high` (69 / $9.18) | `gpt-5.6-sol` / `xhigh` (71 / $4.70) |
-| Max-power | `fable` / `xhigh` (70 / $13.41) | `gpt-5.6-sol` / `max` (73 / $8.39) |
+| Low-risk | `opus` / `low` (Opus 5, unmeasured) | `gpt-5.6-terra` / `high` (54 P@1 / $1.13) |
+| Standard | `opus` / `medium` (unmeasured) | `gpt-5.6-sol` / `high` (69 / $3.47) |
+| High-risk | `opus` / `high` (unmeasured) | `gpt-5.6-sol` / `xhigh` (71 / $4.70) |
+| Max-power | `opus` / `xhigh` (unmeasured) | `gpt-5.6-sol` / `max` (73 / $8.39) |
 
-The `/do` table is canonical and records the full DeepSWE Pass@1 / cost / tokens / steps data. Max-power requires `manual_model_override=true` in both lanes. Opus/sonnet are manual-only (dominated by fable). Legacy `gpt-5.5` and non-default GPT-5.6 points are manual-only. Haiku is retired (routing was Haiku pre-#777; self-route since — `scripts/routing-ab-results/self-route-v1/VERDICT.md`). Defaults, not limits: escalate when cheaper output misses the bar; for anything that ships, intelligence > taste > cost, with cost a tie-breaker only. Fan-out uses the lane's low-risk point; one synthesis agent may run one tier higher.
+The `/do` table is canonical and records the full DeepSWE Pass@1 / cost / tokens / steps data, including the prior Fable-5 / Opus-4.8 / Sonnet-5 measurements kept for manual picks. Opus 5 has no DeepSWE run yet, so its pts/USD is uncomputable and the selection rests on the session-model and owner-directive axes; effort still follows start-low-escalate-on-miss. Max-power requires `manual_model_override=true` in both lanes. Fable/sonnet are manual-only. Legacy `gpt-5.5` and non-default GPT-5.6 points are manual-only. Haiku is retired (routing was Haiku pre-#777; self-route since — `scripts/routing-ab-results/self-route-v1/VERDICT.md`). Defaults, not limits: escalate when cheaper output misses the bar; for anything that ships, intelligence > taste > cost, with cost a tie-breaker only. Fan-out uses the lane's low-risk point; one synthesis agent may run one tier higher.
 
-**Coordinator model.** The main-thread coordinator routes and evaluates, never executes — its cost is input-dominated and Pass@1 measures execution it never does. Anthropic harness → sonnet; OpenAI harness → gpt-5.6-terra/high; escalate to opus only on observed misroutes, set via harness config (`/model`), not per-turn. Full rule: `skills/meta/do/SKILL.md`, Model Selection.
+**Coordinator model.** The main-thread coordinator routes and evaluates, never executes — its cost is input-dominated and Pass@1 measures execution it never does. Anthropic harness → opus (Opus 5, the session model); OpenAI harness → gpt-5.6-terra/high; downgrade the anthropic coordinator to sonnet only as a deliberate plan-limit measure, set via harness config (`/model`), not per-turn. Full rule: `skills/meta/do/SKILL.md`, Model Selection.
 
 **Token costs are not fungible.** One Opus token costs ~30x one Haiku token. Optimization targets the expensive model, not the cheap one. "Saves Haiku calls" is never a valid justification. Pre-routing's value is determinism (regex can't misroute). Phase gates' value is preventing Opus rework.
 
