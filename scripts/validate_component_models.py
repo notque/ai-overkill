@@ -11,7 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODEL_RE = re.compile(r"^model:\s*(.+)$", re.MULTILINE)
-ALLOWED_MODELS = {"sonnet", "opus", "fable"}
+ALLOWED_MODELS = {"sonnet", "opus"}
 EXEMPT_COMPONENTS: set[tuple[str, str]] = {
     ("skill", "do"),
 }
@@ -58,7 +58,7 @@ def validate_models() -> list[Violation]:
                 component_type=component_type,
                 component=component,
                 file=str(path.relative_to(REPO_ROOT)),
-                issue=f"model '{model}' is not allowed; use 'sonnet', 'opus', or 'fable' (except /do)",
+                issue=f"model '{model}' is not allowed; use 'sonnet' or 'opus' (except /do)",
             )
         )
     return violations

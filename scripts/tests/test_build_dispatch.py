@@ -549,11 +549,6 @@ def test_non_default_openai_model_choices_require_manual_override(overrides):
 # ---------------------------------------------------------------------------
 
 SUPPLIED_CLAUDE_POINTS = {
-    ("fable", "max"): (70, 21.63, 119_000, 88),
-    ("fable", "xhigh"): (70, 13.41, 80_000, 68),
-    ("fable", "high"): (69, 9.18, 57_000, 59),
-    ("fable", "medium"): (65, 6.09, 40_000, 48),
-    ("fable", "low"): (60, 3.76, 25_000, 38),
     ("opus-4.8", "max"): (59, 13.22, 135_000, 120),
     ("opus-4.8", "xhigh"): (54, 8.01, 86_000, 95),
     ("opus-4.8", "high"): (52, 4.28, 50_000, 73),
@@ -599,12 +594,12 @@ def test_anthropic_policy_points_are_unmeasured_and_effort_rises_with_risk():
         previous = order.index(effort)
 
 
-def test_fable_max_still_costs_more_than_fable_xhigh():
-    """Recorded prior measurement: fable[max] matches fable[xhigh] Pass@1 at higher cost."""
-    fmax = SUPPLIED_CLAUDE_POINTS[("fable", "max")]
-    fxhigh = SUPPLIED_CLAUDE_POINTS[("fable", "xhigh")]
-    assert fmax[0] == fxhigh[0], "precondition: same Pass@1"
-    assert fmax[1] > fxhigh[1], "precondition: max costs more"
+def test_sonnet_max_still_costs_more_per_point_than_sonnet_xhigh():
+    """Recorded prior measurement: sonnet[max] buys 4 Pass@1 points for 2.2x the cost."""
+    smax = SUPPLIED_CLAUDE_POINTS[("sonnet", "max")]
+    sxhigh = SUPPLIED_CLAUDE_POINTS[("sonnet", "xhigh")]
+    assert smax[0] > sxhigh[0], "precondition: max scores higher"
+    assert smax[1] / smax[0] > sxhigh[1] / sxhigh[0], "precondition: max costs more per point"
 
 
 def test_opus_max_requires_manual_override():
@@ -614,15 +609,14 @@ def test_opus_max_requires_manual_override():
 
 
 def test_prior_measurements_retained_for_manual_picks():
-    """Historical Fable-5 / Opus-4.8 / Sonnet-5 points stay recorded, not deleted."""
-    assert SUPPLIED_CLAUDE_POINTS[("fable", "low")] == (60, 3.76, 25_000, 38)
+    """Historical Opus-4.8 / Sonnet-5 points stay recorded, not deleted."""
     assert SUPPLIED_CLAUDE_POINTS[("opus-4.8", "max")] == (59, 13.22, 135_000, 120)
     assert SUPPLIED_CLAUDE_POINTS[("sonnet", "high")] == (48, 7.43, 87_000, 147)
 
 
-@pytest.mark.parametrize("model", ("fable", "sonnet"))
+@pytest.mark.parametrize("model", ("sonnet",))
 def test_off_policy_claude_models_require_manual_override(model):
-    """Opus 5 is the default; fable and sonnet are the manual-only picks."""
+    """Opus 5 is the default; sonnet is the manual-only pick."""
     with pytest.raises(bd.InputError, match="manual_model_override"):
         bd.build_marker(_decision(model=model))
     # With manual_override they work fine
