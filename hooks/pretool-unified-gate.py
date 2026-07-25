@@ -365,12 +365,27 @@ _SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # THIS gate's dangerous/sensitive checks — writing one IS the disarm act, and
     # no agent flow legitimately writes them (owner-authored config only).
     (re.compile(r"/\.guard-(?:whitelist|patterns)$"), "guard-config", ".guard-* guard config"),
+    # Credential stores the home CLAUDE.md names but the list above missed
+    # (audit S4). Each holds a live credential in plaintext.
+    (re.compile(r"/\.git-credentials$"), "credentials", ".git-credentials"),
+    (re.compile(r"/\.netrc$"), "credentials", ".netrc"),
+    (re.compile(r"/\.config/gh/hosts\.yml$"), "token", "gh CLI hosts.yml (auth token)"),
+    (re.compile(r"/\.envrc$"), "env", ".envrc (direnv)"),
 ]
 
+# Suffix exceptions: safe ANYWHERE. These name a file that by convention holds
+# placeholders, not secrets, so their location does not change the risk.
 _SENSITIVE_EXCEPTIONS: list[re.Pattern[str]] = [
     re.compile(r"\.env\.example$"),
     re.compile(r"\.env\.sample$"),
     re.compile(r"\.env\.template$"),
+]
+
+# Directory exceptions: safe ONLY inside the repo worktree (audit S4). These say
+# "this is test data", which is a claim about a project's own tree. Matched
+# anywhere, `/fixtures/` excused `/home/feedgen/fixtures/.env` — a real
+# credential file in the home directory — from every sensitive-file check.
+_SENSITIVE_DIR_EXCEPTIONS: list[re.Pattern[str]] = [
     re.compile(r"/testdata/"),
     re.compile(r"/fixtures/"),
     re.compile(r"/__fixtures__/"),
@@ -943,9 +958,43 @@ def _load_guard_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     return extra
 
 
+def _repo_worktree_root() -> Path | None:
+    """Nearest ancestor of cwd containing `.git`, or None outside a repo.
+
+    Walks the filesystem instead of shelling out to git: this runs on every
+    sensitive-file check and the hook has a hard latency budget.
+    """
+    try:
+        here = Path.cwd().resolve()
+    except OSError:
+        return None
+    for candidate in (here, *here.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
 def _is_sensitive_exception(file_path: str) -> bool:
-    """Check if file matches a sensitive-file exception pattern."""
-    return any(p.search(file_path) for p in _SENSITIVE_EXCEPTIONS)
+    """Check if `file_path` matches a sensitive-file exception.
+
+    Suffix exceptions (`.env.example` and friends) apply anywhere. Directory
+    exceptions (`/fixtures/`, `/testdata/`, …) apply ONLY inside the repo
+    worktree — a "this is test data" claim is only meaningful about a
+    project's own tree, and honoring it anywhere excused real credential
+    files elsewhere on the box (audit S4).
+    """
+    if any(p.search(file_path) for p in _SENSITIVE_EXCEPTIONS):
+        return True
+    if not any(p.search(file_path) for p in _SENSITIVE_DIR_EXCEPTIONS):
+        return False
+    root = _repo_worktree_root()
+    if root is None:
+        return False
+    try:
+        resolved = Path(file_path).expanduser().resolve()
+    except (OSError, RuntimeError):
+        return False
+    return resolved == root or root in resolved.parents
 
 
 def _block(message: str, tool_name: str = "", reason: str = "") -> None:
@@ -1330,6 +1379,133 @@ def check_sensitive_file(file_path: str, *, deny: bool = True) -> None:
                 f"[sensitive-file-guard] To allow: set SENSITIVE_FILE_GUARD_BYPASS=1 or add exception to .guard-patterns",
                 reason=f"Write to sensitive file blocked ({category}: {description}). Path: {file_path}. Set SENSITIVE_FILE_GUARD_BYPASS=1 or add an exception to .guard-patterns to allow.",
             )
+
+
+# ── sensitive files reached via Bash (audit S4) ──────────────────
+#
+# `check_sensitive_file` ran only in the Write/Edit/Read tool branches, so the
+# identical acts spelled as a shell command were never examined at all:
+# `cat ~/.ssh/id_ed25519`, `cp ~/.env /var/www/html/`, and `cat > ~/.env` all
+# passed while the Write-tool equivalents were denied.
+#
+# Posture deliberately mirrors the tool branches rather than inventing a
+# stricter one for Bash:
+#   * COPY/WRITE verbs and redirect targets DENY — they duplicate a secret to a
+#     new location or mutate a credential file, which is what Write/Edit deny.
+#   * READ verbs WARN only — same as the Read tool, and for the same reason
+#     documented there: agents routinely read a project's own .env while
+#     debugging, and blocking that breaks common legitimate work.
+
+# Verbs that duplicate or mutate a file → deny on a sensitive path in any
+# argument position (source OR destination: copying a secret out is the
+# exfiltration shape the home CLAUDE.md forbids).
+_SENSITIVE_COPY_VERBS = frozenset({"cp", "mv", "scp", "rsync", "install", "tee", "dd", "rclone"})
+
+# Verbs that only display a file → warn.
+_SENSITIVE_READ_VERBS = frozenset(
+    {
+        "cat",
+        "bat",
+        "less",
+        "more",
+        "head",
+        "tail",
+        "od",
+        "xxd",
+        "hexdump",
+        "strings",
+        "base64",
+        "nl",
+        "cut",
+        "sort",
+        "uniq",
+        "wc",
+    }
+)
+
+# An output redirect target (`> path`, `>> path`, `2> path`). Writing here
+# creates or truncates the named file, so it is a write regardless of verb.
+_REDIRECT_TARGET_RE = re.compile(r"(?<!<)>>?\s*['\"]?([^\s'\"|;&<>]+)")
+
+
+def _sensitive_bash_paths(segment: str) -> tuple[list[str], list[str]]:
+    """Return (deny_paths, warn_paths) for one shell segment.
+
+    Redirect targets are always write paths. Otherwise the segment's command
+    token picks the posture; a segment led by neither kind of verb yields
+    nothing (an unrecognized command's arguments are not assumed to be files).
+    """
+    deny_paths = [m.group(1) for m in _REDIRECT_TARGET_RE.finditer(segment)]
+
+    verb = _command_token(segment)
+    if verb not in _SENSITIVE_COPY_VERBS and verb not in _SENSITIVE_READ_VERBS:
+        return deny_paths, []
+
+    try:
+        toks = shlex.split(_strip_leading_prefixes(segment), posix=True)
+    except ValueError:
+        toks = _strip_leading_prefixes(segment).split()
+    args = [t for t in toks[1:] if not t.startswith("-")]
+    if verb in _SENSITIVE_COPY_VERBS:
+        return deny_paths + args, []
+    return deny_paths, args
+
+
+def _matches_sensitive(path: str) -> tuple[str, str] | None:
+    """Return (category, description) if `path` is sensitive, else None.
+
+    Normalizes `~` so `~/.env` matches the same anchored patterns an absolute
+    path does — the patterns are rooted at `/`, so an un-expanded `~` never
+    matched anything.
+    """
+    expanded = os.path.expanduser(path)
+    if not expanded.startswith("/"):
+        expanded = str(Path.cwd() / expanded)
+    if _is_sensitive_exception(expanded):
+        return None
+    for pattern, category, description in _SENSITIVE_PATTERNS + _load_guard_patterns():
+        if pattern.search(expanded):
+            return category, description
+    return None
+
+
+def check_sensitive_bash(command: str) -> None:
+    """Deny/warn when a Bash command reads, copies, or overwrites a secret."""
+    if os.environ.get(_SENSITIVE_BYPASS_ENV) == "1":
+        return
+
+    for line in _non_heredoc_lines(command):
+        for segment in _SEGMENT_SPLIT_RE.split(line):
+            if not segment.strip():
+                continue
+            deny_paths, warn_paths = _sensitive_bash_paths(segment)
+            for path in deny_paths:
+                hit = _matches_sensitive(path)
+                if hit:
+                    category, description = hit
+                    _block(
+                        f"[sensitive-file-guard] BLOCKED: shell command writes or copies a sensitive file ({category})\n"
+                        f"[sensitive-file-guard] Path: {path}\n"
+                        f"[sensitive-file-guard] Pattern: {description}\n"
+                        f"[sensitive-file-guard] Command: {command}",
+                        reason=(
+                            f"Shell command writes or copies a sensitive file ({category}: {description}). "
+                            f"Path: {path}. Duplicating or overwriting a credential file needs explicit owner "
+                            f"approval per CLAUDE.md."
+                        ),
+                    )
+            for path in warn_paths:
+                hit = _matches_sensitive(path)
+                if hit:
+                    category, description = hit
+                    print(
+                        f"[sensitive-file-guard] ADVISORY: shell command reads a sensitive file ({category})\n"
+                        f"[sensitive-file-guard] Path: {path}\n"
+                        f"[sensitive-file-guard] Pattern: {description}\n"
+                        f"[sensitive-file-guard] Reading credential files needs owner approval "
+                        f"(OWNER-APPROVED-SECRET-READ) per CLAUDE.md. Not blocked — flagged for review.",
+                        file=sys.stderr,
+                    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2662,6 +2838,7 @@ def main() -> None:
         check_dangerous_command(command)
         check_public_dev_server(command)
         check_sysadmin_security(command)
+        check_sensitive_bash(command)
 
     elif tool == "Write":
         file_path = tool_input.get("file_path", "")
