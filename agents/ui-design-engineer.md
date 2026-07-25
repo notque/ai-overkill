@@ -156,7 +156,7 @@ Uses the **Implementation Schema**: ANALYZE (surface type, narrative brief, cont
 | animation, Framer Motion, transition, reduced motion, exit, AnimatePresence | `animation-patterns.md` | Framer Motion, CSS transitions, prefers-reduced-motion, exit animations, AnimatePresence, micro-interactions |
 | interaction states, hover, focus, disabled, loading, active, pressed | [interaction-state-coverage.md](ui-design-engineer/references/interaction-state-coverage.md) | 6-state matrix, transition timing bounds, element-by-element checklist |
 | AI slop, generic UI, AI-generated look, template look, default styling | [ai-slop-detection.md](ui-design-engineer/references/ai-slop-detection.md) | Purposeful gradients, contextual fonts and colors, spacing scale rules |
-| text/headline/label/microcopy animation | `skills/frontend/text-animation/references/roll-text.md` | Zero-npm roll/slot text pattern: standalone demo, extraction guide, knobs |
+| text/headline/label/microcopy animation | `skills/frontend/distinctive-frontend-design/references/roll-text.md` | Zero-npm roll/slot text pattern: standalone demo, extraction guide, knobs |
 
 ## Error Handling
 
