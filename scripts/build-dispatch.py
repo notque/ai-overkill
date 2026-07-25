@@ -136,11 +136,15 @@ OPENAI_AUTO_POLICIES = {
     "high-risk": ("gpt-5.6-sol", "xhigh"),  # 71 / $4.70
     "max-power": ("gpt-5.6-sol", "max"),  # 73 / $8.39, explicit only
 }
+# Anthropic lane: Opus 5 is the owner-directed default at every task class
+# (it is the model the harness runs). It has no DeepSWE run yet, so these
+# points carry no Pass@1/cost annotation — effort still follows
+# start-low-escalate-on-miss.
 ANTHROPIC_AUTO_POLICIES = {
-    "low-risk": ("fable", "low"),  # 60 / $3.76
-    "standard": ("fable", "medium"),  # 65 / $6.09
-    "high-risk": ("fable", "high"),  # 69 / $9.18
-    "max-power": ("fable", "xhigh"),  # 70 / $13.41, explicit only
+    "low-risk": ("opus", "low"),
+    "standard": ("opus", "medium"),
+    "high-risk": ("opus", "high"),
+    "max-power": ("opus", "xhigh"),  # explicit only
 }
 AUTO_POLICIES_BY_PROVIDER = {
     "anthropic": ANTHROPIC_AUTO_POLICIES,
@@ -215,9 +219,9 @@ def resolve_model_selection(decision: dict, provider: str = "anthropic") -> tupl
     """Return the validated ``(model, effort)`` for one dispatch decision.
 
     Harness-aware: ``provider`` selects the automatic policy table.
-    Anthropic lane defaults select fable at benchmark-backed effort points;
-    opus/sonnet and fable/max are manual-only (dominated points kept for
-    context-window and latency constraints the benchmark does not measure).
+    Anthropic lane defaults select Opus 5 at every task class (owner
+    directive + current session model); fable and sonnet are manual-only,
+    kept for felt-quality, context-window, and latency constraints.
     OpenAI lane defaults select GPT-5.6 Sol/Terra.  Effort is recorded in
     the marker for all models; for Claude lanes it is advisory (the harness
     Agent tool does not accept per-call effort).
@@ -285,16 +289,14 @@ def resolve_model_selection(decision: dict, provider: str = "anthropic") -> tupl
     # Claude models (fable, opus, sonnet) and codex wrapper.
     # Effort is optional and advisory for Claude lanes — recorded in the
     # marker (model@effort) for telemetry but not passed to the Agent tool.
-    if model in ("opus", "sonnet"):
+    if model in ("fable", "sonnet"):
         if not manual:
             raise InputError(
                 f"'{model}' requires manual_model_override=true "
-                "(dominated by fable in DeepSWE benchmarks; kept for context-window/latency constraints)"
+                "(Opus 5 is the Anthropic-lane default; off-policy picks stay explicit)"
             )
-    if model == "fable" and effort == "max" and not manual:
-        raise InputError(
-            "fable/max requires manual_model_override=true (dominated by fable/xhigh: same Pass@1, higher cost)"
-        )
+    if model == "opus" and effort == "max" and not manual:
+        raise InputError("opus/max requires manual_model_override=true (unmeasured top tier; escalate on a miss)")
     return model, effort
 
 

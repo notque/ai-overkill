@@ -49,7 +49,7 @@ def _decision(**overrides):
         "agent": "python-general-engineer",
         "skill": "test-driven-development",
         "complexity": "medium",
-        "model": "fable",
+        "model": "opus",
         "health": {"confidence": 0.72, "n": 6, "failure": 0, "action": "keep"},
         "stack": ["verification-before-completion"],
         "task_spec": {
@@ -109,7 +109,7 @@ ROUND_TRIP_CASES = [
             "agent": "python-general-engineer",
             "skill": "test-driven-development",
             "complexity": "medium",
-            "model": "fable",
+            "model": "opus",
             "health": None,
             "n": None,
             "failure": None,
@@ -126,7 +126,7 @@ ROUND_TRIP_CASES = [
             "agent": "python-general-engineer",
             "skill": "",
             "complexity": "medium",
-            "model": "fable",
+            "model": "opus",
             "health": None,
             "gate_inputs_present": True,
             "stack": None,
@@ -139,7 +139,7 @@ ROUND_TRIP_CASES = [
             "agent": "python-general-engineer",
             "skill": "test-driven-development",
             "complexity": "medium",
-            "model": "fable",
+            "model": "opus",
             "health": 0.5,
             "n": None,
             "failure": None,
@@ -169,7 +169,7 @@ ROUND_TRIP_CASES = [
             "agent": "python-general-engineer",
             "skill": "test-driven-development",
             "complexity": "medium",
-            "model": "fable",
+            "model": "opus",
             "health": 1.0,
             "n": 12,
             "failure": 0,
@@ -261,7 +261,7 @@ def test_marker_is_first_line_at_line_start():
 def test_preamble_contains_every_mandatory_block_in_order():
     preamble = bd.build_preamble(_decision(complexity="complex"))
     ordered = [
-        "[do-route] agent=python-general-engineer skill=test-driven-development complexity=complex model=fable",
+        "[do-route] agent=python-general-engineer skill=test-driven-development complexity=complex model=opus",
         bd.THINKING_SLOW,
         "~480000 tokens available for this task; prioritize accordingly.",
         "## Task Specification (auto-extracted)",
@@ -319,9 +319,9 @@ def test_thinking_directive_by_complexity_and_override(complexity, override, exp
 
 
 def test_missing_optional_fields_omit_their_blocks_only():
-    minimal = {"agent": "claude", "complexity": "medium", "model": "fable"}
+    minimal = {"agent": "claude", "complexity": "medium", "model": "opus"}
     preamble = bd.build_preamble(minimal)
-    assert preamble.startswith("[do-route] agent=claude skill=- complexity=medium model=fable health=-\n")
+    assert preamble.startswith("[do-route] agent=claude skill=- complexity=medium model=opus health=-\n")
     assert "## Task Specification" not in preamble
     assert "stack={" not in preamble
     # Mandatory blocks survive the minimal input.
@@ -495,7 +495,7 @@ def test_exceptional_max_power_requires_explicit_override():
     marker = bd.build_marker(
         _decision(model=None, model_policy="max-power", manual_model_override=True, provider="anthropic")
     )
-    assert "model=fable" in marker
+    assert "model=opus" in marker
     assert "effort=xhigh" in marker
 
 
@@ -554,11 +554,11 @@ SUPPLIED_CLAUDE_POINTS = {
     ("fable", "high"): (69, 9.18, 57_000, 59),
     ("fable", "medium"): (65, 6.09, 40_000, 48),
     ("fable", "low"): (60, 3.76, 25_000, 38),
-    ("opus", "max"): (59, 13.22, 135_000, 120),
-    ("opus", "xhigh"): (54, 8.01, 86_000, 95),
-    ("opus", "high"): (52, 4.28, 50_000, 73),
-    ("opus", "medium"): (49, 3.44, 41_000, 66),
-    ("opus", "low"): (41, 2.29, 29_000, 54),
+    ("opus-4.8", "max"): (59, 13.22, 135_000, 120),
+    ("opus-4.8", "xhigh"): (54, 8.01, 86_000, 95),
+    ("opus-4.8", "high"): (52, 4.28, 50_000, 73),
+    ("opus-4.8", "medium"): (49, 3.44, 41_000, 66),
+    ("opus-4.8", "low"): (41, 2.29, 29_000, 54),
     ("sonnet", "max"): (54, 26.40, 214_000, 268),
     ("sonnet", "xhigh"): (50, 11.89, 121_000, 186),
     ("sonnet", "high"): (48, 7.43, 87_000, 147),
@@ -571,13 +571,13 @@ SUPPLIED_CLAUDE_POINTS = {
 @pytest.mark.parametrize(
     ("task_class", "model", "effort"),
     [
-        ("low-risk", "fable", "low"),
-        ("standard", "fable", "medium"),
-        ("high-risk", "fable", "high"),
+        ("low-risk", "opus", "low"),
+        ("standard", "opus", "medium"),
+        ("high-risk", "opus", "high"),
     ],
 )
-def test_anthropic_policy_selects_the_automatic_pareto_defaults(task_class, model, effort):
-    """Anthropic automatic task classes select fable at benchmark-backed effort points."""
+def test_anthropic_policy_selects_opus_at_every_task_class(task_class, model, effort):
+    """Anthropic automatic task classes select Opus 5, effort rising with risk class."""
     decision = _decision(model=None, model_policy=task_class, provider="anthropic")
     marker = bd.build_marker(decision)
 
@@ -587,45 +587,42 @@ def test_anthropic_policy_selects_the_automatic_pareto_defaults(task_class, mode
     assert recorder.parse_model_effort(marker) == effort
 
 
-def test_anthropic_policy_points_are_not_dominated_on_supplied_metrics():
-    """Anthropic automatic choices are non-dominated within the Anthropic lane."""
-    for policy, point in bd.ANTHROPIC_AUTO_POLICIES.items():
-        assert point in SUPPLIED_CLAUDE_POINTS, f"{policy} is not in the supplied benchmark"
-        target = SUPPLIED_CLAUDE_POINTS[point]
-        assert not any(_dominates(candidate, target) for candidate in SUPPLIED_CLAUDE_POINTS.values()), (
-            f"{policy} selects dominated point {point}"
-        )
+def test_anthropic_policy_points_are_unmeasured_and_effort_rises_with_risk():
+    """Opus 5 carries no DeepSWE point; the policy is grounded on effort ordering."""
+    order = ["low", "medium", "high", "xhigh", "max"]
+    previous = -1
+    for policy in ("low-risk", "standard", "high-risk", "max-power"):
+        model, effort = bd.ANTHROPIC_AUTO_POLICIES[policy]
+        assert model == "opus", f"{policy} selects {model}, not the Opus 5 default"
+        assert (model, effort) not in SUPPLIED_CLAUDE_POINTS, f"{policy} claims a benchmark point Opus 5 does not have"
+        assert order.index(effort) > previous, f"{policy} breaks the start-low effort ordering"
+        previous = order.index(effort)
 
 
-def test_fable_max_dominated_by_xhigh():
-    """fable[max] same Pass@1 as fable[xhigh] at higher cost — manual-only."""
+def test_fable_max_still_costs_more_than_fable_xhigh():
+    """Recorded prior measurement: fable[max] matches fable[xhigh] Pass@1 at higher cost."""
     fmax = SUPPLIED_CLAUDE_POINTS[("fable", "max")]
     fxhigh = SUPPLIED_CLAUDE_POINTS[("fable", "xhigh")]
     assert fmax[0] == fxhigh[0], "precondition: same Pass@1"
     assert fmax[1] > fxhigh[1], "precondition: max costs more"
+
+
+def test_opus_max_requires_manual_override():
+    """The unmeasured top tier stays an explicit escalation."""
     with pytest.raises(bd.InputError, match="manual_model_override"):
-        bd.build_marker(_decision(model="fable", model_effort="max"))
+        bd.build_marker(_decision(model="opus", model_effort="max"))
 
 
-def test_opus_dominated_by_fable():
-    """opus[max] 59% vs fable[low] 60% — every opus point is dominated."""
-    fable_low = SUPPLIED_CLAUDE_POINTS[("fable", "low")]
-    opus_max = SUPPLIED_CLAUDE_POINTS[("opus", "max")]
-    assert _dominates(fable_low, opus_max), "precondition: fable[low] dominates opus[max]"
+def test_prior_measurements_retained_for_manual_picks():
+    """Historical Fable-5 / Opus-4.8 / Sonnet-5 points stay recorded, not deleted."""
+    assert SUPPLIED_CLAUDE_POINTS[("fable", "low")] == (60, 3.76, 25_000, 38)
+    assert SUPPLIED_CLAUDE_POINTS[("opus-4.8", "max")] == (59, 13.22, 135_000, 120)
+    assert SUPPLIED_CLAUDE_POINTS[("sonnet", "high")] == (48, 7.43, 87_000, 147)
 
 
-def test_sonnet_dominated_by_opus():
-    """sonnet-5 is dominated by opus at comparable tiers."""
-    opus_low = SUPPLIED_CLAUDE_POINTS[("opus", "low")]
-    sonnet_high = SUPPLIED_CLAUDE_POINTS[("sonnet", "high")]
-    # opus[low] 41/$2.29 vs sonnet[high] 48/$7.43 — opus loses on Pass@1 but
-    # the entire sonnet range is dominated by fable, making it manual-only.
-    assert sonnet_high[1] > opus_low[1], "precondition: sonnet[high] costs more than opus[low]"
-
-
-@pytest.mark.parametrize("model", ("opus", "sonnet"))
-def test_dominated_claude_models_require_manual_override(model):
-    """opus and sonnet are dominated by fable — manual-only."""
+@pytest.mark.parametrize("model", ("fable", "sonnet"))
+def test_off_policy_claude_models_require_manual_override(model):
+    """Opus 5 is the default; fable and sonnet are the manual-only picks."""
     with pytest.raises(bd.InputError, match="manual_model_override"):
         bd.build_marker(_decision(model=model))
     # With manual_override they work fine
@@ -634,11 +631,11 @@ def test_dominated_claude_models_require_manual_override(model):
 
 
 def test_claude_model_effort_round_trip():
-    """Claude model@effort (fable@high) parses and persists in the marker."""
-    marker = bd.build_marker(_decision(model="fable", model_effort="high"))
-    assert "model=fable" in marker
+    """Claude model@effort (opus@high) parses and persists in the marker."""
+    marker = bd.build_marker(_decision(model="opus", model_effort="high"))
+    assert "model=opus" in marker
     assert "effort=high" in marker
-    assert recorder.parse_model(marker) == "fable"
+    assert recorder.parse_model(marker) == "opus"
     assert recorder.parse_model_effort(marker) == "high"
 
 
@@ -646,8 +643,8 @@ def test_provider_absent_defaults_to_anthropic():
     """Missing provider field defaults to 'anthropic' (Claude Code is primary)."""
     decision = _decision(model=None, model_policy="standard")
     marker = bd.build_marker(decision)
-    # Should resolve via Anthropic table: fable/medium
-    assert "model=fable" in marker
+    # Should resolve via Anthropic table: opus/medium
+    assert "model=opus" in marker
     assert "effort=medium" in marker
 
 

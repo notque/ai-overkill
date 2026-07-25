@@ -23,7 +23,7 @@ routing:
 
 Run a benchmark-selected GPT-5.6 task through the Codex CLI (`codex exec`) and return the result. This is the OpenAI execution lane — the general-purpose lane for work the model-selection policy sends to GPT-5.6, and the **canonical owner of general `codex exec` mechanics** — when the CLI changes, update here first. GPT selections are reachable only through this CLI; the Agent tool's `model` parameter covers Claude models only.
 
-**Under Claude Code, this skill runs only on explicit invocation or cross-provider escalation, never as the automatic default.** The harness-native model lane under Claude Code is the Anthropic lane (fable). This skill is a deliberate cross-provider tool — codex review as a second-opinion, codex exec for a GPT-specific constraint — not a routing default.
+**Under Claude Code, this skill runs only on explicit invocation or cross-provider escalation, never as the automatic default.** The harness-native model lane under Claude Code is the Anthropic lane (Opus 5). This skill is a deliberate cross-provider tool — codex review as a second-opinion, codex exec for a GPT-specific constraint — not a routing default.
 
 Two flows keep their own specialized codex integration — route to them instead of re-implementing here:
 

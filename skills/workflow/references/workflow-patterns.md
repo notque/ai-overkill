@@ -57,4 +57,4 @@ When a workflow reads untrusted/public content, isolate the reader from privileg
 
 ## Model-Routing Classifier
 
-For mixed-difficulty batches, dispatch a classifier agent that researches each task, then routes it: scripts for deterministic work, harness-native low-risk readers (fable/low under Claude Code, terra/high under Codex CLI), and harness-native high-risk for synthesis. Cross-provider dispatch is manual-only. The canonical model-selection table in `/do` defines exceptions, escalation targets, and the start-low-escalate-on-miss discipline.
+For mixed-difficulty batches, dispatch a classifier agent that researches each task, then routes it: scripts for deterministic work, harness-native low-risk readers (opus/low under Claude Code, terra/high under Codex CLI), and harness-native high-risk for synthesis. Cross-provider dispatch is manual-only. The canonical model-selection table in `/do` defines exceptions, escalation targets, and the start-low-escalate-on-miss discipline.
