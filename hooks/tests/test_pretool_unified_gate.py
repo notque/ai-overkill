@@ -615,18 +615,32 @@ class TestCheckSensitiveFile:
         payload = _make_write_event("/project/.env.template")
         assert _run_main(payload) == 0
 
-    def test_testdata_exception_allowed(self):
-        """Files under /testdata/ are excepted."""
-        payload = _make_write_event("/project/testdata/credentials.json")
+    # Directory exceptions are scoped to the repo worktree (audit S4): a
+    # "this is test data" claim is only meaningful about the project's own
+    # tree. Matched anywhere, `/fixtures/` excused a real credential file
+    # sitting in the home directory.
+
+    def test_testdata_exception_allowed_inside_repo(self):
+        """Files under an in-repo /testdata/ are excepted."""
+        payload = _make_write_event(str(Path.cwd() / "testdata" / "credentials.json"))
         assert _run_main(payload) == 0
 
-    def test_fixtures_exception_allowed(self):
-        payload = _make_write_event("/project/fixtures/credentials.json")
+    def test_fixtures_exception_allowed_inside_repo(self):
+        payload = _make_write_event(str(Path.cwd() / "fixtures" / "credentials.json"))
         assert _run_main(payload) == 0
 
-    def test_dunder_fixtures_exception_allowed(self):
-        payload = _make_write_event("/project/__fixtures__/credentials.json")
+    def test_dunder_fixtures_exception_allowed_inside_repo(self):
+        payload = _make_write_event(str(Path.cwd() / "__fixtures__" / "credentials.json"))
         assert _run_main(payload) == 0
+
+    def test_fixtures_exception_denied_outside_repo(self):
+        """`/fixtures/` outside the worktree is not a test-data claim."""
+        payload = _make_write_event("/home/feedgen/fixtures/.env")
+        assert _run_main(payload) == 2
+
+    def test_testdata_exception_denied_outside_repo(self):
+        payload = _make_write_event("/home/feedgen/testdata/credentials.json")
+        assert _run_main(payload) == 2
 
     def test_bypass_allows_sensitive(self):
         """SENSITIVE_FILE_GUARD_BYPASS=1 allows writes to sensitive files."""
