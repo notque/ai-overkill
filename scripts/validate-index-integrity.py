@@ -8,9 +8,12 @@ Checks:
      deployed symlink root (~/.claude/skills/) or the private-skills directory.
   2. All agent ``file`` fields in agents/INDEX.json point to existing files
      (paths resolved relative to the repo root).
-  3. No skill or agent has fewer than 5 triggers (warn) or 0 triggers (error).
-  4. No triggers are duplicated within a single entry.
-  5. No triggers are duplicated across entries (cross-entry overlap warning).
+  3. Every routable SKILL.md on disk has an INDEX entry (the reverse of check
+     1). Skills carrying ``promoted_to`` are excluded — those are husks the
+     generator skips on purpose so a folded skill cannot shadow its umbrella.
+  4. No skill or agent has fewer than 5 triggers (warn) or 0 triggers (error).
+  5. No triggers are duplicated within a single entry.
+  6. No triggers are duplicated across entries (cross-entry overlap warning).
 
 Note: routing-tables.md coverage check was removed in PR #653 — routing-tables.md was
 absorbed into INDEX.json (PR #626) and check-routing-drift.py now covers this in CI.
@@ -24,6 +27,7 @@ Usage:
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -156,6 +160,46 @@ def check_skill_files(
     return errors, warnings
 
 
+def check_skill_coverage(skills_index: dict, repo_root: Path) -> tuple[list[str], list[str]]:
+    """Check 3: every routable SKILL.md on disk has an INDEX entry.
+
+    Check 1 walks index -> disk and catches entries pointing at files that no
+    longer exist. This walks disk -> index, the direction that catches silent
+    rot: a skill added to skills/ that no generator run ever registered is
+    invisible to the router even though its file is present and healthy.
+
+    Skills carrying ``promoted_to`` are excluded. Those are husks whose content
+    was folded into an umbrella skill; the generator deliberately skips them so
+    a folded skill cannot re-enter routing and shadow the umbrella that
+    replaced it. Excluding them here keeps this check agreeing with the
+    generator instead of demanding entries the generator will never emit.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    indexed = set(skills_index.get("skills", {}))
+    skills_dir = repo_root / "skills"
+
+    for skill_md in sorted(skills_dir.glob("*/*/SKILL.md")):
+        name = skill_md.parent.name
+        if name in indexed:
+            continue
+        try:
+            head = skill_md.read_text(encoding="utf-8")[:2000]
+        except (OSError, UnicodeDecodeError):
+            continue
+        # Husks folded into an umbrella are skipped by the generator by design.
+        if re.search(r"^promoted_to:", head, re.MULTILINE):
+            continue
+        rel = skill_md.relative_to(repo_root)
+        errors.append(
+            f"  [skill not indexed] '{name}': {rel} exists but has no INDEX entry — "
+            f"it is unroutable. Run: python3 scripts/generate-skill-index.py"
+        )
+
+    return errors, warnings
+
+
 def check_agent_files(agents_index: dict, repo_root: Path) -> tuple[list[str], list[str]]:
     """Check 2: every agent file field points to an existing file."""
     errors: list[str] = []
@@ -281,6 +325,7 @@ def main() -> int:
     checks = [
         ("Check 1: skill files on disk", check_skill_files(skills_index, repo_root, overlay_roots)),
         ("Check 2: agent files on disk", check_agent_files(agents_index, repo_root)),
+        ("Check 3: skill index coverage", check_skill_coverage(skills_index, repo_root)),
         ("Check 4a: skill trigger counts", check_trigger_counts(skills_index, "skills")),
         ("Check 4b: agent trigger counts", check_trigger_counts(agents_index, "agents")),
         (
