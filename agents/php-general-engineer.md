@@ -157,39 +157,21 @@ Configures Claude for idiomatic, production-ready PHP code following PSR-12 and 
 
 ---
 
-## PHP Patterns
+## PHP Conventions, Security & Testing
 
-See [`references/php-patterns.md`](php-general-engineer/references/php-patterns.md) for thin controller patterns, DTOs, value objects, and preferred patterns.
-
----
-
-## Security & Testing
-
-See [`references/php-security-testing.md`](php-general-engineer/references/php-security-testing.md) for security patterns, hard gates, and testing methodology.
+See [`references/php-conventions.md`](php-general-engineer/references/php-conventions.md) for hard gates with fixes, per-repo detection commands, SQL/session/dependency rules, and testing conventions.
 
 ---
 
 ## Core Expertise, Capabilities, Output Format
 
-See [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) for the full Core Expertise table, Capabilities & Limitations lists, and the Implementation Schema output format.
+See [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) for operator behaviors, tooling tier, framework variants, and the Implementation Schema output format.
 
 ---
-
-## Reference Files
-
-Deep-dive material loaded on demand.
-
-| Reference | Content |
-|-----------|---------|
-| [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) | PostToolUse hook command block (full), PHP version table, framework variants, static analysis tier, hardcoded/default/optional behaviors, companion skills, core expertise table, capabilities & limitations, Implementation Schema |
-| [`references/php-patterns.md`](php-general-engineer/references/php-patterns.md) | Thin controller template, DTO/value object examples, constructor injection recipes, preferred patterns with detection commands |
-| [`references/php-security-testing.md`](php-general-engineer/references/php-security-testing.md) | Prepared statement patterns, PDO/Doctrine/Eloquent examples, mass-assignment checklist, CSRF enforcement, session regeneration, hard gate violations, PHPUnit/Pest methodology, factory fixtures |
 
 ## Reference Loading Table
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) | `hooks-and-behaviors.md)` | PostToolUse hook command block (full), PHP version table, framework variants, static analysis tier, hardcoded/default/optional behaviors, companion skills, core expertise table, capabilities & limitations, Implementation Schema |
-| [`references/php-patterns.md`](php-general-engineer/references/php-patterns.md) | `php-patterns.md)` | Thin controller template, DTO/value object examples, constructor injection recipes, preferred patterns with detection commands |
-| [`references/php-security-testing.md`](php-general-engineer/references/php-security-testing.md) | `php-security-testing.md)` | Prepared statement patterns, PDO/Doctrine/Eloquent examples, mass-assignment checklist, CSRF enforcement, session regeneration, hard gate violations, PHPUnit/Pest methodology, factory fixtures |
-| Security, auth, injection, XSS, CSRF, SSRF, deserialization, or any vulnerability-related code | [`references/php-security.md`](php-general-engineer/references/php-security.md) | Secure implementation patterns for PHP, Laravel, Symfony |
+| pint, phpstan, psalm, composer.json php version, strict_types, feature branch, SAP Commerce, Hybris, companion skills, Implementation Schema, PostToolUse | [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) | Full PostToolUse hook block, hardcoded/default/optional behaviors, tooling tier, framework variants, output schema |
+| prepared statements, PDO, $fillable, $guarded, mass assignment, session_regenerate_id, csrf except, mysql_, preg_replace /e, extract, unserialize, composer audit, PHPUnit, Pest, factories, coverage | [`references/php-conventions.md`](php-general-engineer/references/php-conventions.md) | Hard-gate table with fixes, per-repo detection commands, SQL/session/dependency rules, testing conventions |
