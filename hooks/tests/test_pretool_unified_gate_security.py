@@ -414,3 +414,148 @@ class TestCompoundCommandToken:
     )
     def test_command_token_resolves_through_compound_syntax(self, segment, expected):
         assert mod._command_token(segment) == expected
+
+
+# ---------------------------------------------------------------------------
+# S3 — public-bind guard
+#
+# Three gaps, all verified ALLOWED before the fix:
+#
+# 1. One newline disabled the whole guard. `_SEGMENT_SPLIT_RE` does not split
+#    on `\n` (heredoc safety), so `_DISPLAY_CMD_RE` saw a leading `echo`/`cat`/
+#    `#` on line 1 and suppressed every later line. Fixed with the same
+#    per-line recursion `_check_sysadmin_segment` already used for this class.
+#
+# 2. Bind-flag scans short-circuited on the FIRST match, but shells honor the
+#    LAST flag, so `--bind 127.0.0.1 --bind 0.0.0.0` (which binds all
+#    interfaces) was allowed. Now the last occurrence decides — matching
+#    `_scan_host_flags`' documented intent in both directions.
+#
+# 3. `serve` was not a known server and `-l` was not a bind flag, so
+#    `npx serve -l tcp://0.0.0.0:3000` — named forbidden by the home
+#    CLAUDE.md — was allowed.
+# ---------------------------------------------------------------------------
+
+NEWLINE_SUPPRESSION_CASES = [
+    # (case_id, command, expected)
+    # -- bypasses closed by this PR --
+    ("echo-then-server", "echo hi\npython3 -m http.server", DENY),
+    ("cat-then-server", "cat README.md\npython3 -m http.server 8080", DENY),
+    ("comment-then-vite", "# note\nvite --host 0.0.0.0", DENY),
+    ("echo-then-uvicorn", "echo starting\nuvicorn app:app --host 0.0.0.0", DENY),
+    ("server-on-third-line", "echo a\necho b\nvite --host 0.0.0.0", DENY),
+    # -- display-command suppression still works within a single line --
+    ("echo-quoting-server", "echo 'python3 -m http.server'", ALLOW),
+    ("cat-alone", "cat README.md", ALLOW),
+    ("echo-then-benign", "echo hi\nls -la", ALLOW),
+    ("comment-then-benign", "# note\necho hi", ALLOW),
+]
+
+
+class TestNewlineDoesNotSuppressPublicBindGuard:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), NEWLINE_SUPPRESSION_CASES)
+    def test_newline_case(self, case_id, command, expected):
+        assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+
+LAST_BIND_FLAG_CASES = [
+    # -- bypasses closed by this PR: public flag LAST wins --
+    ("py-loopback-then-public", "python3 -m http.server --bind 127.0.0.1 --bind 0.0.0.0", DENY),
+    ("http-server-loopback-then-public", "http-server -a 127.0.0.1 -a 0.0.0.0", DENY),
+    ("uvicorn-loopback-then-public", "uvicorn app:app --host 127.0.0.1 --host 0.0.0.0", DENY),
+    # -- the mirror case: loopback LAST genuinely binds loopback --
+    ("py-public-then-loopback", "python3 -m http.server --bind 0.0.0.0 --bind 127.0.0.1", ALLOW),
+    ("http-server-public-then-loopback", "http-server -a 0.0.0.0 -a 127.0.0.1", ALLOW),
+    # -- single-flag behavior unchanged --
+    ("py-public-only", "python3 -m http.server --bind 0.0.0.0", DENY),
+    ("py-loopback-only", "python3 -m http.server --bind 127.0.0.1", ALLOW),
+    ("py-no-flag-blocks-by-default", "python3 -m http.server", DENY),
+    ("http-server-no-flag-blocks-by-default", "http-server", DENY),
+    ("uvicorn-loopback-only", "uvicorn app:app --host 127.0.0.1", ALLOW),
+]
+
+
+class TestLastBindFlagWins:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), LAST_BIND_FLAG_CASES)
+    def test_last_flag_case(self, case_id, command, expected):
+        assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+
+SERVE_CASES = [
+    # -- bypass closed by this PR --
+    ("npx-serve-public", "npx serve -l tcp://0.0.0.0:3000", DENY),
+    ("serve-public", "serve -l tcp://0.0.0.0:3000", DENY),
+    ("serve-public-ipv6", "serve -l tcp://[::]:3000", DENY),
+    ("serve-valueless-host", "serve --host", DENY),
+    # -- loopback serve stays allowed (scheme/port must not read as a host) --
+    ("npx-serve-loopback", "npx serve -l tcp://127.0.0.1:3000", ALLOW),
+    ("serve-loopback", "serve -l tcp://localhost:3000", ALLOW),
+    ("serve-loopback-ipv6", "serve -l tcp://[::1]:3000", ALLOW),
+    # -- `-l` is scoped to the serve command, never scanned globally --
+    ("ls-l-not-a-bind-flag", "ls -l /tmp", ALLOW),
+    ("git-log-l-not-a-bind-flag", "git log -1 --oneline", ALLOW),
+]
+
+
+class TestServeStaticServer:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), SERVE_CASES)
+    def test_serve_case(self, case_id, command, expected):
+        assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+
+class TestHostValueNormalization:
+    @pytest.mark.parametrize(
+        ("value", "expected_public"),
+        [
+            ("tcp://0.0.0.0:3000", True),
+            ("tcp://127.0.0.1:3000", False),
+            ("tcp://localhost:3000", False),
+            ("tcp://[::1]:3000", False),
+            ("tcp://[::]:3000", True),
+            ("0.0.0.0:8080", True),
+            ("127.0.0.1:8080", False),
+            ("0.0.0.0", True),
+            ("127.0.0.1", False),
+            ("::1", False),
+            ("[::]", True),
+            ("localhost", False),
+            ("192.168.1.10", True),
+        ],
+    )
+    def test_host_is_public(self, value, expected_public):
+        assert mod._host_is_public(value) is expected_public
+
+
+class TestQuoteAwareLineSplit:
+    """Per-line recursion must split only on UNQUOTED newlines.
+
+    A newline inside a quoted argument is data. Splitting on it manufactures a
+    fake second command out of the quoted tail (false positive), and a split
+    that returns the segment unchanged would recurse forever.
+    """
+
+    @pytest.mark.parametrize(
+        ("case_id", "command", "expected"),
+        [
+            ("printf-quoted-newline", "printf '%s\n' 'python3 -m http.server'", ALLOW),
+            ("heredoc-body-is-data", "cat <<'EOF'\npython3 -m http.server\nEOF", ALLOW),
+            ("double-quoted-newline", 'echo "line1\npython3 -m http.server"', ALLOW),
+            ("unquoted-newline-still-splits", "echo hi\npython3 -m http.server", DENY),
+            ("quoted-then-unquoted", "echo 'a\nb'\nvite --host 0.0.0.0", DENY),
+        ],
+    )
+    def test_line_split_case(self, case_id, command, expected):
+        assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("a\nb", ["a", "b"]),
+            ("printf '%s\n' x", ["printf '%s\n' x"]),
+            ('echo "a\nb"', ['echo "a\nb"']),
+            ("echo 'a\nb'\nls", ["echo 'a\nb'", "ls"]),
+            ("one line", ["one line"]),
+        ],
+    )
+    def test_unquoted_line_split(self, text, expected):
+        assert mod._unquoted_line_split(text) == expected
