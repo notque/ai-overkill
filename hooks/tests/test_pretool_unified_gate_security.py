@@ -278,3 +278,139 @@ class TestStillBlockingS1:
     def test_still_blocked_without_whitelist(self, case_id, command):
         with patch.object(mod, "_load_guard_whitelist", return_value=[]):
             assert _run_main(_event("Bash", command=command)) == DENY, case_id
+
+
+# ---------------------------------------------------------------------------
+# S2 — destructive-command matching
+#
+# The four `rm -rf` rules were end-anchored on four literal command shapes
+# (`/\s*$`, `~/?(\s|$)`, `\./?(\s|$)`), so any trailing argument, comment,
+# `--` end-of-options, repeated slash, variable home, or bare system dir
+# walked straight through. Replaced by a token walk over each `rm`
+# occurrence's arguments that matches protected TARGETS.
+#
+# The force-push rules hardcoded flag-before-branch order, so
+# `git push origin main --force` and the `+main` force refspec passed.
+# Replaced by an order-independent token walk.
+#
+# `_command_token` did not understand compound syntax, so a command wrapped in
+# a subshell, a brace group, or a conditional/loop body resolved to a
+# non-executable token and dodged every command-anchored guard.
+# ---------------------------------------------------------------------------
+
+RM_TARGET_CASES = [
+    # (case_id, command, expected)
+    # -- bypasses closed by this PR (all verified ALLOW before the fix) --
+    ("no-preserve-root", "rm -rf / --no-preserve-root", DENY),
+    ("trailing-comment", "rm -rf / # cleanup", DENY),
+    ("end-of-options", "rm -rf -- /", DENY),
+    ("double-slash", "rm -rf //", DENY),
+    ("home-var", "rm -rf $HOME", DENY),
+    ("home-var-braced", "rm -rf ${HOME}", DENY),
+    ("project-dir-var", "rm -rf $CLAUDE_PROJECT_DIR", DENY),
+    ("system-dir-etc", "rm -rf /etc", DENY),
+    ("system-dir-usr-trailing-slash", "rm -rf /usr/", DENY),
+    ("system-dir-glob", "rm -rf /var/" + "*", DENY),
+    ("user-home", "rm -rf /home/feedgen", DENY),
+    ("flags-after-target", "rm -r / -f", DENY),
+    # -- must STILL block (verified blocking before the fix) --
+    ("root", "rm -rf /", DENY),
+    ("root-glob", "rm -rf /" + "*", DENY),
+    ("tilde", "rm -rf ~", DENY),
+    ("dot", "rm -rf .", DENY),
+    ("fr-order", "rm -fr /", DENY),
+    ("separate-flags", "rm -r -f /", DENY),
+    ("long-flags", "rm --recursive --force /", DENY),
+    ("xargs", "xargs rm -rf /", DENY),
+    ("env-prefix", "env rm -rf /", DENY),
+    ("command-builtin", "command rm -rf /", DENY),
+    ("backslash-escaped", "\\rm -rf /", DENY),
+    ("absolute-path", "/bin/rm -rf /", DENY),
+    ("inside-sh-c", 'sh -c "rm -rf /"', DENY),
+    ("after-cd-chain", "cd /etc && rm -rf .", DENY),
+    # -- legitimate work must stay allowed (no over-block) --
+    ("relative-build", "rm -rf build", ALLOW),
+    ("nested-relative", "rm -rf ./build/dist", ALLOW),
+    ("node-modules", "rm -rf node_modules", ALLOW),
+    ("under-home", "rm -rf ~/scratch/tmpdir", ALLOW),
+    ("deep-under-user-home", "rm -rf /home/feedgen/vexjoy-agent/tmp", ALLOW),
+    ("deep-under-system-dir", "rm -rf /var/tmp/mycache", ALLOW),
+    ("no-recursive-flag", "rm -f somefile.txt", ALLOW),
+    ("recursive-without-force", "rm -r /", ALLOW),
+    ("later-command-args-not-attached", "rm -rf build; ls /", ALLOW),
+    ("mention-in-echo-arg", "echo 'cleaning build dir'", ALLOW),
+]
+
+
+class TestRmDestructiveTargets:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), RM_TARGET_CASES)
+    def test_rm_case(self, case_id, command, expected):
+        with patch.object(mod, "_load_guard_whitelist", return_value=[]):
+            assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+    def test_full_command_whitelist_entry_still_skips_rule(self):
+        with patch.object(mod, "_load_guard_whitelist", return_value=["rm -rf /etc"]):
+            assert _run_main(_event("Bash", command="rm -rf /etc")) == ALLOW
+
+    def test_substring_whitelist_entry_does_not_disarm(self):
+        with patch.object(mod, "_load_guard_whitelist", return_value=["/etc"]):
+            assert _run_main(_event("Bash", command="rm -rf /etc")) == DENY
+
+
+FORCE_PUSH_CASES = [
+    # -- bypasses closed by this PR --
+    ("flag-after-branch", "git push origin main --force", DENY),
+    ("flag-after-branch-short", "git push origin master -f", DENY),
+    ("plus-refspec", "git push origin +main", DENY),
+    ("plus-refspec-full", "git push origin +refs/heads/master", DENY),
+    # -- must STILL block --
+    ("flag-before-branch", "git push --force origin main", DENY),
+    ("short-flag-before-branch", "git push -f origin master", DENY),
+    # -- legitimate work stays allowed --
+    ("feature-branch-force", "git push --force origin my-feature", ALLOW),
+    ("force-with-lease-main", "git push --force-with-lease origin main", ALLOW),
+]
+
+
+class TestForcePushOrderIndependence:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), FORCE_PUSH_CASES)
+    def test_force_push_case(self, case_id, command, expected):
+        # `git push` also trips the pr-workflow submission gate; assert on the
+        # dangerous-command walk directly so this row tests only force-push logic.
+        got = DENY if mod._force_push_protected(command) else ALLOW
+        assert got == expected, case_id
+
+
+COMPOUND_TOKEN_CASES = [
+    # -- bypasses closed by this PR (all verified ALLOW before the fix) --
+    ("subshell", "(python3 -m http.server)", DENY),
+    ("brace-group", "{ python3 -m http.server; }", DENY),
+    ("if-then", "if true; then python3 -m http.server --bind 0.0.0.0; fi", DENY),
+    ("while-do", "while :; do python3 -m http.server --bind 0.0.0.0; done", DENY),
+    ("stacked-openers", "( { python3 -m http.server; } )", DENY),
+    # -- benign compound commands stay allowed --
+    ("subshell-ls", "(ls -la)", ALLOW),
+    ("brace-group-echo", "{ echo hi; }", ALLOW),
+    ("if-then-echo", "if true; then echo hi; fi", ALLOW),
+    ("while-do-echo", "while :; do echo hi; done", ALLOW),
+]
+
+
+class TestCompoundCommandToken:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), COMPOUND_TOKEN_CASES)
+    def test_compound_case(self, case_id, command, expected):
+        assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+    @pytest.mark.parametrize(
+        ("segment", "expected"),
+        [
+            ("(python3 -m http.server)", "python3"),
+            ("{ python3 -m http.server; }", "python3"),
+            ("then vite --host 0.0.0.0", "vite"),
+            ("do npx serve", "serve"),
+            ("else python3 -m http.server", "python3"),
+            ("ls -la", "ls"),
+        ],
+    )
+    def test_command_token_resolves_through_compound_syntax(self, segment, expected):
+        assert mod._command_token(segment) == expected

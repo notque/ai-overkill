@@ -81,66 +81,19 @@ _GIT_SUBMISSION_PATTERNS = [
 _DANGEROUS_BYPASS_ENV = "DANGEROUS_GUARD_BYPASS"
 
 _DANGEROUS_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
-    # Filesystem destruction — match -r and -f flags in ANY order, including:
-    #   combined short flags: -rf, -fr, -rfi, etc.
-    #   separate short flags: -r -f, -f -r
-    #   long flags: --recursive --force, --recursive -f, -r --force
-    #   mixed: -rf, -r -f, --recursive --force, --recursive -f, -r --force
-    # The pattern uses a lookahead to require both recursive AND force flags
-    # before the dangerous target path.
-    (
-        re.compile(
-            r"\brm\s+"
-            r"(?=.*(?:-[a-zA-Z]*r[a-zA-Z]*\b|--recursive\b))"
-            r"(?=.*(?:-[a-zA-Z]*f[a-zA-Z]*\b|--force\b))"
-            r"(?:(?:-[a-zA-Z]+|--(?:recursive|force|no-preserve-root))\s+)*"
-            r"/\s*$"
-        ),
-        "filesystem",
-        "rm -rf /",
-    ),
-    (
-        re.compile(
-            r"\brm\s+"
-            r"(?=.*(?:-[a-zA-Z]*r[a-zA-Z]*\b|--recursive\b))"
-            r"(?=.*(?:-[a-zA-Z]*f[a-zA-Z]*\b|--force\b))"
-            r"(?:(?:-[a-zA-Z]+|--(?:recursive|force|no-preserve-root))\s+)*"
-            r"/\*"
-        ),
-        "filesystem",
-        "rm -rf /*",
-    ),
-    (
-        re.compile(
-            r"\brm\s+"
-            r"(?=.*(?:-[a-zA-Z]*r[a-zA-Z]*\b|--recursive\b))"
-            r"(?=.*(?:-[a-zA-Z]*f[a-zA-Z]*\b|--force\b))"
-            r"(?:(?:-[a-zA-Z]+|--(?:recursive|force|no-preserve-root))\s+)*"
-            r"~/?(\s|$)"
-        ),
-        "filesystem",
-        "rm -rf ~",
-    ),
-    (
-        re.compile(
-            r"\brm\s+"
-            r"(?=.*(?:-[a-zA-Z]*r[a-zA-Z]*\b|--recursive\b))"
-            r"(?=.*(?:-[a-zA-Z]*f[a-zA-Z]*\b|--force\b))"
-            r"(?:(?:-[a-zA-Z]+|--(?:recursive|force|no-preserve-root))\s+)*"
-            r"\./?(\s|$)"
-        ),
-        "filesystem",
-        "rm -rf .",
-    ),
+    # Filesystem destruction (rm) moved to _rm_destructive_target (audit S2):
+    # the old four regexes matched four literal command shapes and were
+    # end-anchored, so `rm -rf / --no-preserve-root`, `rm -rf / # cleanup`,
+    # `rm -rf -- /`, `rm -rf //`, `rm -rf $HOME`, and `rm -rf /etc` all passed.
     # Database destruction
     (re.compile(r"\bDROP\s+DATABASE\b", re.IGNORECASE), "database", "DROP DATABASE"),
     (re.compile(r"\bDROP\s+SCHEMA\b", re.IGNORECASE), "database", "DROP SCHEMA"),
     (re.compile(r"\bTRUNCATE\s+TABLE\b", re.IGNORECASE), "database", "TRUNCATE TABLE"),
     # Permission escalation
     (re.compile(r"\bchmod\s+(-R\s+)?777\b"), "permissions", "chmod 777"),
-    # Force-push to protected branches
-    (re.compile(r"\bgit\s+push\s+.*--force\s+.*\b(main|master)\b"), "git", "git push --force main/master"),
-    (re.compile(r"\bgit\s+push\s+-f\s+.*\b(main|master)\b"), "git", "git push -f main/master"),
+    # Force-push to protected branches moved to _force_push_protected (audit
+    # S2): the old regexes hardcoded flag-before-branch order, so `git push
+    # origin main --force` and the `+main` force refspec both passed.
     # Container mass-kill
     (re.compile(r"\bdocker\s+system\s+prune\s+-af\b"), "container", "docker system prune -af"),
     (re.compile(r"\bkubectl\s+delete\s+namespace\b"), "container", "kubectl delete namespace"),
@@ -152,6 +105,168 @@ _DANGEROUS_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bterraform\s+destroy\b(?!.*-target)"), "cloud", "terraform destroy (no -target)"),
     (re.compile(r"\baws\s+s3\s+rb\s+.*--force\b"), "cloud", "aws s3 rb --force"),
 ]
+
+# ── rm destructive-target walk (audit S2) ────────────────────────
+#
+# Free-text `rm` locator + per-occurrence token walk over the arguments.
+# Matches protected TARGETS instead of literal command shapes, so trailing
+# arguments (`--no-preserve-root`, `# cleanup`), `--` end-of-options, repeated
+# slashes, variable homes (`$HOME`), and bare system dirs (`/etc`) cannot dodge
+# an end anchor. Deliberately free-text (same posture as the old regexes): it
+# fires inside quoted payloads (`sh -c "rm -rf /"`) and heredoc bodies —
+# over-blocking preferred for destructive commands.
+
+# `rm` as a word anywhere in the text: covers `xargs rm`, `env rm`, `\rm`,
+# `/bin/rm` (the preceding char is a non-word char in all of them).
+_RM_WORD_RE = re.compile(r"\brm(?=\s)")
+
+# Cut an occurrence's argument slice at the first command separator so a later
+# command's arguments never attach to this `rm` (`rm -rf build; ls /` must not
+# see `/`). `#` cuts at a comment; quotes are NOT tracked — a separator inside
+# a quoted filename truncates the slice early, which can only under-collect
+# targets for exotic quoting while keeping every plain form exact.
+_RM_ARGS_STOP_RE = re.compile(r"[;&|\n`)#]")
+
+# Top-level directories whose recursive removal is unrecoverable system damage.
+_TOP_LEVEL_SYSTEM_DIRS = frozenset(
+    {
+        "/bin",
+        "/boot",
+        "/dev",
+        "/etc",
+        "/home",
+        "/lib",
+        "/lib64",
+        "/opt",
+        "/proc",
+        "/root",
+        "/sbin",
+        "/srv",
+        "/sys",
+        "/usr",
+        "/var",
+    }
+)
+
+_HOME_VAR_RE = re.compile(r"^\$(?:HOME|\{HOME\})/?$")
+_PROJECT_VAR_RE = re.compile(r"^\$(?:CLAUDE_PROJECT_DIR|\{CLAUDE_PROJECT_DIR\})/?$")
+
+
+def _protected_rm_target(tok: str) -> str | None:
+    """Description of the protected path `tok` names, or None if unprotected.
+
+    Protected: filesystem root (any slash run, `/*`), bare home (`~`, `$HOME`),
+    the project root variable, current directory (`.`), top-level system dirs
+    (with or without trailing `/` or `/*`), and whole user homes
+    (`/home/NAME`). Deeper paths (`./build`, `~/proj`, `/home/u/proj`) are
+    NOT protected — same allow posture as the old rules.
+    """
+    t = tok.strip("'\"")
+    if not t:
+        return None
+    if set(t) == {"/"}:
+        return "rm -rf / (filesystem root)"
+    if t.startswith("/") and set(t.rstrip("*")) == {"/"} and t.endswith("*"):
+        return "rm -rf /* (filesystem root glob)"
+    if t in {"~", "~/"}:
+        return "rm -rf ~ (home directory)"
+    if t in {".", "./"}:
+        return "rm -rf . (current directory)"
+    if _HOME_VAR_RE.match(t):
+        return "rm -rf $HOME (home directory)"
+    if _PROJECT_VAR_RE.match(t):
+        return "rm -rf $CLAUDE_PROJECT_DIR (project root)"
+    if t.startswith("/"):
+        norm = t.rstrip("/") or "/"
+        if norm.endswith("/*"):  # `/etc/*` empties the dir — same damage
+            norm = norm[:-2] or "/"
+        if norm in _TOP_LEVEL_SYSTEM_DIRS:
+            return f"rm -rf {norm} (top-level system dir)"
+        parts = norm.split("/")
+        if len(parts) == 3 and parts[1] == "home" and parts[2]:
+            return f"rm -rf {norm} (user home directory)"
+    return None
+
+
+def _rm_destructive_target(command: str) -> str | None:
+    """Description if any `rm` occurrence recursively force-removes a
+    protected target, else None.
+
+    Requires a recursive flag (`-r`/`-R`/`--recursive`) plus force
+    (`-f`/`--force`) or `--no-preserve-root` — the flag posture of the old
+    rules (`rm -r /` alone still refuses via coreutils preserve-root and stays
+    allowed). Flags may appear before or after targets; `--` ends flag parsing
+    so `rm -rf -- /` cannot hide the target behind end-of-options.
+    """
+    for m in _RM_WORD_RE.finditer(command):
+        args = command[m.end() :]
+        stop = _RM_ARGS_STOP_RE.search(args)
+        if stop:
+            args = args[: stop.start()]
+        recursive = force = no_preserve = False
+        targets: list[str] = []
+        end_of_flags = False
+        for raw in args.split():
+            tok = raw.strip("'\"")
+            if not tok:
+                continue
+            if not end_of_flags and tok.startswith("-") and len(tok) > 1:
+                if tok == "--":
+                    end_of_flags = True
+                elif tok == "--no-preserve-root":
+                    no_preserve = True
+                elif tok == "--recursive":
+                    recursive = True
+                elif tok == "--force":
+                    force = True
+                elif not tok.startswith("--"):
+                    body = tok[1:]
+                    if "r" in body or "R" in body:
+                        recursive = True
+                    if "f" in body:
+                        force = True
+                continue
+            targets.append(tok)
+        if not (recursive and (force or no_preserve)):
+            continue
+        for tok in targets:
+            desc = _protected_rm_target(tok)
+            if desc:
+                return desc
+    return None
+
+
+# ── force-push walk (audit S2) ───────────────────────────────────
+
+_GIT_PUSH_WORD_RE = re.compile(r"\bgit\s+push\b")
+_PROTECTED_REF_RE = re.compile(r"\b(?:main|master)\b")
+
+
+def _force_push_protected(command: str) -> str | None:
+    """Description if any `git push` occurrence force-pushes main/master,
+    else None.
+
+    Order-independent token walk: `--force`/`-f` anywhere in the push plus a
+    main/master ref anywhere blocks (`git push origin main --force` dodged the
+    old flag-before-branch regexes). A `+ref` refspec IS a force push, so
+    `+main`/`+refs/heads/main` blocks without any flag. `--force-with-lease`
+    stays allowed (safer primitive; old rules never matched it either).
+    """
+    for m in _GIT_PUSH_WORD_RE.finditer(command):
+        args = command[m.end() :]
+        stop = _RM_ARGS_STOP_RE.search(args)
+        if stop:
+            args = args[: stop.start()]
+        toks = [t.strip("'\"") for t in args.split()]
+        force = any(t in {"-f", "--force"} for t in toks)
+        protected_ref = any(_PROTECTED_REF_RE.search(t) for t in toks if not t.startswith("-"))
+        plus_refspec = any(t.startswith("+") and _PROTECTED_REF_RE.search(t) for t in toks)
+        if plus_refspec:
+            return "git push +ref (force refspec) to main/master"
+        if force and protected_ref:
+            return "git push --force main/master"
+    return None
+
 
 # ═══════════════════════════════════════════════════════════════
 # 4. CREATION GATE PATTERNS (pretool-creation-gate.py)
@@ -429,6 +544,34 @@ def _is_executable_token(tok: str) -> bool:
     )
 
 
+# Shell keywords that precede a real command inside a compound statement.
+# Stripped so the command-token walk sees the executable, not the keyword.
+_COMPOUND_KEYWORDS = frozenset({"then", "do", "else", "elif"})
+
+
+def _strip_compound_syntax(seg: str) -> str:
+    """Strip compound-statement syntax wrapping a single command.
+
+    Removes leading subshell/group openers and the keywords that introduce a
+    command inside a conditional or loop body, plus the matching trailing
+    closers. Both ends matter: `(python3 -m http.server)` needs the `(` gone so
+    the command token resolves to `python3`, AND the `)` gone so the `-m` value
+    resolves to `http.server` rather than `http.server)`.
+
+    Loops because openers stack (`( { python3 …`, `then (python3 …`). Only the
+    outer syntax is removed; the command body is left intact for the tokenizer.
+    """
+    for _ in range(8):  # bounded: stacked openers past this depth are not real usage
+        stripped = seg.strip(" \t").lstrip("(){").rstrip(")};")
+        head = stripped.split(None, 1)
+        if head and head[0].lower() in _COMPOUND_KEYWORDS:
+            stripped = head[1] if len(head) > 1 else ""
+        if stripped == seg:
+            return seg
+        seg = stripped
+    return seg
+
+
 def _strip_leading_prefixes(segment: str) -> str:
     """Strip leading env-assignments, transparent wrappers, and exec-runner
     prefixes so the real executable is at the front.
@@ -440,8 +583,16 @@ def _strip_leading_prefixes(segment: str) -> str:
     0.0.0.0`) or an exec-launched server (`npx vite --host 0.0.0.0`) would slip
     past command-token detection. A flag's value is not consumed when it is itself
     an executable name (guards `env -i vite …` against eating `vite`).
+
+    Also strips leading compound-command syntax (audit S2): subshell/group
+    openers `(` `{` and the shell keywords that introduce a command inside a
+    conditional or loop body (`then`, `do`, `else`, `elif`). Without this,
+    `(python3 -m http.server)`, `{ python3 -m http.server; }`, `if true; then
+    … fi`, and `while :; do … done` all resolved to a non-executable token and
+    slipped past every command-anchored guard.
     """
     seg = segment.strip().lstrip("'\"")
+    seg = _strip_compound_syntax(seg)
     # shlex respects quotes so a quoted env value with spaces (`A='x y' vite …`)
     # stays one token; fall back to naive split on a parse error (unbalanced quote).
     try:
@@ -936,6 +1087,18 @@ def check_dangerous_command(command: str) -> None:
 
     # Load whitelist once before scanning rather than on each match.
     whitelist = _load_guard_whitelist()
+
+    # Functional walks (audit S2) share the regex rules' whitelist contract:
+    # a full-command whitelist entry skips the rule, nothing else does.
+    for check, category in ((_rm_destructive_target, "filesystem"), (_force_push_protected, "git")):
+        description = check(command)
+        if description and not _is_whitelisted(command, whitelist):
+            _block(
+                f"[dangerous-command] BLOCKED: {description} ({category})\n"
+                f"[dangerous-command] Command: {command}\n"
+                f"[dangerous-command] To allow: add pattern to .guard-whitelist",
+                reason=f"Dangerous command blocked: {description} (category: {category}). To allow, add a pattern to .guard-whitelist.",
+            )
 
     # Intentionally scans full command including heredoc bodies.
     # Over-blocking preferred for destructive commands.
