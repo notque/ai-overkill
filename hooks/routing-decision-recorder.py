@@ -117,7 +117,6 @@ _VALID_MODELS = frozenset(
     {
         "sonnet",
         "opus",
-        "fable",
         "codex",
         "gpt-5.5",
         "gpt-5.6-sol",

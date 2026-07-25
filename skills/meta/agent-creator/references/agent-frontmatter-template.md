@@ -80,7 +80,7 @@ user_invocable: false
 | `name` | yes | string | lowercase, hyphens, numbers |
 | `description` | yes | quoted string | 60–120 chars; no "Use when:" prefix |
 | `color` | no | string | blue, green, yellow, red, purple, orange |
-| `model` | no | string | sonnet, opus, fable |
+| `model` | no | string | sonnet, opus |
 | `routing.triggers` | yes | list | 3–6 natural-speech phrases |
 | `routing.pairs_with` | no | list | agent names that exist on disk |
 | `routing.complexity` | yes | enum | Low, Medium, High (case-sensitive) |

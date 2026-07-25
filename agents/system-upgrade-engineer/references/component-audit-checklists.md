@@ -33,7 +33,7 @@ For each agent in scope, check these fields in order:
 
 ```bash
 # 1. Check model field is current
-grep "^model:" agents/*.md | grep -v "sonnet\|opus\|fable"
+grep "^model:" agents/*.md | grep -v "sonnet\|opus"
 
 # 2. Check allowed-tools for deprecated tools
 grep -A 10 "allowed-tools:" agents/*.md | grep "deprecated_tool_name"
@@ -207,7 +207,7 @@ Do instead: Scope audit to the component types identified in the Change Manifest
 
 ```bash
 # Agents: stale model name
-grep "^model:" agents/*.md | grep -v "sonnet\|opus\|fable"
+grep "^model:" agents/*.md | grep -v "sonnet\|opus"
 
 # Hooks: syntax errors
 for f in hooks/*.py; do python3 -m py_compile "$f" 2>&1 | grep -v "^$" && echo "ERROR: $f"; done

@@ -124,9 +124,9 @@ VALID_COMPLEXITY = ("trivial", "simple", "medium", "complex")
 GPT_56_MODELS = ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")
 GPT_56_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 LEGACY_GPT_55 = "gpt-5.5"
-VALID_MODELS = ("sonnet", "opus", "fable", "codex", LEGACY_GPT_55, *GPT_56_MODELS)
+VALID_MODELS = ("sonnet", "opus", "codex", LEGACY_GPT_55, *GPT_56_MODELS)
 VALID_PROVIDERS = ("anthropic", "openai", "other")
-ANTHROPIC_MODELS = ("fable", "opus", "sonnet")
+ANTHROPIC_MODELS = ("opus", "sonnet")
 
 # DeepSWE Pass@1 / cost benchmark defaults per provider lane.
 # `deterministic` deliberately has no model: use scripts.
@@ -220,8 +220,8 @@ def resolve_model_selection(decision: dict, provider: str = "anthropic") -> tupl
 
     Harness-aware: ``provider`` selects the automatic policy table.
     Anthropic lane defaults select Opus 5 at every task class (owner
-    directive + current session model); fable and sonnet are manual-only,
-    kept for felt-quality, context-window, and latency constraints.
+    directive + current session model); sonnet is manual-only, kept for
+    cost, context-window, and latency constraints.
     OpenAI lane defaults select GPT-5.6 Sol/Terra.  Effort is recorded in
     the marker for all models; for Claude lanes it is advisory (the harness
     Agent tool does not accept per-call effort).
@@ -286,10 +286,10 @@ def resolve_model_selection(decision: dict, provider: str = "anthropic") -> tupl
             raise InputError("legacy gpt-5.5 requires manual_model_override=true")
         return model, effort
 
-    # Claude models (fable, opus, sonnet) and codex wrapper.
+    # Claude models (opus, sonnet) and codex wrapper.
     # Effort is optional and advisory for Claude lanes — recorded in the
     # marker (model@effort) for telemetry but not passed to the Agent tool.
-    if model in ("fable", "sonnet"):
+    if model == "sonnet":
         if not manual:
             raise InputError(
                 f"'{model}' requires manual_model_override=true "

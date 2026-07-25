@@ -214,7 +214,7 @@ anti-rationalization-core always + verification-checklist (code/debug) + anti-ra
 python3 "$SDIR/build-dispatch.py" --json '{
   "agent": "<agent>", "skill": "<skill; omit when agent-only>",
   "complexity": "<trivial|simple|medium|complex>",
-  "model": "<fable|sonnet|opus|codex|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna>",
+  "model": "<sonnet|opus|codex|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna>",
   "model_policy": "<low-risk|standard|high-risk|max-power>",
   "model_effort": "<low|medium|high|xhigh|max>",
   "provider": "<anthropic|openai|other>",
@@ -238,22 +238,21 @@ python3 "$SDIR/build-dispatch.py" --json '{
 
 **Harness-native routing.** The SDIR probe (Phase 2 pre-route) identifies the harness: `~/.claude` → provider `anthropic`, `~/.codex` → provider `openai`, `~/.hermes`/`.factory`/`.reasonix` → provider `other`. Default when absent: `anthropic` (Claude Code is primary). Each provider lane has its own automatic policy table; cross-provider dispatch is manual-only (explicit tool invocation, never a silent default).
 
-Run deterministic work with scripts, not an LLM. Three decision axes: (1) the current session model — the harness runs Opus 5, and the owner directs Opus 5 as the Anthropic-lane default for every task class. (2) DeepSWE Pass@1 / cost / tokens / steps — agentic task completion rate, the quantitative source for models that have been measured. (3) Owner-observed felt quality — fable > sol (noticeable gap despite similar Pass@1), opus > gpt-5.5 (marginal). Benchmark ties or near-ties resolve in favor of felt quality. Cells: `Pass@1 / cost / output tokens / steps`; cost = avg USD per task, written as a plain number — slash-command templating substitutes dollar-digit positional parameters in this injected body, so a literal dollar sign before a digit corrupts on every argful invocation. Higher Pass@1 better, other three lower-is-better. Opus 5 has no DeepSWE run yet, so its cells read `n/a — not yet benchmarked` and its pts/USD cannot be computed until it is measured; it is selected on the session-model and owner-directive grounds above, not on a benchmark figure.
+Run deterministic work with scripts, not an LLM. Three decision axes: (1) the current session model — the harness runs Opus 5, and the owner directs Opus 5 as the Anthropic-lane default for every task class. (2) DeepSWE Pass@1 / cost / tokens / steps — agentic task completion rate, the quantitative source for models that have been measured. (3) Owner-observed felt quality — opus > gpt-5.5 (marginal). Benchmark ties or near-ties resolve in favor of felt quality. Cells: `Pass@1 / cost / output tokens / steps`; cost = avg USD per task, written as a plain number — slash-command templating substitutes dollar-digit positional parameters in this injected body, so a literal dollar sign before a digit corrupts on every argful invocation. Higher Pass@1 better, other three lower-is-better. Opus 5 has no DeepSWE run yet, so its cells read `n/a — not yet benchmarked` and its pts/USD cannot be computed until it is measured; it is selected on the session-model and owner-directive grounds above, not on a benchmark figure.
 
 **Start low, escalate on miss.** Task-class tables are ceilings by risk class, not starting points. Default = lowest tier whose risk class matches; escalate one tier only when output misses the acceptance bar. High tiers cost 3-6x per Pass@1 point where measured (see the OpenAI lane's pts/$ column; the Anthropic lane's is pending an Opus 5 benchmark) — pre-paying for xhigh/max "to be safe" wastes the 200 USD/month plan budget. Fan-out rule: parallel readers use the lane's low-risk point; one synthesis agent may run one tier higher. User-facing output (docs, prose, reviews the owner reads, design) leans opus one tier up from the task class; bulk/mechanical/parse-heavy work is where the OpenAI lane's cheaper points earn their keep (under Codex harness or explicit cross-provider call).
 
 **Anthropic lane** (automatic under Claude Code). Effort is advisory — recorded in marker as model@effort for telemetry; the Agent tool has no per-call effort parameter.
 
-Current default: **Opus 5** (`opus`) at every task class. It is the model this session runs and the owner's directed default; it replaced fable across the lane on 2026-07-24.
+Current default: **Opus 5** (`opus`) at every task class. It is the model this session runs and the owner's directed default, adopted across the lane on 2026-07-24.
 
 | Variant | max | xhigh | high | medium | low |
 |---|---|---|---|---|---|
 | Opus-5 (current default, unmeasured) | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked |
-| Fable-5 (prior measurement) | 70 / 21.63 / 119k / 88 | 70 / 13.41 / 80k / 68 | 69 / 9.18 / 57k / 59 | 65 / 6.09 / 40k / 48 | 60 / 3.76 / 25k / 38 |
 | Opus-4.8 (prior measurement) | 59 / 13.22 / 135k / 120 | 54 / 8.01 / 86k / 95 | 52 / 4.28 / 50k / 73 | 49 / 3.44 / 41k / 66 | 41 / 2.29 / 29k / 54 |
 | Sonnet-5 (prior measurement) | 54 / 26.40 / 214k / 268 | 50 / 11.89 / 121k / 186 | 48 / 7.43 / 87k / 147 | 40 / 4.08 / 57k / 108 | 31 / 2.19 / 36k / 77 |
 
-The Fable-5 / Opus-4.8 / Sonnet-5 rows are recorded DeepSWE measurements from the 2026-07-09 policy, kept as history for manual picks. Opus 5 has no DeepSWE run, so every cell reads `n/a — not yet benchmarked` and its pts/USD stays uncomputable until it is measured.
+The Opus-4.8 and Sonnet-5 rows are recorded DeepSWE measurements from the 2026-07-09 policy, kept as history for manual picks. Opus 5 has no DeepSWE run, so every cell reads `n/a — not yet benchmarked` and its pts/USD stays uncomputable until it is measured.
 
 | Task class | Selection | pts/$ | Why |
 |---|---|---|---|
@@ -263,7 +262,7 @@ The Fable-5 / Opus-4.8 / Sonnet-5 rows are recorded DeepSWE measurements from th
 | high-risk | `opus` / `high` | n/a | Current session model, owner-directed default; high effort for risk-bearing work. |
 | max-power | `opus` / `xhigh` | n/a | Current session model, owner-directed default; `manual_model_override=true`; state justification in task_spec intent. |
 
-Effort selection still follows **start low, escalate on miss** — the effort column is a ceiling by risk class, and a miss against the acceptance bar is what buys the next tier. Opus 5 at `max` stays manual-only pending measurement. Fable-5, Sonnet-5, and Opus-4.8 points are now the manual-only ones: they need `manual_model_override=true` plus `model_effort`, and stay available for felt-quality escalation (fable), context-window, latency, and fan-out breadth constraints the benchmark does not measure. Haiku is retired.
+Effort selection still follows **start low, escalate on miss** — the effort column is a ceiling by risk class, and a miss against the acceptance bar is what buys the next tier. Opus 5 at `max` stays manual-only pending measurement. Sonnet-5 and Opus-4.8 points are the manual-only ones: they need `manual_model_override=true` plus `model_effort`, and stay available for cost, latency, context-window, and fan-out breadth constraints the benchmark does not measure. Haiku is retired.
 
 **OpenAI lane** (automatic under Codex CLI).
 
@@ -286,7 +285,7 @@ All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, 
 
 **Other harnesses** (provider=`other`): `model_policy` is unavailable — choose the highest non-dominated Pass@1 point among models the harness exposes, applying the same start-low-escalate-on-miss discipline. Set model explicitly.
 
-**Cross-provider escalation** — manual only, never automatic. Escalating anthropic → sol is a cost/limits lever or independent-second-opinion lever, not a quality upgrade. Under Claude Code, codex-wrapper dispatches (`codex` skill, pr-workflow codex second-opinion review) remain valid as EXPLICIT tools — deliberate cross-provider calls, not defaults. Escalation targets: anthropic max-power miss → sol/xhigh or sol/max (second opinion, cheaper per point); openai max-power miss → opus/xhigh (the Anthropic-lane default), or fable/xhigh as a manual felt-quality pick. Manual-pick ordering among legacy/manual points: fable above opus-4.8 above gpt-5.5 where they otherwise tie.
+**Cross-provider escalation** — manual only, never automatic. Escalating anthropic → sol is a cost/limits lever or independent-second-opinion lever, not a quality upgrade. Under Claude Code, codex-wrapper dispatches (`codex` skill, pr-workflow codex second-opinion review) remain valid as EXPLICIT tools — deliberate cross-provider calls, not defaults. Escalation targets: anthropic max-power miss → sol/xhigh or sol/max (second opinion, cheaper per point); openai max-power miss → opus/xhigh (the Anthropic-lane default). Manual-pick ordering among legacy/manual points: opus-4.8 above gpt-5.5 where they otherwise tie.
 
 **Coordinator model.** The main-thread coordinator routes and evaluates but never executes; its cost is input-dominated (largest context, short outputs), and DeepSWE Pass@1 measures execution it never does. Picks: anthropic harness → `opus` (Opus 5, the session model — it replaces the prior sonnet pick); openai harness → `gpt-5.6-terra`/`high`. Safe because deterministic scripts (pre-route, manifest, build-dispatch, health weights) absorb routing complexity and the learning loop bounds misroute cost. Downgrade the anthropic coordinator to `sonnet` only as a deliberate plan-limit measure. Session model is set via harness config (`/model`), not per-turn.
 

@@ -52,14 +52,14 @@ def test_do_skill_is_exempt(tmp_path: Path) -> None:
     assert violations == []
 
 
-def test_sonnet_opus_and_fable_are_allowed(tmp_path: Path) -> None:
+def test_sonnet_and_opus_are_allowed(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     agents_dir = repo / "agents"
     agents_dir.mkdir(parents=True)
     (agents_dir / "demo-agent.md").write_text("---\nmodel: opus\n---\n", encoding="utf-8")
     skill_dir = repo / "skills" / "demo-skill"
     skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text("---\nmodel: fable\n---\n", encoding="utf-8")
+    (skill_dir / "SKILL.md").write_text("---\nmodel: sonnet\n---\n", encoding="utf-8")
     workflow_dir = repo / "skills" / "workflow" / "references"
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "demo-pipeline.md").write_text("---\nmodel: sonnet\n---\n", encoding="utf-8")
