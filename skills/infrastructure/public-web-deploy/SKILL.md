@@ -35,7 +35,7 @@ routing:
   pairs_with:
     - shell-process-patterns
     - service-health-check
-    - kubernetes-security
+    - kubernetes
 ---
 
 # Public Web Deploy Skill

@@ -55,7 +55,7 @@ Start, supervise, and terminate shell processes safely -- background jobs, subsh
 - Cron scripts and scheduled job reliability (owned by `cron-job-auditor`).
 - Polling, retry, backoff, health-check loops (owned by `condition-based-waiting`).
 - Service health reporting (owned by `service-health-check`).
-- Fish shell configuration (owned by `fish-shell-config`).
+- Fish shell configuration (owned by `shell-config`).
 - Shell language features unrelated to process lifecycle -- parameter expansion, arrays, etc.
 
 ## Reference Loading Table

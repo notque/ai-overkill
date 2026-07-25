@@ -98,8 +98,8 @@ No fit→null→general-purpose. Never skill→agent. FORCE skills: skill slot o
 FORCE-ROUTE — select when domain matches SEMANTICALLY (meaning, not words):
 - "push my changes" → pr-workflow (FORCE) ✓ (git push)
 - "push back on this design" → NOT pr-workflow (resist/argue)
-- "configure my fish shell" → fish-shell-config (FORCE) ✓
-- "fish for bugs" → NOT fish-shell-config (search for bugs)
+- "configure my fish shell" → shell-config (FORCE) ✓
+- "fish for bugs" → NOT shell-config (search for bugs)
 - "quick fix to the login page" → quick (FORCE) ✓
 - "quick overview of the architecture" → NOT quick (exploration)
 

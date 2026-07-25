@@ -244,6 +244,7 @@ grep -n '^autoload ' ~/.zshrc 2>/dev/null | grep -v '\-U'
 | `compinit: insecure directories` | World/group-writable fpath entries | `compaudit`; `chmod go-w /path`; or `compinit -u` |
 | `add-zsh-hook: command not found` | `autoload -Uz add-zsh-hook` not called | Add `autoload -Uz add-zsh-hook` before hook calls |
 | `~/.zcompdump` outdated | Stale cache after adding new completions | `rm ~/.zcompdump && compinit` |
+| `zsh -n` reports syntax error in valid-looking code | `EXTENDED_GLOB` patterns like `^` or `#` in unquoted strings parsed as glob operators | Quote strings containing these characters; `setopt NO_EXTENDED_GLOB` temporarily to isolate |
 
 ---
 

@@ -104,11 +104,11 @@ Source: `hooks/sapcc-go-detector.py`.
 Meaning: A SAP Commerce Cloud Go project was detected in the current directory.
 Action: Apply SAP CC Go conventions for the session. The `go-patterns` and `sapcc-review` skills are in scope.
 
-### `[fish-shell] Detected Fish shell user` plus `[auto-skill] fish-shell-config`
+### `[fish-shell] Detected Fish shell user` plus `[auto-skill] shell-config`
 
 Source: `hooks/fish-shell-detector.py`.
 Meaning: The user runs Fish as their interactive shell.
-Action: When the user asks for shell config edits, prefer Fish syntax (`set -gx`, `function`, `~/.config/fish/config.fish`) over Bash/Zsh idioms. The `fish-shell-config` skill carries the full reference.
+Action: When the user asks for shell config edits, prefer Fish syntax (`set -gx`, `function`, `~/.config/fish/config.fish`) over Bash/Zsh idioms. The `shell-config` skill carries the full reference.
 
 ### `[adr-health-check] Active ADR session` plus `domain` and `adr` path
 

@@ -32,7 +32,7 @@ Task completes: TaskCompleted
 |------|-------------|
 | `afk-mode` | Injects autonomous behavioral posture for unattended sessions (SSH, tmux, or `CLAUDE_AFK_MODE=always`). See [AFK Mode docs](afk-mode/README.md) |
 | `cross-repo-agents` | Discovers local `.claude/agents/` in the working directory and injects them for `/do` routing |
-| `fish-shell-detector` | Detects Fish shell users and injects the `fish-shell-config` skill |
+| `fish-shell-detector` | Detects Fish shell users and injects the `shell-config` skill |
 | `hook-version-parity-check` | Warn-only: compares deployed `~/.claude/hooks/*.py` hook-version headers against the repo checkout; on drift names the hooks and the sync command |
 | `session-github-briefing` | Injects GitHub monitoring briefing into session context (opt-in: `CLAUDE_KAIROS_ENABLED=true`) |
 | `operator-context-detector` | Detects operator context (personal/work/ci/production) and injects behavioral profile |

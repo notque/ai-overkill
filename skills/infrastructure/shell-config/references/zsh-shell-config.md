@@ -7,10 +7,10 @@ Zsh is POSIX-compatible with powerful extensions. Every pattern here targets Zsh
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| migrations, bash syntax, POSIX shell | `bash-migration.md` | Bash→Zsh syntax translation table with code blocks for each pattern |
+| migrations, bash syntax, POSIX shell | `zsh-bash-migration.md` | Bash→Zsh syntax translation table with code blocks for each pattern |
 | parameter expansion, scoping, special vars, fpath | `zsh-quick-reference.md` | Variable flags, expansion flags `${(f)}` `${(s)}` `${(j)}`, special variables |
 | implementation patterns, failure modes, detection commands | `zsh-preferred-patterns.md` | Pattern catalog with grep detection and error-fix mappings |
-| Go, Rust, Node, Python, starship, direnv, fzf, zoxide, mise | `tool-integrations.md` | Concrete zsh integration patterns for common dev tools |
+| Go, Rust, Node, Python, starship, direnv, fzf, zoxide, mise | `zsh-tool-integrations.md` | Concrete zsh integration patterns for common dev tools |
 
 ## Step 1: Confirm Zsh Context
 
@@ -20,7 +20,7 @@ Before writing any shell code, confirm the target is Zsh:
 - Target file has `.zsh` extension, or
 - Target file is one of: `.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`
 
-If none hold, this skill does not apply — route to fish-shell-config or bash.
+If none hold, this skill does not apply — load fish-shell-config.md instead, or stop for bash.
 
 ## Step 2: Choose the Correct RC File
 
@@ -299,12 +299,12 @@ zsh -i -c 'zmodload zsh/zprof; compinit; zprof' 2>&1 | head -20
 
 | Task Signal | Load | Why |
 |-------------|------|-----|
-| Migrating from Bash, converting `.bashrc`, `export VAR=`, `[[ ]]`, arrays, heredocs | `bash-migration.md` | Full Bash→Zsh syntax translation table |
+| Migrating from Bash, converting `.bashrc`, `export VAR=`, `[[ ]]`, arrays, heredocs | `zsh-bash-migration.md` | Full Bash→Zsh syntax translation table |
 | Variable scoping, `typeset` flags, `${(f)}` `${(s:,:)}` expansion, `$REPLY`, `$MATCH` | `zsh-quick-reference.md` | Parameter expansion flags, special variables, control flow cheatsheet |
 | Error audit, PATH not persisting, completions slow, glob errors, hook not firing | `zsh-preferred-patterns.md` | Failure modes with grep detection commands and error-fix mappings |
-| Go, Rust, Docker, Node.js, Python, pyenv, fnm, starship, direnv, fzf, zoxide, mise | `tool-integrations.md` | Concrete integration patterns for common dev tools |
+| Go, Rust, Docker, Node.js, Python, pyenv, fnm, starship, direnv, fzf, zoxide, mise | `zsh-tool-integrations.md` | Concrete integration patterns for common dev tools |
 
-- `${CLAUDE_SKILL_DIR}/references/bash-migration.md`: Complete Bash-to-Zsh syntax translation table
+- `${CLAUDE_SKILL_DIR}/references/zsh-bash-migration.md`: Complete Bash-to-Zsh syntax translation table
 - `${CLAUDE_SKILL_DIR}/references/zsh-quick-reference.md`: Variable scoping, parameter expansion flags, and special variables
 - `${CLAUDE_SKILL_DIR}/references/zsh-preferred-patterns.md`: Failure mode catalog with grep detection commands and error-fix mappings
-- `${CLAUDE_SKILL_DIR}/references/tool-integrations.md`: Concrete integration patterns for Go, Rust, Docker, Node.js, Python, and shell enhancers
+- `${CLAUDE_SKILL_DIR}/references/zsh-tool-integrations.md`: Concrete integration patterns for Go, Rust, Docker, Node.js, Python, and shell enhancers
