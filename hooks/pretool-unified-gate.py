@@ -773,6 +773,10 @@ _SERVER_SHORT_FLAGS: dict[str, re.Pattern[str]] = {
     "http-server": _short_flag_re("a"),
     "gunicorn": _short_flag_re("b"),
     "flask": _short_flag_re("h"),  # `flask run -h <host>` is short for --host
+    # `serve -l <listen>` takes `tcp://HOST:PORT`, a bare port, or a unix socket
+    # (audit S3). Scoped to the `serve` command token, never scanned globally:
+    # `-l` is far too common an unrelated flag (`ls -l`) to put in _HOST_FLAG_RE.
+    "serve": _short_flag_re("l"),
 }
 
 # php -S <host>:<port>  (built-in PHP dev server; binds exactly the given host).
@@ -798,6 +802,10 @@ _JS_DEV_SERVERS = frozenset(
         "remix",
         "svelte-kit",
         "vue-cli-service",
+        # `serve` (the npm static-file server). The home CLAUDE.md names
+        # `npx serve -l tcp://0.0.0.0` as forbidden by default, but the command
+        # was not recognized as a server at all, so it was ALLOWED (audit S3).
+        "serve",
     }
 )
 
@@ -806,6 +814,31 @@ _JS_DEV_SERVERS = frozenset(
 # -b short flag). Recognized either as their own console-script command token or
 # via `python -m <module>`, resolved by the token-anchored _python_m_module.
 _PY_WEB_SERVERS = frozenset({"flask", "uvicorn", "gunicorn"})
+
+
+# A `scheme://` prefix on a bind value (`serve -l tcp://0.0.0.0:3000`).
+_HOST_SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*://")
+# A trailing `:port` on an unbracketed host (`0.0.0.0:3000`). Not applied to a
+# bare IPv6 address (`::`, `fe80::1`), which is why bracketing is required for
+# IPv6-with-port and why a multi-colon value is left alone.
+_HOST_PORT_RE = re.compile(r"^([^:]+):\d+$")
+
+
+def _normalize_host_value(low: str) -> str:
+    """Reduce a bind value to its bare host: drop `scheme://` and `:port`.
+
+    Without this, `serve -l tcp://127.0.0.1:3000` reads as a non-loopback host
+    and over-blocks, while the loopback checks below only ever saw bare
+    addresses. `[::]:8080` keeps its brackets so the IPv6 wildcard still matches.
+    """
+    low = _HOST_SCHEME_RE.sub("", low)
+    if low.startswith("["):  # `[::1]:8080` → `[::1]`
+        end = low.find("]")
+        if end != -1:
+            return low[: end + 1]
+        return low
+    m = _HOST_PORT_RE.match(low)
+    return m.group(1) if m else low
 
 
 def _host_is_public(host: str) -> bool:
@@ -821,7 +854,7 @@ def _host_is_public(host: str) -> bool:
         return True  # flag present with no usable value — fail safe (block)
     if h.startswith("-"):
         return False  # captured token is a flag, not a host address
-    low = h.lower()
+    low = _normalize_host_value(h.lower())
     if low in _LOCAL_HOSTS:
         return False
     if low.startswith("127."):  # IPv4 loopback range (127.x)
@@ -1562,15 +1595,22 @@ def _scan_host_flags(seg: str, short_re: re.Pattern[str] | None = None) -> bool:
 
     Always scans long flags (--bind/--host/--listen/--address). Additionally
     scans `short_re` (the specific short bind flag this server uses) when given.
+
+    LAST flag wins (audit S3). Every one of these servers takes the final
+    occurrence when a bind flag is repeated, so `--bind 127.0.0.1 --bind
+    0.0.0.0` binds ALL interfaces. Scanning for any public match would be
+    right there but wrong in reverse; short-circuiting on the first match was
+    wrong in exactly the dangerous direction (that command was ALLOWED). Both
+    flag families are collected and ordered by position so the decision
+    reflects what the server will actually do.
     """
-    for m in _HOST_FLAG_RE.finditer(seg):
-        if _host_is_public(m.group(1)):
-            return True
+    matches = list(_HOST_FLAG_RE.finditer(seg))
     if short_re is not None:
-        for m in short_re.finditer(seg):
-            if _host_is_public(m.group(1)):
-                return True
-    return False
+        matches += list(short_re.finditer(seg))
+    if not matches:
+        return False
+    last = max(matches, key=lambda m: m.start())
+    return _host_is_public(last.group(1))
 
 
 def _check_public_dev_server_segment(segment: str, _depth: int = 0) -> None:
@@ -1580,6 +1620,24 @@ def _check_public_dev_server_segment(segment: str, _depth: int = 0) -> None:
         return
     if _depth > 4:  # death-loop guard for pathological nesting (fail open: stop)
         return
+
+    # Multiline input (audit S3): a newline separates shell commands, but
+    # `_SEGMENT_SPLIT_RE` deliberately does NOT split on it (heredoc/quoted-
+    # multiline safety, #719). So the display-command suppression below saw a
+    # leading `echo`/`cat`/`#` on line 1 and silently discarded every later
+    # line — one newline disabled this entire guard (`echo hi\npython3 -m
+    # http.server` was ALLOWED). Scan each NON-heredoc line independently.
+    # This mirrors the identical fix already applied in
+    # `_check_sysadmin_segment` for the codex round-9 bypass.
+    if "\n" in seg:
+        lines = [ln for ln in _non_heredoc_lines(seg) if ln.strip()]
+        # Only recurse when the split actually produced something different.
+        # A newline that lives entirely inside a quoted argument yields the
+        # segment back unchanged, and recursing on it would never terminate.
+        if lines != [seg]:
+            for line in lines:
+                _check_public_dev_server_segment(line, _depth + 1)
+            return
 
     # MEDIUM-1: evaluate command-substitution bodies ($(...), `...`, <(...))
     # independently FIRST. A display command (echo/grep/…) suppresses its OWN
@@ -1623,7 +1681,11 @@ def _check_public_dev_server_segment(segment: str, _depth: int = 0) -> None:
     # python http.server: block by default unless an explicit loopback --bind.
     # Only fires when the COMMAND is a python interpreter running `-m http.server`.
     if py_module in _PY_HTTP_SERVER_MODULES:
-        m = _PY_BIND_RE.search(seg)
+        # LAST `--bind` wins (audit S3): `--bind 127.0.0.1 --bind 0.0.0.0`
+        # binds all interfaces, but a first-match `.search()` saw the loopback
+        # and allowed it.
+        found = list(_PY_BIND_RE.finditer(seg))
+        m = found[-1] if found else None
         if m is None or _host_is_public(m.group(1)):
             _block_public_server()
         return  # explicit loopback bind → allow
@@ -1664,7 +1726,11 @@ def _check_public_dev_server_segment(segment: str, _depth: int = 0) -> None:
     # `-a` is caught by the short-flag scan below; a bare `http-server` (no `-a`)
     # would otherwise slip through, so it must block here.
     if server == "http-server":
-        m = _SERVER_SHORT_FLAGS["http-server"].search(seg)
+        # LAST `-a` wins (audit S3): `http-server -a 127.0.0.1 -a 0.0.0.0`
+        # binds all interfaces, but a first-match `.search()` saw the loopback
+        # and allowed it.
+        found = list(_SERVER_SHORT_FLAGS["http-server"].finditer(seg))
+        m = found[-1] if found else None
         if m is None or _host_is_public(m.group(1)):
             _block_public_server()
         return  # explicit loopback `-a` → allow
@@ -2277,6 +2343,41 @@ def _strip_unquoted_comment(line: str) -> str:
     return line
 
 
+def _unquoted_line_split(text: str) -> list[str]:
+    """Split `text` on newlines that are NOT inside a quoted string.
+
+    A newline inside a quoted argument is DATA, not a command separator
+    (`printf '%s\\n' 'python3 -m http.server'` is one command). Splitting on it
+    naively manufactures a fake second command out of the quoted tail — a false
+    positive. Only an unquoted newline actually starts a new command.
+    """
+    lines: list[str] = []
+    buf: list[str] = []
+    in_single = in_double = False
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and not in_single and i + 1 < n:
+            buf.append(c)
+            buf.append(text[i + 1])  # escaped char is literal, never a delimiter
+            i += 2
+            continue
+        if c == "'" and not in_double:
+            in_single = not in_single
+        elif c == '"' and not in_single:
+            in_double = not in_double
+        elif c == "\n" and not in_single and not in_double:
+            lines.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    lines.append("".join(buf))
+    return lines
+
+
 def _non_heredoc_lines(text: str) -> list[str]:
     """Split `text` into command lines, dropping heredoc BODY lines.
 
@@ -2284,10 +2385,13 @@ def _non_heredoc_lines(text: str) -> list[str]:
     stdin, not a sequence of commands, so its lines must not be scanned as footguns.
     The line that OPENS the heredoc is kept (it is a real command); body lines up to
     and including the terminator are skipped.
+
+    Lines are split quote-aware (`_unquoted_line_split`) so a newline inside a
+    quoted argument does not manufacture a fake command line.
     """
     out: list[str] = []
     pending_terms: list[str] = []
-    for line in text.split("\n"):
+    for line in _unquoted_line_split(text):
         if pending_terms:
             if line.strip() == pending_terms[-1]:
                 pending_terms.pop()  # heredoc terminator — body ends here
@@ -2337,10 +2441,14 @@ def _check_sysadmin_segment(segment: str) -> None:
     # independently. Heredoc bodies (`cmd <<EOF … EOF`) are skipped so their text is
     # not misread as commands. Only recurse when there is a real extra command line.
     if "\n" in seg:
-        for line in _non_heredoc_lines(seg):
-            if line.strip():
+        lines = [ln for ln in _non_heredoc_lines(seg) if ln.strip()]
+        # `_non_heredoc_lines` is quote-aware, so a newline inside a quoted
+        # argument leaves the segment intact — recursing on that identical
+        # segment would never terminate (this function has no depth guard).
+        if lines != [seg]:
+            for line in lines:
                 _check_sysadmin_segment(line)
-        return
+            return
 
     # Drop a trailing unquoted shell comment: `true # ufw disable` ignores the
     # footgun text, so scanning it produced a false positive (codex #724 round-1).
