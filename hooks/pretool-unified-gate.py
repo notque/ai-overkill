@@ -559,6 +559,39 @@ def _is_executable_token(tok: str) -> bool:
     )
 
 
+# How much of a segment `_command_token` tokenizes to find the executable.
+_COMMAND_TOKEN_HEAD_BYTES = 4096
+
+# Above this command size the per-segment walks are skipped (audit S5).
+#
+# The hook fails OPEN by design: a crash or a harness timeout means the tool
+# runs unguarded. So scan cost is a security property, not just latency — a
+# command large enough to blow the 3000ms budget gets NO deny emitted at all,
+# and every check is silently disabled. This cap bounds the expensive phase so
+# an oversized command degrades to the cheap whole-line patterns instead of
+# degrading to nothing.
+#
+# 64 KB is far above any legitimate command (the largest in this repo's own
+# corpus is under 4 KB) and far below the size where cost approaches the
+# budget. Cheap linear patterns still run at any size; only the per-segment
+# tokenizing walks are skipped, and the skip is announced on stderr so it is
+# visible rather than silent.
+_MAX_SEGMENT_SCAN_BYTES = 64 * 1024
+
+
+def _oversized_for_segment_scan(command: str, check: str) -> bool:
+    """True if `command` is too large for per-segment scanning; warns once."""
+    if len(command) <= _MAX_SEGMENT_SCAN_BYTES:
+        return False
+    print(
+        f"[{check}] ADVISORY: command is {len(command)} bytes (cap {_MAX_SEGMENT_SCAN_BYTES}); "
+        f"per-segment scanning skipped to stay inside the hook timeout. "
+        f"Cheap whole-command patterns still applied.",
+        file=sys.stderr,
+    )
+    return True
+
+
 # Shell keywords that precede a real command inside a compound statement.
 # Stripped so the command-token walk sees the executable, not the keyword.
 _COMPOUND_KEYWORDS = frozenset({"then", "do", "else", "elif"})
@@ -689,7 +722,12 @@ def _command_token(segment: str) -> str:
     Returns the basename so `/usr/bin/vite` and `./node_modules/.bin/vite` match,
     and strips a trailing `@version` so `npx vite@latest` still resolves to `vite`.
     """
-    seg = _strip_leading_prefixes(segment)
+    # Only the LEADING prefix chain matters here, so tokenize just the head of
+    # the segment (audit S5). `_strip_leading_prefixes` shlex-splits whatever it
+    # is given, and shlex is super-linear: on a 600 KB command this single call
+    # cost 5.7s of the hook's ~6s total. No real wrapper chain
+    # (`sudo -u x env -i npx --yes …`) approaches this many characters.
+    seg = _strip_leading_prefixes(segment[:_COMMAND_TOKEN_HEAD_BYTES])
     m = re.match(r"['\"]?([^\s'\"]+)", seg)
     if not m:
         return ""
@@ -1376,8 +1414,16 @@ def check_sensitive_file(file_path: str, *, deny: bool = True) -> None:
                 f"[sensitive-file-guard] BLOCKED: Write to sensitive file ({category})\n"
                 f"[sensitive-file-guard] Path: {file_path}\n"
                 f"[sensitive-file-guard] Pattern: {description}\n"
-                f"[sensitive-file-guard] To allow: set SENSITIVE_FILE_GUARD_BYPASS=1 or add exception to .guard-patterns",
-                reason=f"Write to sensitive file blocked ({category}: {description}). Path: {file_path}. Set SENSITIVE_FILE_GUARD_BYPASS=1 or add an exception to .guard-patterns to allow.",
+                # The bypass env is honored but deliberately NOT advertised
+                # here (audit S5). Printing it taught the operator to disarm
+                # the guard as the first response to a block — and this file
+                # already made the opposite choice for the guard-integrity and
+                # sysadmin denies, whose messages withhold the same hint.
+                f"[sensitive-file-guard] Writing a credential file needs explicit owner approval per CLAUDE.md.",
+                reason=(
+                    f"Write to sensitive file blocked ({category}: {description}). Path: {file_path}. "
+                    f"Creating or changing a credential file needs explicit owner approval per CLAUDE.md."
+                ),
             )
 
 
@@ -1472,6 +1518,9 @@ def _matches_sensitive(path: str) -> tuple[str, str] | None:
 def check_sensitive_bash(command: str) -> None:
     """Deny/warn when a Bash command reads, copies, or overwrites a secret."""
     if os.environ.get(_SENSITIVE_BYPASS_ENV) == "1":
+        return
+
+    if _oversized_for_segment_scan(command, "sensitive-file-guard"):
         return
 
     for line in _non_heredoc_lines(command):
@@ -1954,6 +2003,9 @@ def check_public_dev_server(command: str) -> None:
     if os.environ.get(_PUBLIC_SERVER_BYPASS_ENV) == "1":
         return
 
+    if _oversized_for_segment_scan(command, "public-server-guard"):
+        return
+
     for segment in _SEGMENT_SPLIT_RE.split(command):
         _check_public_dev_server_segment(segment)
 
@@ -1978,6 +2030,115 @@ def check_public_dev_server(command: str) -> None:
 # teach the operator to disable the guard on the next benign command. Mirrors the
 # #719 LOW-1 fix for the public-dev-server guard. Documented here in code only.
 _SYSADMIN_GUARD_BYPASS_ENV = "SYSADMIN_GUARD_BYPASS"
+
+# --- remote-download piped into an executing sink (audit S5) -------------------
+#
+# The pipe-to-shell pattern below deny-lists shell names, so `curl http://x |
+# python3` — and `| node`, `| perl`, `| ruby` — all passed. A deny-list of
+# interpreters can never be complete; the safe set is the small one.
+#
+# So: any `curl`/`wget` piped into a command that is NOT a known-safe sink is
+# treated as executing remote code. Safe sinks are read-only text/archive tools
+# that do not execute their input.
+_SAFE_PIPE_SINKS = frozenset(
+    {
+        # pagers / display
+        "cat",
+        "bat",
+        "less",
+        "more",
+        "head",
+        "tail",
+        "nl",
+        "tee",
+        # text processing
+        "grep",
+        "egrep",
+        "fgrep",
+        "rg",
+        "ag",
+        "sed",
+        "awk",
+        "cut",
+        "tr",
+        "sort",
+        "uniq",
+        "wc",
+        "column",
+        "fold",
+        "rev",
+        "strings",
+        "diff",
+        "comm",
+        "join",
+        "paste",
+        "expand",
+        "unexpand",
+        "tac",
+        # structured data
+        "jq",
+        "yq",
+        "xmllint",
+        "csvlook",
+        "json_pp",
+        # hashing / encoding — the "verify a checksum" flow the deny message teaches
+        "sha256sum",
+        "sha512sum",
+        "sha1sum",
+        "md5sum",
+        "shasum",
+        "cksum",
+        "base64",
+        "xxd",
+        "od",
+        "hexdump",
+        # compression / archives (decompress to stdout or extract; do not exec)
+        "gunzip",
+        "zcat",
+        "gzip",
+        "bunzip2",
+        "bzcat",
+        "unzip",
+        "xz",
+        "unxz",
+        "zstd",
+        "tar",
+        "cpio",
+        "funzip",
+        # misc non-executing sinks
+        "file",
+        "dd",
+        "split",
+        "pv",
+        "sponge",
+        "true",
+        "cmp",
+    }
+)
+
+# `curl`/`wget` followed by a pipe. The sink is resolved from the text after the
+# pipe by the normal command-token walk, so wrappers (`sudo`, `env -i`, `xargs`)
+# and path-qualified names (`/usr/bin/python3`) resolve correctly.
+_REMOTE_FETCH_PIPE_RE = re.compile(r"\b(?:curl|wget)\b[^|;&\n]*\|")
+
+
+def _remote_fetch_pipes_to_executor(line: str) -> bool:
+    """True if a `curl`/`wget` on `line` pipes into a non-safe sink.
+
+    Allow-list, not deny-list: an unrecognized sink is treated as executing.
+    Only the FIRST stage after each fetch is checked — a safe sink's own output
+    piped onward (`curl … | jq . | less`) is local data by then.
+    """
+    for m in _REMOTE_FETCH_PIPE_RE.finditer(line):
+        rest = line[m.end() :]
+        sink_text = _SEGMENT_SPLIT_RE.split(rest)[0]
+        if not sink_text.strip():
+            return True  # pipe into nothing parseable — fail safe
+        sink = _command_token(sink_text)
+        if sink and sink not in _SAFE_PIPE_SINKS:
+            return True
+    return False
+
 
 # --- WHOLE-LINE BLOCK patterns (pipe-spanning / multi-segment shapes) ----------
 # Each tuple: (compiled pattern, category, educational deny message naming the fix).
@@ -2804,6 +2965,30 @@ def check_sysadmin_security(command: str) -> None:
             for m in pattern.finditer(scan_line):
                 if not any(start <= m.start() < end for start, end in quoted):
                     _block_sysadmin(category, message)
+
+        # Allow-listed sinks (audit S5): the pattern above deny-lists shell
+        # names, so `curl … | python3` (and node/perl/ruby) executed remote
+        # code and passed. Checked per line, and only outside quoted spans so
+        # displayed footgun text stays data.
+        # Blank quoted spans over the WHOLE scan text before splitting into
+        # lines: a quoted region can span newlines (a heredoc body inside a
+        # `-c` payload), and recomputing spans per line would read its second
+        # line as unquoted code (round-13 FP).
+        blanked = "".join(" " if any(s <= i < e for s, e in quoted) else c for i, c in enumerate(scan_line))
+        for raw_line in blanked.split("\n"):
+            if not raw_line.strip() or _DISPLAY_CMD_RE.match(raw_line.strip().lstrip("'\"")):
+                continue
+            if _remote_fetch_pipes_to_executor(raw_line):
+                _block_sysadmin(
+                    "pipe-to-shell",
+                    "Piping a remote download into an interpreter runs unreviewed, "
+                    "possibly-MITM'd code as you. Download it, read it, verify a checksum, "
+                    "then run it:\n"
+                    "  curl -fsSLo install.sh https://… && less install.sh && bash install.sh",
+                )
+
+    if _oversized_for_segment_scan(command, "sysadmin-guard"):
+        return
 
     for segment in _SEGMENT_SPLIT_RE.split(command):
         _check_sysadmin_segment(segment)
