@@ -74,18 +74,16 @@ REFERENCE_LOADING_TESTS: list[dict[str, object]] = [
         "unexpected_refs": ["animation-patterns.md"],
     },
     {
-        # "data fetching" also appears in the RSC row, so the query intentionally
-        # avoids that phrase to test SWR→client-patterns specificity.
         "agent": "typescript-frontend-engineer",
-        "query": "implement SWR client-side caching with request deduplication",
-        "expected_refs": ["react-client-data-fetching.md"],
-        "unexpected_refs": ["react-server-patterns.md", "react-composition-patterns.md"],
+        "query": "audit Server Action auth and the middleware bypass CVE",
+        "expected_refs": ["nextjs-security.md"],
+        "unexpected_refs": ["react-view-transitions.md"],
     },
     {
         "agent": "typescript-frontend-engineer",
         "query": "add ViewTransition animations between routes",
         "expected_refs": ["react-view-transitions.md"],
-        "unexpected_refs": ["react-server-patterns.md"],
+        "unexpected_refs": ["nextjs-security.md"],
     },
     {
         "agent": "performance-optimization-engineer",
@@ -481,9 +479,6 @@ _KNOWN_OVERSIZED: set[str] = {
     "hook-development-engineer/references/code-examples.md",
     "reviewer-domain/references/operational-preferred-patterns.md",
     "typescript-debugging-engineer/references/debugging-workflows.md",
-    "typescript-frontend-engineer/references/react19-typescript-patterns.md",
-    "typescript-frontend-engineer/references/typescript-preferred-patterns.md",
-    "typescript-frontend-engineer/references/typescript-errors.md",
 }
 
 

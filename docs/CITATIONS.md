@@ -58,7 +58,7 @@ Design-oriented system prompt with 14 procedural design skills for Claude Code. 
 
 **Patterns adopted:**
 - AI slop detection checklist (8 concrete failure modes for AI-generated UI). Rebuilt as `agents/ui-design-engineer/references/ai-slop-detection.md` with positive-instruction-first format and detection commands.
-- Interaction state coverage matrix (6-state exhaustive check per interactive element). Rebuilt as `agents/ui-design-engineer/references/interaction-state-coverage.md` with CSS specifics and timing bounds.
+- Interaction state coverage matrix (6-state exhaustive check per interactive element). Rebuilt as `agents/ui-design-engineer/references/motion-and-interaction.md` with timing bounds and the 5-second test.
 - Spacing/type scale enforcement (flag any px value not on a 4px/8px grid). Rebuilt as `scripts/design-scale-check.py` — fully deterministic, zero LLM involvement.
 - oklch() color harmony technique (perceptually uniform palette generation). Rebuilt as `skills/frontend/distinctive-frontend-design/references/oklch-color-harmony.md`.
 - Honest placeholder pattern (striped backgrounds for missing assets). Rebuilt as `skills/frontend/distinctive-frontend-design/references/honest-placeholders.md`.
