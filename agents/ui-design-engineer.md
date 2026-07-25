@@ -111,10 +111,15 @@ Framer Motion is the recommended stack for React work, CSS transitions for simpl
 
 | Skill | When to Invoke |
 |-------|---------------|
-| `distinctive-frontend-design` | Context-driven aesthetic exploration with anti-cliche validation: typography, color, animation, atmosphere. Use when ... |
-| `typescript-frontend-engineer` | Use this agent when you need expert assistance with TypeScript frontend architecture and optimization for modern web ... |
+| `distinctive-frontend-design` | Context-driven aesthetic exploration with anti-cliche validation: typography, color, animation, atmosphere. |
 
 **Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+
+### Companion Agents (dispatch via Agent tool, not the Skill tool)
+
+| Agent | When to Dispatch |
+|-------|---------------|
+| `typescript-frontend-engineer` | The task turns from design into TypeScript/React architecture: typed components, state management, build optimization. |
 
 ### Optional Behaviors (OFF unless enabled)
 - **Complex Animations**: Only when micro-interactions explicitly enhance UX
@@ -141,20 +146,14 @@ When asked to perform unavailable actions, explain the limitation and suggest th
 
 ## Output Format
 
-Uses the **Implementation Schema**: ANALYZE (surface type, narrative brief, content, requirements) → DESIGN (Tailwind theme, component architecture, animation strategy) → IMPLEMENT (tokens, accessible components, responsive design) → VALIDATE (keyboard nav, contrast, responsive, screen reader). See [references/implementation-patterns.md](references/implementation-patterns.md) for the full phase checklist and final output block.
+Uses the **Implementation Schema**: ANALYZE (surface type, narrative brief, content, requirements) → DESIGN (Tailwind theme, component architecture, animation strategy) → IMPLEMENT (tokens, accessible components, responsive design) → VALIDATE (keyboard nav, contrast, responsive, screen reader). See [references/design-conventions.md](references/design-conventions.md) for the Phase 1 brief and the token/Tailwind/accessibility conventions.
 
 ## Reference Loading Table
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| implement, scaffold, output format, code example | `implementation-patterns.md` | Output format checklist, Tailwind theme example, accessible button, responsive grid, animation code |
-| accessibility, contrast, ARIA, keyboard, screen reader | `accessibility-patterns.md` | WCAG compliance, ARIA, keyboard nav, screen readers, focus management |
-| design tokens, theme, CSS variables, color palette, font scale | `design-tokens.md` | Design system, Tailwind theme, CSS variables, color scales, typography, dark mode |
-| button, input, modal, dropdown, tab, accordion, toast | `component-library-interactive.md` | Buttons, inputs, modals, dropdowns, tabs, accordions, toasts, form controls |
-| card, table, badge, avatar, progress, alert | `component-library-display.md` | Cards, tables, badges, avatars, progress indicators, alerts |
-| Tailwind config, @apply, responsive, purge, JIT, arbitrary | `tailwind-preferred-patterns.md` | Tailwind configuration, class composition, purge issues, `@apply`, responsive prefixes, arbitrary values |
-| animation, Framer Motion, transition, reduced motion, exit, AnimatePresence | `animation-patterns.md` | Framer Motion, CSS transitions, prefers-reduced-motion, exit animations, AnimatePresence, micro-interactions |
-| interaction states, hover, focus, disabled, loading, active, pressed | [interaction-state-coverage.md](ui-design-engineer/references/interaction-state-coverage.md) | 6-state matrix, transition timing bounds, element-by-element checklist |
+| design tokens, theme, CSS variables, color palette, font scale, Tailwind config, arbitrary values, spacing scale, accessibility floor, starting a surface | `design-conventions.md` | Token and font house rules, 4px grid, Tailwind dynamic-class trap, WCAG floor, Phase 1 ANALYZE |
+| animation, Framer Motion, transition, reduced motion, AnimatePresence, interaction states, hover, focus, disabled, loading, active, pressed | `motion-and-interaction.md` | 2-to-3 motion rule, 6-state matrix, timing bounds, 5-second test, error-fix mappings |
 | AI slop, generic UI, AI-generated look, template look, default styling | [ai-slop-detection.md](ui-design-engineer/references/ai-slop-detection.md) | Purposeful gradients, contextual fonts and colors, spacing scale rules |
 | text/headline/label/microcopy animation | `skills/frontend/distinctive-frontend-design/references/roll-text.md` | Zero-npm roll/slot text pattern: standalone demo, extraction guide, knobs |
 
@@ -240,12 +239,7 @@ Load on demand — fetch only the file(s) relevant to the current task:
 
 | Task Type | Signal Keywords | Reference File |
 |-----------|----------------|----------------|
-| Output format checklist, Tailwind theme example, accessible button, responsive grid, animation code | implement, scaffold, output format, code example | [references/implementation-patterns.md](references/implementation-patterns.md) |
-| WCAG compliance, ARIA, keyboard nav, screen readers, focus management | accessibility, contrast, ARIA, keyboard, screen reader | [references/accessibility-patterns.md](references/accessibility-patterns.md) |
-| Design system, Tailwind theme, CSS variables, color scales, typography, dark mode | design tokens, theme, CSS variables, color palette, font scale | [references/design-tokens.md](references/design-tokens.md) |
-| Buttons, inputs, modals, dropdowns, tabs, accordions, toasts, form controls | button, input, modal, dropdown, tab, accordion, toast | [references/component-library-interactive.md](references/component-library-interactive.md) |
-| Cards, tables, badges, avatars, progress indicators, alerts | card, table, badge, avatar, progress, alert | [references/component-library-display.md](references/component-library-display.md) |
-| Tailwind configuration, class composition, purge issues, `@apply`, responsive prefixes, arbitrary values | Tailwind config, @apply, responsive, purge, JIT, arbitrary | [references/tailwind-preferred-patterns.md](references/tailwind-preferred-patterns.md) |
-| Framer Motion, CSS transitions, prefers-reduced-motion, exit animations, AnimatePresence, micro-interactions | animation, Framer Motion, transition, reduced motion, exit, AnimatePresence | [references/animation-patterns.md](references/animation-patterns.md) |
+| Token and font house rules, 4px spacing grid, Tailwind dynamic-class trap, WCAG floor, Phase 1 ANALYZE | design tokens, theme, CSS variables, color palette, font scale, Tailwind config, arbitrary, spacing scale, accessibility | [references/design-conventions.md](references/design-conventions.md) |
+| 2-to-3 motion rule, 6-state matrix, transition timing bounds, 5-second test, error-fix mappings | animation, Framer Motion, transition, reduced motion, AnimatePresence, interaction states, hover, focus, disabled, loading | [references/motion-and-interaction.md](references/motion-and-interaction.md) |
 
 **Shared Patterns**: [anti-rationalization-core.md](../skills/shared-patterns/anti-rationalization-core.md) | [verification-checklist.md](../skills/shared-patterns/verification-checklist.md)
