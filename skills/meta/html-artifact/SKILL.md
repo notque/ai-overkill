@@ -360,7 +360,7 @@ See `references/pptx-export.md` for the full layout table, THEME dict, CLI refer
 | Request mentions pptx, .pptx, powerpoint, editable deck, hand-off, corporate template | `references/pptx-export.md` | Phase 7 trigger conditions, layout types, THEME dict, CLI reference, failure modes |
 | Shape = `diagram` OR request contains "SVG", "architecture diagram", "flowchart", "sequence diagram" | `references/diagram-layering.md` | SVG layer order, masking rect technique, semantic color system for dark-theme diagrams |
 | Shape = `data-viz` OR request contains "infographic", "layout", "visualize data", "chart type" | `references/infographic-layouts.md` | 21 layout types with content-type pairings and 22 visual styles |
-| Request mentions animated text, rolling/slot text, kinetic headline, typewriter | `../../frontend/text-animation/references/roll-text.md`, `../../frontend/text-animation/references/text-animation-patterns.md` | Zero-npm roll/slot text plus reveal, typewriter, crossfade patterns to inline |
+| Request mentions animated text, rolling/slot text, kinetic headline, typewriter | `../../frontend/distinctive-frontend-design/references/roll-text.md`, `../../frontend/distinctive-frontend-design/references/text-animation-patterns.md` | Zero-npm roll/slot text plus reveal, typewriter, crossfade patterns to inline |
 
 ---
 

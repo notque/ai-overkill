@@ -133,7 +133,7 @@ Load [typescript-frontend-engineer/references/engineering-rules.md](typescript-f
 | ViewTransition, page animation, shared element, navigation animation, view transition | `react-view-transitions.md` | Routes to the matching deep reference |
 | output format, errors, preferred patterns, anti-rationalization, hard boundaries, blockers, phases, death-loop | `engineering-rules.md` | Routes to the matching deep reference |
 | security, auth, XSS, CSRF, SSRF, Server Action auth, middleware bypass, or any vulnerability-related code | `nextjs-security.md` | Secure implementation patterns for Next.js and React |
-| text/headline/label/microcopy animation | `skills/frontend/text-animation/references/roll-text.md` | Zero-npm roll/slot text pattern: standalone demo, extraction guide, knobs |
+| text/headline/label/microcopy animation | `skills/frontend/distinctive-frontend-design/references/roll-text.md` | Zero-npm roll/slot text pattern: standalone demo, extraction guide, knobs |
 
 ## References
 
