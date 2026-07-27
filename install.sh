@@ -234,6 +234,13 @@ _symlink_points_to() {
     [ "$(_canonical_path "$actual")" = "$(_canonical_path "$expected")" ]
 }
 
+_same_realpath() {
+    local a b
+    a=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$1" 2>/dev/null) || return 1
+    b=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$2" 2>/dev/null) || return 1
+    [ "$a" = "$b" ]
+}
+
 clean_codex_hooks_mirror_if_looped() {
     local hook_dir="$1"
     local hook_source_dir="$2"
@@ -1156,6 +1163,10 @@ install_component() {
                 echo "  Converting whole-dir symlink to per-item dir: $target"
                 rm "$target"
             fi
+            if _same_realpath "$target" "$source"; then
+                echo -e "${RED}  ✗ Per-item symlink loop detected: ${target} resolves to source ${source} — skipping to avoid self-referential symlinks${NC}"
+                return 1
+            fi
             mkdir -p "$target"
             local item item_name
             for item in "$source"/*; do
@@ -1363,6 +1374,10 @@ sync_mirror_entry() {
             if [ -L "$target" ] && _symlink_points_to "$target" "$source"; then
                 echo -e "${GREEN}  ✓ ${label} converting whole-dir symlink to per-item dir${NC}"
                 rm "$target"
+            fi
+            if _same_realpath "$target" "$source"; then
+                echo -e "${RED}  ✗ Per-item symlink loop detected: ${target} resolves to source ${source} — skipping${NC}"
+                return
             fi
             mkdir -p "$target"
             local item item_name
@@ -2211,6 +2226,8 @@ if [ -f "$REASONIX_HOOKS_ALLOWLIST" ]; then
     else
         mkdir -p "$REASONIX_HOOKS_DIR"
     fi
+
+    clean_codex_hooks_mirror_if_looped "$REASONIX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
 
     # Parse allowlist and mirror each allowlisted hook file.
     while IFS= read -r line || [ -n "$line" ]; do
