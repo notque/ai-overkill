@@ -2221,13 +2221,13 @@ REASONIX_HOOK_FAILED=false       # settings.json generator failed → hooks neve
 REASONIX_HOOKS_ALLOWLIST="${SCRIPT_DIR}/scripts/reasonix-hooks-allowlist.txt"
 
 if [ -f "$REASONIX_HOOKS_ALLOWLIST" ]; then
+    clean_codex_hooks_mirror_if_looped "$REASONIX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
+
     if [ "$DRY_RUN" = true ]; then
         echo -e "${BLUE}  Would create: ${REASONIX_HOOKS_DIR}${NC}"
     else
         mkdir -p "$REASONIX_HOOKS_DIR"
     fi
-
-    clean_codex_hooks_mirror_if_looped "$REASONIX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
 
     # Parse allowlist and mirror each allowlisted hook file.
     while IFS= read -r line || [ -n "$line" ]; do
