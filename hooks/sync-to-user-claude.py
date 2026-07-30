@@ -6,9 +6,11 @@ SessionStart hook: Sync agents repo to ~/.claude
 Runs when Claude Code starts in the agents repo.
 Syncs agents, skills, hooks, commands, retro, and scripts to ~/.claude/.
 Uses additive file-by-file sync (never rmtree) so interrupted syncs
-don't leave ~/.claude/hooks/ empty. Stale files are cleaned up for
-repo-owned components; additive-only components (commands, retro)
-preserve files from other sources.
+don't leave ~/.claude/hooks/ empty. Stale cleanup is scoped by an ownership
+manifest (~/.claude/.sync-manifest.json): only files a previous run of this
+sync installed can be pruned, so content installed by plugins, marketplaces
+or other repos survives. Additive-only components (commands, retro) are
+never pruned at all.
 Retro files are merged at the entry level (### headings) rather than
 overwritten, so knowledge accumulated from other repos is preserved.
 L1.md is regenerated from merged L2 files at the destination.
@@ -1025,31 +1027,47 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
         except Exception as e:
             errors.append(f"{dst_name}: {e}")
 
-    # Deferred stale cleanup: remove files from destinations that no longer
-    # exist in ANY source mapping to that destination. This must run AFTER
-    # all sources have been synced.
+    # Deferred stale cleanup: remove files this sync installed previously that
+    # no longer exist in ANY source mapping to that destination. This must run
+    # AFTER all sources have been synced.
+    #
+    # Scoped by an ownership manifest rather than by "absent from source".
+    # Destinations are shared: ~/.claude/skills also holds skills installed by
+    # plugins, marketplaces and other repos. Deleting everything not in the
+    # current source set destroys them. A file is stale only if a previous run
+    # of this sync installed it and the source no longer provides it; files we
+    # never installed are left alone. With no manifest yet nothing is pruned
+    # and the manifest is seeded for the next run.
+    manifest_path = user_claude / ".sync-manifest.json"
+    prior_manifest: dict[str, list] = {}
+    if manifest_path.exists():
+        try:
+            prior_manifest = json.loads(manifest_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            prior_manifest = {}  # Unreadable manifest — prune nothing this run
+
     for dst_name, all_paths in dst_all_paths.items():
         dst = user_claude / dst_name
         if not dst.is_dir():
             continue
         try:
-            for item in dst.rglob("*"):
+            current = {p.as_posix() for p in all_paths}
+            for rel in set(prior_manifest.get(dst_name, [])) - current:
+                item = dst / rel
                 if item.is_file():
-                    rel = item.relative_to(dst)
-                    if rel not in all_paths:
-                        # Guard: refuse to delete files that resolve inside
-                        # the repo (symlink traversal data-loss prevention).
-                        if _resolves_inside(item, protected_roots):
-                            print(
-                                f"[sync] BLOCKED: stale-cleanup refusing to "
-                                f"unlink {dst_name}/{rel} (resolves inside repo)",
-                                file=sys.stderr,
-                            )
-                            continue
-                        try:
-                            item.unlink()
-                        except OSError:
-                            pass
+                    # Guard: refuse to delete files that resolve inside
+                    # the repo (symlink traversal data-loss prevention).
+                    if _resolves_inside(item, protected_roots):
+                        print(
+                            f"[sync] BLOCKED: stale-cleanup refusing to "
+                            f"unlink {dst_name}/{rel} (resolves inside repo)",
+                            file=sys.stderr,
+                        )
+                        continue
+                    try:
+                        item.unlink()
+                    except OSError:
+                        pass
             # Clean up empty directories left behind
             for dirpath in sorted(dst.rglob("*"), reverse=True):
                 if dirpath.is_dir() and not any(dirpath.iterdir()):
@@ -1058,6 +1076,17 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                     dirpath.rmdir()
         except Exception as e:
             errors.append(f"stale-cleanup-{dst_name}: {e}")
+
+    # Record what was installed so the next run can identify true stale files
+    try:
+        manifest_path.write_text(
+            json.dumps(
+                {k: sorted(p.as_posix() for p in v) for k, v in dst_all_paths.items()},
+                indent=2,
+            )
+        )
+    except OSError as e:
+        errors.append(f"sync-manifest: {e}")
 
     # Sync settings.json — repo hooks replace global hooks
     repo_settings_path = repo_root / ".claude" / "settings.json"
