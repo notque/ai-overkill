@@ -8,6 +8,7 @@ fully independent.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -183,9 +184,9 @@ def test_install_sh_generates_valid_hooks_json(fake_home: Path) -> None:
     commands = [entry["command"] for groups in data["hooks"].values() for group in groups for entry in group["hooks"]]
     assert len(commands) == 61
     assert all("codex-hook-adapter.py" in command for command in commands)
-    assert "Codex scripts: 129 mirrored scripts" in result.stdout
+    assert re.search(r"Codex scripts:\s+130 mirrored scripts", result.stdout)
     assert "Hooks: 86 automation hooks" in result.stdout
-    assert "Scripts: 129 utility scripts" in result.stdout
+    assert re.search(r"Scripts:\s+130 utility scripts", result.stdout)
 
     tool_matchers = {
         group.get("matcher")
