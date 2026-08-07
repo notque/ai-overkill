@@ -1,0 +1,5 @@
+{
+  "manifest_version": 1,
+  "approval_policy": "A binding is admissible only after a reviewer other than the control owner approves its evidence and complete answer attestation. Approval metadata is structurally validated; reviewer identity, approval date, and reference are not externally verified by this repository validator and require human review.",
+  "bindings": {}
+}

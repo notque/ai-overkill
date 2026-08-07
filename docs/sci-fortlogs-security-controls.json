@@ -1,0 +1,738 @@
+{
+  "catalog": "SCI fortlogs security controls",
+  "evidence_policy": {
+    "as_of": "2026-08-07",
+    "repository": "notque/vexjoy-agent",
+    "status_definitions": {
+      "verified": "Verified by approved repository evidence.",
+      "partial": "Partially evidenced by approved repository evidence.",
+      "unknown": "Not evidenced in this repository.",
+      "not_applicable": "Not applicable based on approved scope evidence."
+    },
+    "confidence_notes": "Green and yellow source annotations are preserved as source_note values. They are confidence notes, not evidence.",
+    "evidence_bindings": "Evidence-backed answers require approved manifest bindings whose attestations cover the exact control ID, status, statement, and complete binding-ID set.",
+    "regulations": "The source stated that regulations were collapsed but did not supply their values; null preserves that omission."
+  },
+  "controls": [
+    {
+      "id": "E-BCD.D_SCI_fortlogs",
+      "name": "Business Impact Analysis",
+      "description": "A criticality assessment (CA) is completed to identify mission critical processes. Subsequently, a business impact analysis (BIA) is documented for mission critical processes to determine resource requirements for resiliency. The CA and BIA are reviewed and approved.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Approved fortlogs criticality assessment and process-level business impact analysis, including review records."
+      },
+      "domain": "Business Continuity & Disaster Recovery",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Annually",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "BCD.D",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-BCD.E_SCI_fortlogs",
+      "name": "Process Continuity",
+      "description": "In accordance with the Business Continuity Management Security Standard, a Process Continuity Plan (PCP) is documented and maintained for each mission critical business process – providing procedures for sustaining operations while recovering from a significant disruption. The plan is reviewed, approved and communicated to all named stakeholders.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Approved fortlogs Process Continuity Plan, maintenance history, and stakeholder communication records."
+      },
+      "domain": "Business Continuity & Disaster Recovery",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Annually",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "BCD.E",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-BCD.F_SCI_fortlogs",
+      "name": "Process Continuity",
+      "description": "The Process Continuity Plan is tested and in accordance with the Business Continuity Management Security Standard to demonstrate ability to sustain business operations during a disruption.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Dated fortlogs continuity exercise plan, results, findings, and remediation records."
+      },
+      "domain": "Business Continuity & Disaster Recovery",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Annually",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "BCD.F",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-BCD.J_SCI_fortlogs",
+      "name": "Business Impact Analysis",
+      "description": "A criticality assessment (CA) is completed to identify mission critical products. Subsequently, a business impact analysis (BIA) is documented for mission critical products to determine resource requirements for resiliency. The CA and BIA are reviewed and approved.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Approved fortlogs product criticality assessment and product-level business impact analysis, including review records."
+      },
+      "domain": "Business Continuity & Disaster Recovery",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Annually",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "BCD.J",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-CM01_SCI_fortlogs",
+      "name": "Risk Assessment",
+      "description": "All changes require a risk assessment to be performed prior to submitting the change ticket. This risk assessment is based on the information provided in the Change ticket and the results are documented within the ticket.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Fortlogs change tickets showing risk assessments completed before submission."
+      },
+      "domain": "Change Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "CM01_SCI",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-CM02_SCI_fortlogs",
+      "name": "Validate & Document Change Results",
+      "description": "For all Normal, Emergency and Standard changes, the Change Requestor validates the implemented change and documents the result within the Change ticket.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Normal, Emergency, and Standard fortlogs change tickets with requester validation and documented outcomes."
+      },
+      "domain": "Change Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "CM02_SCI",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-CM03_SCI_fortlogs",
+      "name": "Get Change Ticket Confirmation",
+      "description": "The change requestor/implementor confirms the ticket state as “closed” and close code by selecting the appropriate closure status.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Closed fortlogs change tickets showing requester or implementer confirmation and valid closure codes."
+      },
+      "domain": "Change Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "CM03_SCI",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-CM05_BTP_SCI_fortlogs",
+      "name": "Approval of Changes",
+      "description": "All changes are approved based on the type of change prior to deployment/submission by defined approvers. Change requestor and approver are different persons.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Fortlogs change tickets showing pre-deployment approval, defined approvers, and requester/approver segregation."
+      },
+      "domain": "Change Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "CM05_BTP",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SA02_SCI_fortlogs",
+      "name": "Perform Vulnerability Scanning",
+      "description": "Selected systems are validated by internal and external vulnerability scans on at least a monthly basis in accordance with the Enterprise Vulnerability Management Standard.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟢 this should be true. need to find info about it somewhere.",
+        "evidence": [],
+        "missing_evidence": "Monthly internal and external scan scope, reports, timestamps, and fortlogs asset coverage."
+      },
+      "domain": "Security Assessments",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Monthly",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "SA02",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SA03_SCI_fortlogs",
+      "name": "Penetration Testing (HASI)",
+      "description": "Penetration tests (also known as Hacking Simulations (HaSi)) are completed to identify potential vulnerabilities in the services.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 I think there are some purple-teaming being done on SCI in general, question is if there are any being done on OS/fortlogs.",
+        "evidence": [],
+        "missing_evidence": "Annual HaSi or penetration-test scope naming fortlogs, execution record, and final report."
+      },
+      "domain": "Security Assessments",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Annually",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "SA03",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SA04_SCI_fortlogs",
+      "name": "Vulnerabilities evaluation and follow-up",
+      "description": "Vulnerability scan findings are managed in accordance with the Enterprise Vulnerability Management Standard.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 probably?",
+        "evidence": [],
+        "missing_evidence": "Fortlogs vulnerability findings, owners, risk ratings, due dates, remediation records, and exception approvals."
+      },
+      "domain": "Security Assessments",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "SA04",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SA05_SCI_fortlogs",
+      "name": "Vulnerabilities evaluation and follow-up",
+      "description": "Identified vulnerabilities from penetration tests (HaSi) are managed in accordance with the Offensive Security Testing Standard.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Fortlogs HaSi findings, owners, remediation tracking, retest results, and accepted exceptions."
+      },
+      "domain": "Security Assessments",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Manual",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "SA05",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM01_Conv",
+      "name": "Event Logging",
+      "description": "Logging of security-relevant events on IT systems must be activated and consistent with the log format and normalization section of the Threat Detection Management Standard. Log events are forwarded to the centralized SIEM systems.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟢 yes it should be, need to find proof.",
+        "evidence": [],
+        "missing_evidence": "Fortlogs source inventory, active forwarding configuration, normalization mapping, and central-SIEM ingestion samples."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "David Herring",
+      "delegates": [
+        "Cyber Defence Team"
+      ],
+      "frequency": "Continuously",
+      "automation": "Semi-Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": false,
+      "control_design": "SEM01",
+      "organization": "SCI",
+      "valid_from": "30.10.2019",
+      "valid_to": "31.12.9999",
+      "labels": "SCI, CCS",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM02_CCS",
+      "name": "Configuration & Setup of Tools",
+      "description": "The Security Event Management tool is configured to identify security threats based on available event logs. This is realized through the definition of use cases.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 feels like we do this. like we have logs, and we act on them?",
+        "evidence": [],
+        "missing_evidence": "Deployed SEM use-case inventory showing fortlogs log sources, threat logic, ownership, and enabled state."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "David Herring",
+      "delegates": [
+        "Cyber Defence Team"
+      ],
+      "frequency": "Continuously",
+      "automation": "Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": false,
+      "control_design": "SEM02_CCS",
+      "organization": "SCI",
+      "valid_from": "20.02.2020",
+      "valid_to": "31.12.9999",
+      "labels": "SCI, CCS",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM03_CCS",
+      "name": "Generate Alerts",
+      "description": "The Security Event Management tool generates alerts for identified potential security threats. These alerts are forwarded to responders for analysis.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 we have alerts so I feel like this is right as well.",
+        "evidence": [],
+        "missing_evidence": "Fortlogs-derived alert samples, enabled alerting configuration, and responder routing or case records."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "David Herring",
+      "delegates": [
+        "Cyber Defence Team"
+      ],
+      "frequency": "Ad-hoc",
+      "automation": "Semi-Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": false,
+      "control_design": "SEM03_CCS",
+      "organization": "SCI",
+      "valid_from": "20.02.2020",
+      "valid_to": "31.12.9999",
+      "labels": "SCI, CCS",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM04_SCI",
+      "name": "Management Reports",
+      "description": "Security Event Management statistics are accumulated and reported periodically to the relevant top management and stakeholders.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Monthly SCI SEM reports, distribution records, and named management or stakeholder recipients."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "David Herring",
+      "delegates": [
+        "Cyber Defence Team"
+      ],
+      "frequency": "Monthly",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": false,
+      "control_design": "SEM04",
+      "organization": "SCI",
+      "valid_from": "14.05.2024",
+      "valid_to": "31.12.9999",
+      "labels": "SCI",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM04_SCI_INT_fortlogs",
+      "name": "Management Reports",
+      "description": "Security Event Management statistics are accumulated and reported periodically to the relevant top management and stakeholders.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": null,
+        "evidence": [],
+        "missing_evidence": "Quarterly internal fortlogs SEM reports, distribution records, and named management or stakeholder recipients."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "David Herring",
+      "delegates": [
+        "Cyber Defence Team"
+      ],
+      "frequency": "Quarterly",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "SEM04_SCI_INT",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SEM06_SCI_fortlogs",
+      "name": "Log retention and deletion",
+      "description": "The retention period of logging and security events is defined and implemented. The deletion of logs is executed accordingly by the end of the retention period.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟢 yes, find proof",
+        "evidence": [],
+        "missing_evidence": "Approved fortlogs retention schedule, deployed lifecycle-policy output, and records showing deletion at expiry."
+      },
+      "domain": "Security Event Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Continuously",
+      "automation": "Automated",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": false,
+      "control_design": "SEM06",
+      "organization": "SCI",
+      "valid_from": "01.03.2021",
+      "valid_to": "31.12.9999",
+      "labels": "SCI, CCS",
+      "regulations": null
+    },
+    {
+      "id": "E-SPM01_SCI_fortlogs",
+      "name": "Review received patch recommendation (and create CR if needed)",
+      "description": "At least once a month, the Control Owner or their delegate reviews the security patches recommended by the SAP VAS or other patch rating providers. For the relevant patches change tickets are created to trigger the implementation.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 I guess this could be incoroprated to the patch day?",
+        "evidence": [],
+        "missing_evidence": "Monthly patch-review records, recommendation source, fortlogs applicability decision, and resulting change tickets."
+      },
+      "domain": "Security Patch Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Monthly",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "SPM01",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SPM02_SCI_fortlogs",
+      "name": "Review received patch recommendation (and create CR if needed)",
+      "description": "At least once a month, the Control Owner or their delegate reviews the security patches recommended by the SAP VAS or other patch rating providers. For the relevant patches change tickets are created to trigger the implementation.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 I guess this could be incoroprated to the patch day?",
+        "evidence": [],
+        "missing_evidence": "Monthly patch-review records, recommendation source, fortlogs applicability decision, and resulting change tickets; clarification of how SPM02 differs from SPM01."
+      },
+      "domain": "Security Patch Management",
+      "shared": false,
+      "provider": "Platform Delivery",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Monthly",
+      "automation": "Manual",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "SPM02",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-SM03_SCI",
+      "name": "Setup of Monitoring Tools",
+      "description": "The availability and correct operation of monitoring systems is monitored.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟢 yes that is our work. find proof",
+        "evidence": [],
+        "missing_evidence": "Production configuration and alert history showing monitoring-system health and availability are themselves monitored."
+      },
+      "domain": "System Monitoring",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Continuously",
+      "automation": "Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": false,
+      "control_design": "SM03",
+      "organization": "SCI",
+      "valid_from": "01.04.2026",
+      "valid_to": "31.12.9999",
+      "labels": "SCI",
+      "regulations": null
+    },
+    {
+      "id": "E-UAM01_SCI_fortlogs",
+      "name": "Approve user Access Request",
+      "description": "All access to systems in scope is requested via the access management tool. Each access request is assessed by the authorized approvers. The approver defines the validity of the access up to the profile dependent maximum validity. The access can be declined by: approvers revoking manually, validity expiring, or account invalidation (user left SAP).",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟢 yes should be done through the permission system and CAM2? I guess we need to find proof of how fortlogs conforms to these CAM profiles.",
+        "evidence": [],
+        "missing_evidence": "Fortlogs CAM2 profiles, request workflow, approver mapping, maximum-validity settings, and revocation or expiry samples."
+      },
+      "domain": "User & Access Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Continuously",
+      "automation": "Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "UAM01_SCI",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-UAM02_SCI_fortlogs",
+      "name": "Review of Administrators",
+      "description": "Only a limited number of authorized persons have access rights to administer the access management tool (including assigning users to approver roles). Bi-annually the Management reviews the list of administrators and all approvers maintained in the access management tool. The authorized users are extended and unauthorized users are removed.",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 not sure how CAM2 does it here.",
+        "evidence": [],
+        "missing_evidence": "CAM2 administrator and approver lists, restricted-admin configuration, semi-annual management review, and removal records."
+      },
+      "domain": "User & Access Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Semi-annually",
+      "automation": "Automated",
+      "purpose": "Detective",
+      "draft": false,
+      "internal": true,
+      "control_design": "UAM02_SCI",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    },
+    {
+      "id": "E-UAM03_CCS_SCI_fortlogs",
+      "name": "Password configuration",
+      "description": "SAP users are required to log on to the SAP clients using their user SAP Domain credentials (user ID and password) before access is granted. The authentication configuration is set according to the SAP Password Policy requirements (length, complexity, validity, history, multi-factor etc.).",
+      "answer": {
+        "status": "unknown",
+        "statement": "Not evidenced in this repository.",
+        "source_note": "🟡 I guess that is true, you need proper SAP creds to get in (authentication). and once you get in your CAM2 profile and thus access to fortlogs is granted (authorization).",
+        "evidence": [],
+        "missing_evidence": "Fortlogs authentication flow, SAP Domain integration, effective password-policy settings, multi-factor enforcement, and CAM2 authorization mapping."
+      },
+      "domain": "User & Access Management",
+      "shared": false,
+      "provider": "Platform Engineering",
+      "owner": "Richard Tief",
+      "delegates": [
+        "Jonathan Schwarze"
+      ],
+      "frequency": "Continuously",
+      "automation": "Automated",
+      "purpose": "Preventive",
+      "draft": false,
+      "internal": true,
+      "control_design": "UAM03_CCS",
+      "organization": "SCI",
+      "valid_from": "31.10.2024",
+      "valid_to": "31.12.9999",
+      "labels": "n/a",
+      "regulations": null
+    }
+  ]
+}
