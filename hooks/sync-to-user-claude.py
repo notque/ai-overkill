@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 try:
     import fcntl
@@ -109,7 +109,16 @@ def _atomic_json_write(path: Path, data: dict) -> None:
     """
     tmp_path = path.with_suffix(".json.tmp")
     try:
-        with open(tmp_path, "w") as f:
+        # Remove only the known temp entry, then create a new file exclusively.
+        # O_EXCL prevents a raced symlink from redirecting the write.
+        tmp_path.unlink(missing_ok=True)
+        fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            stream = os.fdopen(fd, "w", encoding="utf-8")
+        except Exception:
+            os.close(fd)
+            raise
+        with stream as f:
             json.dump(data, f, indent=2)
             f.write("\n")
             f.flush()
@@ -122,6 +131,101 @@ def _atomic_json_write(path: Path, data: dict) -> None:
         except OSError:
             pass
         raise
+
+
+def _manifest_rel_path(value: object) -> Path | None:
+    """Return a canonical relative manifest path, or None when unsafe."""
+    if not isinstance(value, str) or not value or "\\" in value:
+        return None
+
+    posix_path = PurePosixPath(value)
+    windows_path = PureWindowsPath(value)
+    if (
+        not posix_path.parts
+        or posix_path.is_absolute()
+        or windows_path.is_absolute()
+        or windows_path.drive
+        or ".." in posix_path.parts
+        or value != posix_path.as_posix()
+    ):
+        return None
+    return Path(*posix_path.parts)
+
+
+def _read_sync_manifest(path: Path, destinations: set[str]) -> dict[str, set[Path]]:
+    """Load valid owned paths for approved destinations; bad state owns nothing."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+
+    owned: dict[str, set[Path]] = {}
+    for destination in destinations:
+        values = raw.get(destination)
+        if not isinstance(values, list):
+            continue
+        paths = {_manifest_rel_path(value) for value in values}
+        owned[destination] = {relative for relative in paths if relative is not None}
+    return owned
+
+
+def _safe_destination_file(root: Path, relative: Path, *, create_parents: bool) -> Path | None:
+    """Resolve a file below root without accepting symlinked path components."""
+    validated = _manifest_rel_path(relative.as_posix())
+    if validated != relative:
+        return None
+    if root.is_symlink() or not root.is_dir():
+        return None
+    try:
+        resolved_root = root.resolve(strict=True)
+    except OSError:
+        return None
+
+    parent = root
+    for part in relative.parts[:-1]:
+        parent /= part
+        if parent.is_symlink():
+            return None
+        if parent.exists():
+            if not parent.is_dir():
+                return None
+        elif create_parents:
+            try:
+                parent.mkdir()
+            except OSError:
+                return None
+        else:
+            return None
+        try:
+            if parent.is_symlink() or not parent.resolve(strict=True).is_relative_to(resolved_root):
+                return None
+        except OSError:
+            return None
+
+    target = parent / relative.name
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        return None
+    try:
+        if not parent.resolve(strict=True).is_relative_to(resolved_root):
+            return None
+    except OSError:
+        return None
+    return target
+
+
+def _prune_empty_owned_parents(file_path: Path, root: Path) -> None:
+    """Remove empty ancestors of one pruned file, stopping before root."""
+    current = file_path.parent
+    while current != root:
+        if current.is_symlink():
+            return
+        try:
+            current.rmdir()
+        except OSError:
+            return
+        current = current.parent
 
 
 def _parse_retro_entries(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -934,20 +1038,27 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
     synced = []
     errors = []
 
-    # Track all source-relative paths per destination for deferred stale cleanup.
-    # Multiple sources can map to the same destination (e.g., skills/ and pipelines/
-    # both sync to ~/.claude/skills/). Stale cleanup must see the UNION of all
-    # source paths before deleting, otherwise the second sync deletes files from
-    # the first sync.
-    dst_all_paths: dict[str, set] = {}
+    # Copy-mode cleanup uses an ownership record. A first run seeds the record
+    # without claiming or deleting pre-existing foreign files.
+    owned_destinations = {dst for src, dst in components if src not in additive_only}
+    sync_manifest_path = user_claude / ".sync-manifest.json"
+    prior_owned = _read_sync_manifest(sync_manifest_path, owned_destinations) if install_mode == "copy" else {}
+    dst_source_paths: dict[str, set[Path]] = {name: set() for name in owned_destinations}
+    dst_owned_paths: dict[str, set[Path]] = {name: set() for name in owned_destinations}
+    failed_destinations: set[str] = set()
 
     for src_name, dst_name in components:
         src = repo_root / src_name
         dst = user_claude / dst_name
+        tracks_ownership = install_mode == "copy" and src_name not in additive_only
 
         if not src.exists():
+            if tracks_ownership:
+                failed_destinations.add(dst_name)
             continue
 
+        src_relative_paths: set[Path] = set()
+        successfully_owned_paths: set[Path] = set()
         try:
             # Symlink mode: create a directory-level symlink for eligible components.
             # This preserves the symlinks created by install.sh --symlink instead of
@@ -978,15 +1089,16 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
             # Files with identical content are skipped to reduce I/O.
             count = 0
             merge_count = 0
-            src_relative_paths = set()
             use_merge = src_name in merge_components
             for item in src.rglob("*"):
                 if item.is_file():
                     rel = item.relative_to(src)
                     src_relative_paths.add(rel)
+                    target: Path | None = None
                     try:
-                        target = dst / rel
-                        _tolerant_mkdir(target.parent)
+                        target = _safe_destination_file(dst, rel, create_parents=True)
+                        if target is None:
+                            raise OSError("unsafe destination path")
                         if use_merge and item.suffix == ".md" and item.name != "L1.md":
                             merge_retro_file(item, target)
                             merge_count += 1
@@ -997,7 +1109,11 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                         else:
                             shutil.copy2(item, target)
                         count += 1
+                        if tracks_ownership:
+                            successfully_owned_paths.add(rel)
                     except Exception as file_err:
+                        if target is not None and rel in prior_owned.get(dst_name, set()):
+                            successfully_owned_paths.add(rel)
                         print(
                             f"[sync] ERROR: {dst_name}/{rel}: {file_err}",
                             file=sys.stderr,
@@ -1009,12 +1125,8 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
             # has only INDEX.local.json.
             if src_name == "skills" and _sync_runtime_skill_index(src, dst):
                 src_relative_paths.add(Path("INDEX.json"))
-
-            # Accumulate paths per destination for deferred stale cleanup
-            if src_name not in additive_only:
-                if dst_name not in dst_all_paths:
-                    dst_all_paths[dst_name] = set()
-                dst_all_paths[dst_name].update(src_relative_paths)
+                if tracks_ownership:
+                    successfully_owned_paths.add(Path("INDEX.json"))
 
             # For merge components, regenerate L1 from merged L2 files
             if use_merge and merge_count > 0:
@@ -1024,40 +1136,49 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                 synced.append(f"{dst_name}({count})")
         except Exception as e:
             errors.append(f"{dst_name}: {e}")
+            if tracks_ownership:
+                failed_destinations.add(dst_name)
+        finally:
+            if tracks_ownership:
+                dst_source_paths[dst_name].update(src_relative_paths)
+                dst_owned_paths[dst_name].update(successfully_owned_paths)
 
-    # Deferred stale cleanup: remove files from destinations that no longer
-    # exist in ANY source mapping to that destination. This must run AFTER
-    # all sources have been synced.
-    for dst_name, all_paths in dst_all_paths.items():
-        dst = user_claude / dst_name
-        if not dst.is_dir():
-            continue
+    # Deferred stale cleanup considers only paths this sync recorded after a
+    # successful install. Invalid, missing, or unsafe state never grants ownership.
+    if install_mode == "copy":
+        next_owned: dict[str, set[Path]] = {}
+        for dst_name in sorted(owned_destinations):
+            installed_paths = dst_owned_paths[dst_name]
+            if dst_name in failed_destinations:
+                next_owned[dst_name] = prior_owned.get(dst_name, set()) | installed_paths
+                continue
+
+            next_owned[dst_name] = set(installed_paths)
+            stale_paths = prior_owned.get(dst_name, set()) - dst_source_paths[dst_name]
+            dst = user_claude / dst_name
+            for rel in sorted(stale_paths):
+                stale_file = _safe_destination_file(dst, rel, create_parents=False)
+                if stale_file is None or not stale_file.is_file():
+                    continue
+                if _resolves_inside(stale_file, protected_roots):
+                    print(
+                        f"[sync] BLOCKED: stale-cleanup refusing to unlink {dst_name}/{rel} (resolves inside repo)",
+                        file=sys.stderr,
+                    )
+                    continue
+                try:
+                    stale_file.unlink()
+                except OSError as e:
+                    next_owned[dst_name].add(rel)
+                    errors.append(f"stale-cleanup-{dst_name}/{rel}: {e}")
+                else:
+                    _prune_empty_owned_parents(stale_file, dst)
+
+        manifest_data = {name: sorted(path.as_posix() for path in paths) for name, paths in sorted(next_owned.items())}
         try:
-            for item in dst.rglob("*"):
-                if item.is_file():
-                    rel = item.relative_to(dst)
-                    if rel not in all_paths:
-                        # Guard: refuse to delete files that resolve inside
-                        # the repo (symlink traversal data-loss prevention).
-                        if _resolves_inside(item, protected_roots):
-                            print(
-                                f"[sync] BLOCKED: stale-cleanup refusing to "
-                                f"unlink {dst_name}/{rel} (resolves inside repo)",
-                                file=sys.stderr,
-                            )
-                            continue
-                        try:
-                            item.unlink()
-                        except OSError:
-                            pass
-            # Clean up empty directories left behind
-            for dirpath in sorted(dst.rglob("*"), reverse=True):
-                if dirpath.is_dir() and not any(dirpath.iterdir()):
-                    if _resolves_inside(dirpath, protected_roots):
-                        continue
-                    dirpath.rmdir()
-        except Exception as e:
-            errors.append(f"stale-cleanup-{dst_name}: {e}")
+            _atomic_json_write(sync_manifest_path, manifest_data)
+        except OSError as e:
+            errors.append(f"sync-manifest: {e}")
 
     # Sync settings.json — repo hooks replace global hooks
     repo_settings_path = repo_root / ".claude" / "settings.json"

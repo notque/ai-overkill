@@ -674,6 +674,291 @@ class TestMainRuntimeIndex:
         assert "voice-x" in skills
 
 
+class TestOwnedStaleCleanup:
+    """Copy-mode cleanup removes only files recorded as safely installed."""
+
+    def _setup(self, tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+        repo = tmp_path / "repo"
+        home = tmp_path / "home"
+        user_claude = home / ".claude"
+
+        for component in ["agents", "hooks", "commands", "scripts"]:
+            source = repo / component
+            source.mkdir(parents=True)
+            (source / "owned.txt").write_text(component)
+
+        skill_file = repo / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.parent.mkdir(parents=True)
+        skill_file.write_text("# toolkit\n")
+
+        (repo / ".claude").mkdir()
+        (repo / ".claude" / "settings.json").write_text(json.dumps({"hooks": {}}))
+
+        user_claude.mkdir(parents=True)
+        (user_claude / ".install-manifest.json").write_text(json.dumps({"mode": "copy", "toolkit_path": str(repo)}))
+        return repo, home, user_claude, skill_file
+
+    def _run(self, repo: Path, home: Path, user_claude: Path) -> None:
+        with patch.object(Path, "home", return_value=home):
+            sync_mod._main_inner(repo, user_claude)
+
+    def test_upgrade_from_no_manifest_preserves_foreign_content(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        foreign_file = user_claude / "skills" / "cloudflare" / "SKILL.md"
+        foreign_file.parent.mkdir(parents=True)
+        foreign_file.write_text("# foreign\n")
+        foreign_empty_dir = user_claude / "skills" / "plugin-empty"
+        foreign_empty_dir.mkdir()
+
+        self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert foreign_file.read_text() == "# foreign\n"
+        assert foreign_empty_dir.is_dir()
+        assert "meta/toolkit/SKILL.md" in manifest["skills"]
+
+    def test_second_run_prunes_owned_stale_file(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        foreign_empty_dir = user_claude / "skills" / "plugin-empty"
+        foreign_empty_dir.mkdir(parents=True)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        assert installed.is_file()
+
+        skill_file.unlink()
+        self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert not installed.exists()
+        assert not installed.parent.exists()
+        assert foreign_empty_dir.is_dir()
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_repeated_sync_is_idempotent(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        foreign_file = user_claude / "skills" / "foreign.txt"
+        foreign_file.parent.mkdir(parents=True)
+        foreign_file.write_text("keep\n")
+        self._run(repo, home, user_claude)
+        first_manifest = (user_claude / ".sync-manifest.json").read_text()
+
+        self._run(repo, home, user_claude)
+
+        assert (user_claude / ".sync-manifest.json").read_text() == first_manifest
+        assert foreign_file.read_text() == "keep\n"
+
+    @pytest.mark.parametrize(
+        "value",
+        ["", ".", "../victim", "meta/../../victim", "/tmp/victim", r"..\victim", r"C:\victim", r"\\host\share\victim"],
+    )
+    def test_manifest_path_parser_rejects_unsafe_paths(self, value: str) -> None:
+        assert sync_mod._manifest_rel_path(value) is None
+
+    def test_manifest_path_parser_accepts_canonical_relative_path(self) -> None:
+        assert sync_mod._manifest_rel_path("meta/toolkit/SKILL.md") == Path("meta/toolkit/SKILL.md")
+
+    def test_parent_traversal_manifest_entry_is_ignored(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        (user_claude / "skills").mkdir()
+        victim = user_claude / "victim.txt"
+        victim.write_text("keep\n")
+        (user_claude / ".sync-manifest.json").write_text(json.dumps({"skills": ["../victim.txt"]}))
+
+        self._run(repo, home, user_claude)
+
+        assert victim.read_text() == "keep\n"
+
+    def test_absolute_manifest_entry_is_ignored(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        victim = tmp_path / "outside-victim.txt"
+        victim.write_text("keep\n")
+        (user_claude / ".sync-manifest.json").write_text(json.dumps({"skills": [str(victim)]}))
+
+        self._run(repo, home, user_claude)
+
+        assert victim.read_text() == "keep\n"
+
+    def test_wrong_schema_manifest_entry_is_ignored(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        foreign_file = user_claude / "skills" / "x"
+        foreign_file.parent.mkdir(parents=True)
+        foreign_file.write_text("keep\n")
+        (user_claude / ".sync-manifest.json").write_text(json.dumps({"skills": "x"}))
+
+        self._run(repo, home, user_claude)
+
+        assert foreign_file.read_text() == "keep\n"
+
+    def test_corrupt_manifest_preserves_foreign_content(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        foreign_file = user_claude / "skills" / "foreign.txt"
+        foreign_file.parent.mkdir(parents=True)
+        foreign_file.write_text("keep\n")
+        (user_claude / ".sync-manifest.json").write_text("{broken")
+
+        self._run(repo, home, user_claude)
+
+        assert foreign_file.read_text() == "keep\n"
+        assert isinstance(json.loads((user_claude / ".sync-manifest.json").read_text()), dict)
+
+    def test_manifest_entry_below_foreign_parent_symlink_is_ignored(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        outside = tmp_path / "plugin-data"
+        outside.mkdir()
+        victim = outside / "data.txt"
+        victim.write_text("keep\n")
+        skills = user_claude / "skills"
+        skills.mkdir()
+        (skills / "foreign").symlink_to(outside, target_is_directory=True)
+        (user_claude / ".sync-manifest.json").write_text(json.dumps({"skills": ["foreign/data.txt"]}))
+
+        self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert victim.read_text() == "keep\n"
+        assert "foreign/data.txt" not in manifest["skills"]
+        assert "stale-cleanup-skills" not in capsys.readouterr().err
+
+    def test_copy_does_not_follow_foreign_parent_symlink(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        outside = tmp_path / "plugin-data"
+        victim = outside / "toolkit" / "SKILL.md"
+        victim.parent.mkdir(parents=True)
+        victim.write_text("# foreign\n")
+        skills = user_claude / "skills"
+        skills.mkdir()
+        (skills / "meta").symlink_to(outside, target_is_directory=True)
+
+        self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert victim.read_text() == "# foreign\n"
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_copy_rejects_directory_at_file_destination(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        foreign_dir = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        foreign_dir.mkdir(parents=True)
+        victim = foreign_dir / "SKILL.md"
+        victim.write_text("# foreign\n")
+
+        self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert victim.read_text() == "# foreign\n"
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_failed_copy_does_not_claim_foreign_file(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        installed.parent.mkdir(parents=True)
+        installed.write_text("# foreign collision\n")
+        real_copy2 = shutil.copy2
+
+        def fail_skill_copy(src, dst, *args, **kwargs):
+            if Path(src) == skill_file:
+                raise OSError("forced copy failure")
+            return real_copy2(src, dst, *args, **kwargs)
+
+        with (
+            patch.object(Path, "home", return_value=home),
+            patch.object(sync_mod.shutil, "copy2", side_effect=fail_skill_copy),
+        ):
+            sync_mod._main_inner(repo, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.read_text() == "# foreign collision\n"
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+        skill_file.unlink()
+        self._run(repo, home, user_claude)
+        assert installed.read_text() == "# foreign collision\n"
+
+    def test_failed_update_keeps_prior_ownership(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.write_text("# updated\n")
+        real_copy2 = shutil.copy2
+
+        def fail_skill_copy(src, dst, *args, **kwargs):
+            if Path(src) == skill_file:
+                raise OSError("forced copy failure")
+            return real_copy2(src, dst, *args, **kwargs)
+
+        with (
+            patch.object(Path, "home", return_value=home),
+            patch.object(sync_mod.shutil, "copy2", side_effect=fail_skill_copy),
+        ):
+            sync_mod._main_inner(repo, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.read_text() == "# toolkit\n"
+        assert "meta/toolkit/SKILL.md" in manifest["skills"]
+
+        skill_file.unlink()
+        self._run(repo, home, user_claude)
+        assert not installed.exists()
+
+    def test_incomplete_source_scan_preserves_prior_state(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.unlink()
+        real_rglob = Path.rglob
+
+        def fail_skill_scan(path: Path, pattern: str):
+            if path == repo / "skills":
+                raise OSError("forced scan failure")
+            return real_rglob(path, pattern)
+
+        with patch.object(Path, "home", return_value=home), patch.object(Path, "rglob", new=fail_skill_scan):
+            sync_mod._main_inner(repo, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.is_file()
+        assert "meta/toolkit/SKILL.md" in manifest["skills"]
+
+    def test_interrupted_manifest_replace_keeps_prior_state(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        manifest_path = user_claude / ".sync-manifest.json"
+        prior = manifest_path.read_text()
+        real_replace = os.replace
+
+        def fail_manifest_replace(src: str, dst: str) -> None:
+            if Path(dst) == manifest_path:
+                raise OSError("forced manifest replace failure")
+            real_replace(src, dst)
+
+        with (
+            patch.object(Path, "home", return_value=home),
+            patch.object(sync_mod.os, "replace", side_effect=fail_manifest_replace),
+        ):
+            sync_mod._main_inner(repo, user_claude)
+
+        assert manifest_path.read_text() == prior
+        assert not manifest_path.with_suffix(".json.tmp").exists()
+        assert "sync-manifest: forced manifest replace failure" in capsys.readouterr().err
+
+    def test_manifest_write_replaces_temp_symlink_without_following_it(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        manifest_path = user_claude / ".sync-manifest.json"
+        victim = tmp_path / "outside.txt"
+        victim.write_text("keep\n")
+        manifest_path.with_suffix(".json.tmp").symlink_to(victim)
+
+        self._run(repo, home, user_claude)
+
+        assert victim.read_text() == "keep\n"
+        assert manifest_path.is_file() and not manifest_path.is_symlink()
+        assert "meta/toolkit/SKILL.md" in json.loads(manifest_path.read_text())["skills"]
+
+
 class TestHasPromotedTo:
     """Tests for _has_promoted_to — skip skills folded into a parent."""
 
