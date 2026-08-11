@@ -213,7 +213,19 @@ print_manual_pip_command() {
 }
 
 _canonical_path() {
-    python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+    local python_cmd=${PYTHON_CMD:-}
+
+    if [ -z "$python_cmd" ]; then
+        if command -v python3 > /dev/null 2>&1; then
+            python_cmd="python3"
+        elif command -v python > /dev/null 2>&1; then
+            python_cmd="python"
+        else
+            return 1
+        fi
+    fi
+
+    "$python_cmd" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
 }
 
 is_command_available() {
@@ -223,7 +235,7 @@ is_command_available() {
 _symlink_points_to() {
     local link=$1
     local expected=$2
-    local actual
+    local actual actual_canonical expected_canonical
 
     [ -L "$link" ] || return 1
     actual=$(readlink "$link") || return 1
@@ -231,7 +243,11 @@ _symlink_points_to() {
         /*) ;;
         *) actual="$(dirname "$link")/$actual" ;;
     esac
-    [ "$(_canonical_path "$actual")" = "$(_canonical_path "$expected")" ]
+    actual_canonical=$(_canonical_path "$actual") || return 1
+    expected_canonical=$(_canonical_path "$expected") || return 1
+    [ -n "$actual_canonical" ] || return 1
+    [ -n "$expected_canonical" ] || return 1
+    [ "$actual_canonical" = "$expected_canonical" ]
 }
 
 clean_hooks_mirror_if_source_link() {
