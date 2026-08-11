@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "architecture-deepening-decision-memory-record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "date",
+    "outcome",
+    "fingerprint",
+    "memory_scope",
+    "scope",
+    "decision",
+    "assumptions",
+    "alternatives",
+    "reopen_when",
+    "supersedes",
+    "evidence"
+  ],
+  "$defs": {
+    "safePath": {
+      "type": "string",
+      "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_.][A-Za-z0-9._-]*(?:/[A-Za-z0-9_.][A-Za-z0-9._-]*)*$"
+    },
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^arch:v1:(?!(?:\\.|\\.\\.)(?:/|::))(?!.*\\/(?:\\.|\\.\\.)(?:/|::))(?:[A-Za-z0-9._~-]|%(?:2[0-C]|3[A-F]|40|5[B-E]|60|7[B-DF]))+(?:/(?:[A-Za-z0-9._~-]|%(?:2[0-C]|3[A-F]|40|5[B-E]|60|7[B-DF]))+)*::(?:[A-Za-z0-9._~<>-]|%(?:2[0-CF]|3[ABDF]|40|5[B-E]|60|7[B-DF]))+::(leaked-dependency|repeated-configuration|duplicated-coordination|source-knowledge|temporal-ordering|error-leak)$"
+    }
+  },
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "outcome": {
+      "enum": ["selected", "rejected", "deferred", "no-change"]
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/fingerprint"
+    },
+    "memory_scope": {
+      "enum": ["shared", "local"]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modules", "callers"],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safePath"}
+        },
+        "callers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safePath"}
+        }
+      }
+    },
+    "decision": {"$ref": "#/$defs/nonEmptyText"},
+    "assumptions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyText"}
+    },
+    "alternatives": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyText"}
+    },
+    "reopen_when": {"$ref": "#/$defs/nonEmptyText"},
+    "supersedes": {
+      "anyOf": [{"$ref": "#/$defs/fingerprint"}, {"type": "null"}]
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/safePath"}
+    }
+  }
+}

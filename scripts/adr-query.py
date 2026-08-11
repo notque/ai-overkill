@@ -25,11 +25,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from repository_artifact import atomic_write_text, validate_relative_path
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -75,34 +79,103 @@ def _die(msg: str, code: int = 1) -> None:
     sys.exit(code)
 
 
-def _resolve_adr(path_str: str) -> Path:
+def _repo_root(args: argparse.Namespace) -> Path:
+    return args.repo_root.resolve()
+
+
+def _resolve_adr(path_str: str, repo_root: Path) -> Path:
     """Resolve ADR path, enforcing it stays within the repo's adr/ directory."""
-    repo_root = Path(__file__).parent.parent.resolve()
     adr_dir = repo_root / "adr"
 
-    # Resolve the path (handles relative paths from cwd)
+    try:
+        if stat.S_ISLNK(adr_dir.lstat().st_mode):
+            raise ValueError("adr/ must not be a symbolic link")
+    except FileNotFoundError as exc:
+        raise ValueError(f"adr/ directory not found at {adr_dir}") from exc
+    if not adr_dir.is_dir():
+        raise ValueError(f"adr/ directory not found at {adr_dir}")
+
     candidate = Path(path_str)
-    if not candidate.is_absolute():
-        candidate = Path.cwd() / candidate
-    resolved = candidate.resolve()
-
-    # Enforce .md extension
-    if resolved.suffix != ".md":
-        print(f"error: ADR path must be a .md file: {path_str}", file=sys.stderr)
-        sys.exit(1)
-
-    # Enforce path is within adr/ directory
+    if candidate.is_absolute():
+        try:
+            relative = candidate.relative_to(repo_root)
+        except ValueError as exc:
+            raise ValueError(f"ADR path must be within the adr/ directory: {path_str}") from exc
+    else:
+        relative = candidate
+    clean = validate_relative_path(relative.as_posix(), "ADR path")
+    if Path(clean).suffix != ".md":
+        raise ValueError(f"ADR path must be a .md file: {path_str}")
+    if not clean.startswith("adr/"):
+        raise ValueError(f"ADR path must be within the adr/ directory: {path_str}")
+    current = repo_root
+    for part in Path(clean).parts:
+        current /= part
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            break
+        if stat.S_ISLNK(mode):
+            raise ValueError(f"ADR path must not contain a symbolic link: {path_str}")
+    resolved = (repo_root / clean).resolve(strict=False)
     try:
         resolved.relative_to(adr_dir)
-    except ValueError:
-        print(f"error: ADR path must be within the adr/ directory: {path_str}", file=sys.stderr)
-        sys.exit(1)
+    except ValueError as exc:
+        raise ValueError(f"ADR path must be within the adr/ directory: {path_str}") from exc
 
-    if not resolved.exists():
-        print(f"error: ADR file not found: {path_str}", file=sys.stderr)
-        sys.exit(1)
+    if not resolved.is_file():
+        raise ValueError(f"ADR file not found: {path_str}")
 
     return resolved
+
+
+def _session_read(repo_root: Path) -> dict:
+    directory_flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        directory_flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        directory_flags |= os.O_NOFOLLOW
+    root_fd = os.open(repo_root, directory_flags)
+    try:
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            descriptor = os.open(SESSION_FILE, flags, dir_fd=root_fd)
+        except FileNotFoundError as exc:
+            raise ValueError(f"no active ADR session — {SESSION_FILE} not found in {repo_root}") from exc
+        except OSError as exc:
+            raise ValueError("ADR session registry must not be a symbolic link") from exc
+        mode = os.fstat(descriptor).st_mode
+        if not stat.S_ISREG(mode):
+            os.close(descriptor)
+            raise ValueError("ADR session registry must be a regular file")
+        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+            try:
+                session = json.load(handle)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"invalid JSON in {SESSION_FILE}: {exc}") from exc
+    finally:
+        os.close(root_fd)
+    if not isinstance(session, dict):
+        raise ValueError("ADR session registry must contain a JSON object")
+    return session
+
+
+def _validate_registration(repo_root: Path, adr_path: Path, expected_hash: str) -> None:
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_hash):
+        raise ValueError("expected ADR hash must use sha256:<64 lowercase hex digits>")
+    actual_hash = _compute_hash(adr_path)
+    if actual_hash != expected_hash:
+        raise ValueError(f"ADR hash mismatch: expected {expected_hash}, actual {actual_hash}")
+    session = _session_read(repo_root)
+    session_path = session.get("adr_path")
+    session_hash = session.get("adr_hash")
+    if not isinstance(session_path, str) or not isinstance(session_hash, str):
+        raise ValueError("ADR session registry must contain string adr_path and adr_hash fields")
+    registered = _resolve_adr(session_path, repo_root)
+    if registered != adr_path or session_hash != expected_hash:
+        raise ValueError("ADR does not match the active registered path and hash")
 
 
 def _compute_hash(path: Path) -> str:
@@ -290,7 +363,7 @@ def _extract_section_by_heading(path: Path, heading_text: str) -> Optional[str]:
 
 def cmd_hash(args: argparse.Namespace) -> int:
     """Compute and print the SHA256 hash of an ADR file."""
-    path = _resolve_adr(args.adr)
+    path = _resolve_adr(args.adr, _repo_root(args))
     print(_compute_hash(path))
     return 0
 
@@ -300,7 +373,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
     Returns exit 0 on match, exit 1 on mismatch.
     """
-    path = _resolve_adr(args.adr)
+    path = _resolve_adr(args.adr, _repo_root(args))
     expected = args.hash.strip()
     actual = _compute_hash(path)
     if actual == expected:
@@ -315,7 +388,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 def cmd_section(args: argparse.Namespace) -> int:
     """Extract a specific section by heading text and print it."""
-    path = _resolve_adr(args.adr)
+    path = _resolve_adr(args.adr, _repo_root(args))
     result = _extract_section_by_heading(path, args.heading)
     if result is None:
         print(f"warning: section '{args.heading}' not found in {path}", file=sys.stderr)
@@ -336,7 +409,7 @@ def cmd_context(args: argparse.Namespace) -> int:
         print(f"error: invalid role '{role}'. Valid roles: {', '.join(VALID_ROLES)}", file=sys.stderr)
         return 2
 
-    path = _resolve_adr(args.adr)
+    path = _resolve_adr(args.adr, _repo_root(args))
     section_names = ROLE_SECTIONS[role]
 
     header = (
@@ -368,10 +441,10 @@ def cmd_context(args: argparse.Namespace) -> int:
     return exit_code
 
 
-def cmd_list(_args: argparse.Namespace) -> int:
+def cmd_list(args: argparse.Namespace) -> int:
     """List all .md files in the adr/ directory with metadata as JSON."""
     # Find adr/ relative to this script's repo root
-    repo_root = Path(__file__).parent.parent
+    repo_root = _repo_root(args)
     adr_dir = repo_root / "adr"
 
     if not adr_dir.exists():
@@ -399,54 +472,38 @@ def cmd_register(args: argparse.Namespace) -> int:
 
     Writes .adr-session.json to the current working directory.
     """
-    path = _resolve_adr(args.adr)
+    repo_root = _repo_root(args)
+    path = _resolve_adr(args.adr, repo_root)
     adr_hash = _compute_hash(path)
     domain = _extract_domain(path)
 
-    # Make path relative to cwd if possible, otherwise use absolute
-    cwd = Path.cwd()
-    try:
-        rel_path = path.relative_to(cwd)
-        adr_path_str = str(rel_path)
-    except ValueError:
-        # Path not relative to cwd; use absolute
-        adr_path_str = str(path)
+    adr_path_str = path.relative_to(repo_root).as_posix()
 
     session = {
         "adr_path": adr_path_str,
         "adr_hash": adr_hash,
         "domain": domain,
         "registered_at": datetime.now(timezone.utc).isoformat(),
-        "cwd": str(cwd),
+        "cwd": str(repo_root),
     }
 
-    session_file = cwd / SESSION_FILE
-    session_file.write_text(json.dumps(session, indent=2), encoding="utf-8")
+    session_file = atomic_write_text(
+        repo_root,
+        SESSION_FILE,
+        json.dumps(session, indent=2) + "\n",
+        mode=0o600,
+    )
     print(f"Registered: {adr_path_str} ({adr_hash})")
     print(f"Session file: {session_file}")
     return 0
 
 
-def cmd_active(_args: argparse.Namespace) -> int:
+def cmd_active(args: argparse.Namespace) -> int:
     """Print the currently active ADR from .adr-session.json.
 
     Exits 1 with a descriptive message if no session is registered.
     """
-    session_file = Path.cwd() / SESSION_FILE
-
-    if not session_file.exists():
-        print(
-            f"error: no active ADR session — {SESSION_FILE} not found in {Path.cwd()}",
-            file=sys.stderr,
-        )
-        print("hint: run 'python3 scripts/adr-query.py register --adr PATH' first", file=sys.stderr)
-        return 1
-
-    try:
-        session = json.loads(session_file.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        print(f"error: invalid JSON in {session_file}: {exc}", file=sys.stderr)
-        return 1
+    session = _session_read(_repo_root(args))
 
     adr_path = session.get("adr_path", "<unknown>")
     adr_hash = session.get("adr_hash", "<unknown>")
@@ -457,6 +514,15 @@ def cmd_active(_args: argparse.Namespace) -> int:
     print(f"hash:          {adr_hash}")
     print(f"domain:        {domain}")
     print(f"registered_at: {registered_at}")
+    return 0
+
+
+def cmd_validate_registration(args: argparse.Namespace) -> int:
+    """Validate ADR containment, content hash, and active registration."""
+    repo_root = _repo_root(args)
+    path = _resolve_adr(args.adr, repo_root)
+    _validate_registration(repo_root, path, args.hash)
+    print("valid")
     return 0
 
 
@@ -474,11 +540,20 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
     subparsers.required = True
 
+    def add_repo_root(command: argparse.ArgumentParser) -> None:
+        command.add_argument(
+            "--repo-root",
+            type=Path,
+            default=Path(__file__).parent.parent,
+            help="Repository root (default: root containing this script)",
+        )
+
     # --- context ---
     p_context = subparsers.add_parser(
         "context",
         help="Get role-targeted context block from an ADR.",
     )
+    add_repo_root(p_context)
     p_context.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
     p_context.add_argument(
         "--role",
@@ -493,6 +568,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "hash",
         help="Compute SHA256 hash of an ADR file.",
     )
+    add_repo_root(p_hash)
     p_hash.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
 
     # --- verify ---
@@ -500,6 +576,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "verify",
         help="Verify ADR file hash matches expected value (exit 0=match, 1=mismatch).",
     )
+    add_repo_root(p_verify)
     p_verify.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
     p_verify.add_argument("--hash", required=True, metavar="HASH", help="Expected hash (sha256:...)")
 
@@ -508,26 +585,43 @@ def _build_parser() -> argparse.ArgumentParser:
         "section",
         help="Extract a specific section by heading text.",
     )
+    add_repo_root(p_section)
     p_section.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
     p_section.add_argument("--heading", required=True, metavar="TEXT", help="Heading text to find")
 
     # --- list ---
-    subparsers.add_parser(
+    p_list = subparsers.add_parser(
         "list",
         help="List all ADR files in adr/ with hashes and metadata (JSON output).",
     )
+    add_repo_root(p_list)
 
     # --- register ---
     p_register = subparsers.add_parser(
         "register",
         help="Register an ADR as active for the current session (writes .adr-session.json).",
     )
+    add_repo_root(p_register)
     p_register.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
 
     # --- active ---
-    subparsers.add_parser(
+    p_active = subparsers.add_parser(
         "active",
         help="Print the currently active ADR from .adr-session.json.",
+    )
+    add_repo_root(p_active)
+
+    p_validate_registration = subparsers.add_parser(
+        "validate-registration",
+        help="Validate ADR containment, hash, and active session registration.",
+    )
+    add_repo_root(p_validate_registration)
+    p_validate_registration.add_argument("--adr", required=True, metavar="PATH", help="Path to ADR file")
+    p_validate_registration.add_argument(
+        "--hash",
+        required=True,
+        metavar="HASH",
+        help="Expected hash (sha256:...)",
     )
 
     return parser
@@ -546,6 +640,7 @@ def main() -> int:
         "list": cmd_list,
         "register": cmd_register,
         "active": cmd_active,
+        "validate-registration": cmd_validate_registration,
     }
 
     handler = dispatch.get(args.command)
@@ -553,7 +648,11 @@ def main() -> int:
         parser.print_help(sys.stderr)
         return 2
 
-    return handler(args)
+    try:
+        return handler(args)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

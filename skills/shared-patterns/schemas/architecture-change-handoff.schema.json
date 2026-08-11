@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "architecture-change-handoff.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "origin",
+    "result",
+    "candidate",
+    "change_class",
+    "scope",
+    "risk",
+    "decision_artifact",
+    "decision_scope",
+    "consultation_adr",
+    "consultation_adr_hash",
+    "current_interface",
+    "proposed_interface",
+    "migration",
+    "success_criteria",
+    "next_skill",
+    "next_pipeline"
+  ],
+  "$defs": {
+    "safePath": {
+      "type": "string",
+      "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_.][A-Za-z0-9._-]*(?:/[A-Za-z0-9_.][A-Za-z0-9._-]*)*$"
+    },
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "adrPath": {
+      "allOf": [
+        {"$ref": "#/$defs/safePath"},
+        {"pattern": "^adr/[A-Za-z0-9_.][A-Za-z0-9._/-]*\\.md$"}
+      ]
+    },
+    "adrHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "properties": {
+    "origin": {
+      "const": "architecture-deepening"
+    },
+    "result": {
+      "enum": ["selected", "rejected", "deferred", "no-change", "no-findings"]
+    },
+    "candidate": {
+      "type": ["string", "null"],
+      "pattern": "^arch:v1:(?!(?:\\.|\\.\\.)(?:/|::))(?!.*\\/(?:\\.|\\.\\.)(?:/|::))(?:[A-Za-z0-9._~-]|%(?:2[0-C]|3[A-F]|40|5[B-E]|60|7[B-DF]))+(?:/(?:[A-Za-z0-9._~-]|%(?:2[0-C]|3[A-F]|40|5[B-E]|60|7[B-DF]))+)*::(?:[A-Za-z0-9._~<>-]|%(?:2[0-CF]|3[ABDF]|40|5[B-E]|60|7[B-DF]))+::(leaked-dependency|repeated-configuration|duplicated-coordination|source-knowledge|temporal-ordering|error-leak)$"
+    },
+    "change_class": {
+      "enum": ["close", "behavior-preserving-refactor", "interface-migration", "new-behavior"]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modules", "callers"],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/safePath"},
+          "uniqueItems": true
+        },
+        "callers": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/safePath"},
+          "uniqueItems": true
+        }
+      }
+    },
+    "risk": {
+      "enum": ["low", "medium", "high"]
+    },
+    "decision_artifact": {
+      "enum": ["docs/architecture-decisions.md", ".local/architecture-decisions.md", null]
+    },
+    "decision_scope": {
+      "enum": ["shared", "local", null]
+    },
+    "consultation_adr": {
+      "anyOf": [{"$ref": "#/$defs/adrPath"}, {"type": "null"}]
+    },
+    "consultation_adr_hash": {
+      "anyOf": [{"$ref": "#/$defs/adrHash"}, {"type": "null"}]
+    },
+    "current_interface": {
+      "type": ["string", "null"]
+    },
+    "proposed_interface": {
+      "type": ["string", "null"]
+    },
+    "migration": {
+      "type": ["string", "null"]
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/nonEmptyText"},
+      "uniqueItems": true
+    },
+    "next_skill": {
+      "enum": ["workflow", "feature-lifecycle", null]
+    },
+    "next_pipeline": {
+      "enum": ["systematic-refactoring", null]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"decision_artifact": {"type": "null"}}},
+      "then": {"properties": {"decision_scope": {"type": "null"}}},
+      "else": {"properties": {"decision_scope": {"enum": ["shared", "local"]}}}
+    },
+    {
+      "if": {"properties": {"decision_artifact": {"const": "docs/architecture-decisions.md"}}},
+      "then": {"properties": {"decision_scope": {"const": "shared"}}}
+    },
+    {
+      "if": {"properties": {"decision_artifact": {"const": ".local/architecture-decisions.md"}}},
+      "then": {"properties": {"decision_scope": {"const": "local"}}}
+    },
+    {
+      "if": {"properties": {"consultation_adr": {"type": "null"}}},
+      "then": {"properties": {"consultation_adr_hash": {"type": "null"}}},
+      "else": {"properties": {"consultation_adr_hash": {"$ref": "#/$defs/adrHash"}}}
+    },
+    {
+      "if": {"properties": {"result": {"enum": ["selected", "rejected", "deferred", "no-change"]}}},
+      "then": {
+        "properties": {
+          "candidate": {"type": "string", "minLength": 1},
+          "scope": {
+            "properties": {
+              "modules": {"minItems": 1},
+              "callers": {"minItems": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"result": {"const": "selected"}}},
+      "then": {
+        "properties": {
+          "change_class": {
+            "enum": ["behavior-preserving-refactor", "interface-migration", "new-behavior"]
+          },
+          "current_interface": {"$ref": "#/$defs/nonEmptyText"},
+          "proposed_interface": {"$ref": "#/$defs/nonEmptyText"},
+          "migration": {"$ref": "#/$defs/nonEmptyText"},
+          "success_criteria": {"minItems": 2}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"result": {"enum": ["rejected", "deferred"]}}},
+      "then": {
+        "properties": {
+          "change_class": {"const": "close"},
+          "consultation_adr": {"type": "null"},
+          "consultation_adr_hash": {"type": "null"},
+          "current_interface": {"type": "null"},
+          "proposed_interface": {"type": "null"},
+          "migration": {"type": "null"},
+          "success_criteria": {"maxItems": 0},
+          "next_skill": {"type": "null"},
+          "next_pipeline": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"result": {"const": "no-change"}}},
+      "then": {
+        "properties": {
+          "change_class": {"const": "close"},
+          "current_interface": {"$ref": "#/$defs/nonEmptyText"},
+          "proposed_interface": {"type": "null"},
+          "migration": {"type": "null"},
+          "success_criteria": {"maxItems": 0},
+          "next_skill": {"type": "null"},
+          "next_pipeline": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"result": {"const": "no-change"}}},
+          {"properties": {"risk": {"const": "high"}}}
+        ]
+      },
+      "then": {
+        "properties": {
+          "consultation_adr": {"$ref": "#/$defs/adrPath"},
+          "consultation_adr_hash": {"$ref": "#/$defs/adrHash"}
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"result": {"const": "no-change"}}},
+          {"properties": {"risk": {"enum": ["low", "medium"]}}}
+        ]
+      },
+      "then": {
+        "properties": {
+          "consultation_adr": {"type": "null"},
+          "consultation_adr_hash": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"result": {"const": "no-findings"}}},
+      "then": {
+        "properties": {
+          "candidate": {"type": "null"},
+          "change_class": {"const": "close"},
+          "risk": {"const": "low"},
+          "scope": {"properties": {"modules": {"minItems": 1}}},
+          "decision_artifact": {"type": "null"},
+          "decision_scope": {"type": "null"},
+          "consultation_adr": {"type": "null"},
+          "consultation_adr_hash": {"type": "null"},
+          "current_interface": {"type": "null"},
+          "proposed_interface": {"type": "null"},
+          "migration": {"type": "null"},
+          "success_criteria": {"maxItems": 0},
+          "next_skill": {"type": "null"},
+          "next_pipeline": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"change_class": {"const": "behavior-preserving-refactor"}}},
+      "then": {
+        "properties": {
+          "next_skill": {"const": "workflow"},
+          "next_pipeline": {"const": "systematic-refactoring"}
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"change_class": {"const": "behavior-preserving-refactor"}}},
+          {"properties": {"risk": {"enum": ["medium", "high"]}}}
+        ]
+      },
+      "then": {
+        "properties": {
+          "consultation_adr": {"$ref": "#/$defs/adrPath"},
+          "consultation_adr_hash": {"$ref": "#/$defs/adrHash"}
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"change_class": {"const": "behavior-preserving-refactor"}}},
+          {"properties": {"risk": {"const": "low"}}}
+        ]
+      },
+      "then": {
+        "properties": {
+          "consultation_adr": {"type": "null"},
+          "consultation_adr_hash": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"change_class": {"enum": ["interface-migration", "new-behavior"]}}},
+      "then": {
+        "properties": {
+          "success_criteria": {"minItems": 3},
+          "consultation_adr": {"type": "null"},
+          "consultation_adr_hash": {"type": "null"},
+          "next_skill": {"const": "feature-lifecycle"},
+          "next_pipeline": {"type": "null"}
+        }
+      }
+    }
+  ]
+}

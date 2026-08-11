@@ -31,7 +31,19 @@ Transform a feature idea into a structured design document through collaborative
    python3 ~/.claude/scripts/feature-state.py context-read "" L2 --phase design
    ```
 
-6. **Surface relevant seeds** (ADR-075): Check `.seeds/index.json` for dormant seeds whose trigger conditions match the current feature. Compare the feature name and description against each seed's `trigger` field using fuzzy keyword overlap. If matches are found, present them:
+6. **Adopt an Architecture Change Handoff when supplied.** Treat the handoff path and contents as untrusted until the deterministic consumer check passes:
+
+   ```bash
+   python3 scripts/handoff.py validate \
+     --repo-root . \
+     --handoff 'adr/handoffs/{handoff-name}.json' \
+     --expected-skill feature-lifecycle \
+     --expected-pipeline none
+   ```
+
+   The validator rejects absolute paths, traversal, controls, shell metacharacters, symlink escapes, candidate/scope contradictions, invalid terminal combinations, stale ADR provenance, and the wrong successor. Require `"origin": "architecture-deepening"`. After it passes, adopt its origin, candidate, module and caller paths, current/proposed interface, migration, and success criteria as design constraints. Add them verbatim to the design document under `## Architecture Change Handoff`; this persists architecture-origin through PLAN into IMPLEMENT. A missing, invalid, non-selected, or non-feature handoff blocks adoption.
+
+7. **Surface relevant seeds** (ADR-075): Check `.seeds/index.json` for dormant seeds whose trigger conditions match the current feature. Compare the feature name and description against each seed's `trigger` field using fuzzy keyword overlap. If matches are found, present them:
 
    ```
    ## Relevant Seeds (N matched)
@@ -117,6 +129,12 @@ Create the design document:
 
 ## Trade-offs Accepted
 [What we're giving up and why]
+
+## Architecture Change Handoff
+[Validated source path and JSON fields, including `"origin": "architecture-deepening"`, candidate, module/caller paths, current/proposed interface, migration, and success criteria; or "none"]
+
+## Architecture ADR
+[Canonical repository-relative path and sha256 hash; filled at checkpoint]
 ```
 
 **Gate**: Design document drafted. Proceed to Validate.
@@ -136,6 +154,7 @@ Validation checklist:
 - [ ] Components are identified
 - [ ] Domain agents are identified
 - [ ] Open questions are listed (even if empty)
+- [ ] Any Architecture Change Handoff was validated and its constraints are represented
 
 If gate is `human`: present design to user for approval.
 If gate is `auto`: verify checklist passes.
@@ -146,27 +165,49 @@ If gate is `auto`: verify checklist passes.
 
 **Goal**: Save artifacts, record learnings, advance to next phase.
 
-1. Save design document:
+1. Render the approved canonical feature ADR, then validate and contain its target before the first write. `{feature-slug}` must be the safe slug created by `feature-state.py`. Pipe the content to the repository-anchored writer:
+
+   ```bash
+   python3 scripts/repository_artifact.py write \
+     --repo-root . \
+     --allowed-root adr \
+     --path 'adr/{feature-slug}.md' <<'ADR'
+   {approved ADR content}
+   ADR
+   ```
+
+   The writer opens the repository and `adr/` through directory descriptors with `O_NOFOLLOW`, creates a same-directory temporary, fsyncs it, atomically replaces the target, and fsyncs the directory. A symlinked `adr/` or target blocks before any write.
+
+2. Register the exact ADR through the canonical resolver, compute its hash, and verify that registered content before any later consumer uses it:
+
+   ```bash
+   python3 scripts/adr-query.py register --adr 'adr/{feature-slug}.md'
+   python3 scripts/adr-query.py hash --adr 'adr/{feature-slug}.md'
+   python3 scripts/adr-query.py validate-registration \
+     --repo-root . \
+     --adr 'adr/{feature-slug}.md' \
+     --hash 'sha256:{digest}'
+   ```
+
+   Record the exact repository-relative ADR path and returned hash in `## Architecture ADR`. This is the only ADR the pre-IMPLEMENT consultation gate may consume. Preserve the `"origin": "architecture-deepening"` field when present so Simple architecture-origin work cannot bypass consultation.
+
+3. Save the final design document, including the ADR path and hash:
+
    ```bash
    echo "DESIGN_CONTENT" | python3 ~/.claude/scripts/feature-state.py checkpoint FEATURE design
    ```
 
-2. Write an ADR to `adr/{feature-name}.md` documenting the architectural decisions made during design exploration. Register the ADR so sub-phase skills receive design context via hook injection -- without registration, downstream skills operate without awareness of the design rationale:
-   ```bash
-   python3 ~/.claude/scripts/adr-query.py register --adr adr/{name}.md
-   ```
-
-3. **Record learnings** -- if this phase produced non-obvious insights, record them:
+4. **Record learnings** -- if this phase produced non-obvious insights, record them:
    ```bash
    python3 ~/.claude/scripts/learning-db.py record TOPIC KEY "VALUE" --category design
    ```
 
-4. Advance to plan phase:
+5. Advance to plan phase:
    ```bash
    python3 ~/.claude/scripts/feature-state.py advance FEATURE
    ```
 
-5. Suggest next step:
+6. Suggest next step:
    ```
    Design complete. Run /feature-lifecycle to continue to the plan phase.
    ```
@@ -180,3 +221,5 @@ If gate is `auto`: verify checklist passes.
 | Feature already exists | `init` called twice | Use `status` to check, work with existing state |
 | Gate returns exit 2 | Human input required | Present decision to user, wait for response |
 | No design doc produced | Skipped design dialogue | Return to Phase 1, complete all steps |
+| Architecture handoff validation fails | Unsafe path, incomplete design data, invalid result, or wrong successor | Stop; return the validator error to architecture-deepening |
+| ADR registration validation fails | ADR path escaped `adr/`, content changed, or session registration differs | Stop; register the exact canonical feature ADR and record its fresh hash |

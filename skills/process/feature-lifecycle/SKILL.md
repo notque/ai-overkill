@@ -70,6 +70,7 @@ Determine which phase to execute based on feature state:
    Route to the phase indicated by the state machine.
 
 2. **If no feature state exists**, determine entry point from user intent:
+   - Validated `Architecture Change Handoff` targeting `feature-lifecycle` -> DESIGN; the design phase adopts it before approach work
    - "design", "think through", "explore approaches" -> DESIGN
    - "plan", "break down", "create tasks" -> PLAN (requires completed design)
    - "implement", "execute plan", "start building" -> IMPLEMENT (requires completed plan)
@@ -107,6 +108,7 @@ Each phase produces an artifact consumed by the next. Skipping phases is not sup
 | Signal | Load These Files | Why |
 |---|---|---|
 | Phase 1 DESIGN: idea to design document | `design.md` | Loads detailed guidance from `design.md`. |
+| Architecture Change Handoff targets feature-lifecycle | `design.md` | Validate and adopt architecture scope/interface/migration; create/register the feature ADR in DESIGN. |
 | errors, error handling | `error-handling.md` | Loads detailed guidance from `error-handling.md`. |
 | Phase 3 IMPLEMENT: dispatching task waves to domain agents | `implement.md` | Loads detailed guidance from `implement.md`. |
 | running the full design-to-release pipeline | `pipeline.md` | Loads detailed guidance from `pipeline.md`. |

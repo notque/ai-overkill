@@ -14,26 +14,33 @@ Execute the implementation plan by dispatching tasks to domain agents wave by wa
    ```
    Verify current phase is `implement` and `plan` is completed. All state operations throughout this skill go through `feature-state.py` because it is the single source of truth for lifecycle phase tracking.
 
-3. Load plan artifact from `.feature/state/plan/`.
+3. Load the plan artifact from `.feature/state/plan/` and the design artifact from `.feature/state/design/`. Read the exact repository-relative ADR path and `sha256:` hash from the design's `## Architecture ADR` section; never locate the ADR by fuzzy filename matching.
 
-4. **Consultation Gate** (Medium+ complexity only):
-   - Extract the feature name and task complexity from the plan.
-   - If complexity is Simple or no ADR exists in `adr/` matching the feature name, skip this gate and proceed to step 5. This gate cannot be bypassed for Medium+ features that have an existing ADR -- skipping it risks implementing against a design that has unresolved architectural concerns.
-   - If an ADR exists for this feature AND complexity is Medium or higher:
-     1. Check if `adr/{adr-name}/synthesis.md` exists.
-     2. If `synthesis.md` does not exist, **BLOCK**: Print "Consultation required for Medium+ feature. Run /adr-consultation first." and STOP.
-     3. If `synthesis.md` exists, read it and check the verdict.
+4. **Consultation Gate** (every architecture-origin feature; all other Medium+ work):
+   - Extract the feature name and task complexity from the plan. Read `## Architecture Change Handoff` in the design. The exact `"origin": "architecture-deepening"` field marks architecture-origin and persists across phases.
+   - A Simple architecture-origin feature must run this gate. A Simple feature whose design records no architecture origin may proceed to step 5. Medium+ work always runs this gate.
+   - Validate the exact design ADR through the canonical containment, hash, and registration check:
+
+     ```bash
+     python3 scripts/adr-query.py validate-registration \
+       --repo-root . \
+       --adr 'adr/{feature-slug}.md' \
+       --hash 'sha256:{digest}'
+     ```
+
+     A missing path/hash, absolute or escaping path, changed ADR, or different active registration blocks implementation.
+   - Derive the consultation directory only from the validated ADR stem. Do not reuse a consultation for a different path or hash.
+   - If `adr/{feature-slug}/synthesis.md` does not exist, run `adr-consultation` now against that validated ADR. This is the single pre-IMPLEMENT consultation point; architecture-deepening and feature DESIGN must not run an earlier duplicate consultation.
+   - Read the synthesis and confirm it names the same ADR path and hash, then check the verdict.
         - If verdict is "PROCEED", gate passes, continue.
         - If verdict is "BLOCKED", **BLOCK**: Print "Consultation blocked implementation. Resolve concerns in adr/{adr-name}/concerns.md before implementing." and STOP.
 
-5. Load design artifact from `.feature/state/design/` for reference.
-
-6. Load L1 implement context (along with L0 and plan/design artifacts, this provides the full context needed for accurate implementation):
+5. Load L1 implement context (along with L0 and plan/design artifacts, this provides the full context needed for accurate implementation):
    ```bash
    python3 ~/.claude/scripts/feature-state.py context-read FEATURE L1 --phase implement
    ```
 
-7. Capture BASE_SHA for later diff validation:
+6. Capture BASE_SHA for later diff validation:
    ```bash
    git rev-parse HEAD
    ```
@@ -136,7 +143,8 @@ Quick validation before the formal validation phase:
 | Error | Cause | Solution |
 |-------|-------|----------|
 | No plan found | Plan phase not completed | Run plan phase first |
-| Consultation not completed | Medium+ feature has ADR but no synthesis | Run /adr-consultation first |
+| Consultation not completed | Architecture-origin or Medium+ feature has no synthesis for the validated design ADR path and hash | Run `adr-consultation` at the pre-IMPLEMENT gate |
+| ADR validation fails | Design ADR is missing, unsafe, changed, or not the active registration | Return to DESIGN; register the canonical feature ADR and refresh the recorded hash |
 | Consultation blocked | synthesis.md verdict is BLOCKED | Resolve concerns in adr/{name}/concerns.md |
 | Agent dispatch fails | Agent not available or task malformed | Retry with more context, escalate if 3 failures |
 | Wave test failure | Task broke existing tests | Route back to responsible agent for fix |

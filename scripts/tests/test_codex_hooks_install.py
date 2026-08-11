@@ -183,9 +183,10 @@ def test_install_sh_generates_valid_hooks_json(fake_home: Path) -> None:
     commands = [entry["command"] for groups in data["hooks"].values() for group in groups for entry in group["hooks"]]
     assert len(commands) == 61
     assert all("codex-hook-adapter.py" in command for command in commands)
-    assert "Codex scripts: 129 mirrored scripts" in result.stdout
+    script_count = len(list((REPO_ROOT / "scripts").glob("*.py")))
+    assert f"Codex scripts: {script_count} mirrored scripts" in result.stdout
     assert "Hooks: 86 automation hooks" in result.stdout
-    assert "Scripts: 129 utility scripts" in result.stdout
+    assert f"Scripts: {script_count} utility scripts" in result.stdout
 
     tool_matchers = {
         group.get("matcher")

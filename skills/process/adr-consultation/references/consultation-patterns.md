@@ -185,6 +185,12 @@ Resolution states (update as concerns are addressed):
 ```markdown
 # Consultation Synthesis: {adr-name}
 
+## ADR Path
+adr/{adr-name}.md
+
+## ADR Hash
+sha256:{digest}
+
 ## Verdict: [PROCEED | BLOCKED]
 
 ## Agent Verdicts
