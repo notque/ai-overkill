@@ -272,19 +272,19 @@ class TestPerFileErrorHandling:
         """Per-file errors should produce a stderr warning line."""
         repo, user_claude, base = self._setup(tmp_path)
 
-        original_copy2 = __import__("shutil").copy2
+        original_copy = sync_mod._copy_file_contents
 
-        def failing_copy2(src, dst, **kwargs):
+        def failing_copy(src):
             if str(src).endswith("b.md") and "agents" in str(src):
                 raise PermissionError("simulated")
-            return original_copy2(src, dst, **kwargs)
+            return original_copy(src)
 
         with (
             patch.object(Path, "home", return_value=base / "home"),
             patch.object(Path, "cwd", return_value=repo),
             patch.object(sync_mod, "_is_git_worktree", return_value=False),
             patch.object(sync_mod, "_is_ephemeral_path", return_value=False),
-            patch("shutil.copy2", side_effect=failing_copy2),
+            patch.object(sync_mod, "_copy_file_contents", side_effect=failing_copy),
         ):
             sync_mod.main()
 

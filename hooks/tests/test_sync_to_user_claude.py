@@ -837,6 +837,90 @@ class TestOwnedStaleCleanup:
         assert victim.read_text() == "# foreign\n"
         assert "meta/toolkit/SKILL.md" not in manifest["skills"]
 
+    def test_parent_swap_before_copy_cannot_redirect_write(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        skills = user_claude / "skills"
+        (skills / "meta").mkdir(parents=True)
+        parked = skills / "meta-parked"
+        outside = tmp_path / "plugin-data"
+        victim = outside / "toolkit" / "SKILL.md"
+        victim.parent.mkdir(parents=True)
+        victim.write_text("# foreign\n")
+        real_open = open
+        swap_triggered = False
+
+        def swap_before_source_open(file, *args, **kwargs):
+            nonlocal swap_triggered
+            if Path(file) == skill_file and not swap_triggered:
+                (skills / "meta").rename(parked)
+                (skills / "meta").symlink_to(outside, target_is_directory=True)
+                swap_triggered = True
+            return real_open(file, *args, **kwargs)
+
+        with patch.object(Path, "home", return_value=home), patch("builtins.open", side_effect=swap_before_source_open):
+            sync_mod._main_inner(repo, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert swap_triggered
+        assert victim.read_text() == "# foreign\n"
+        assert not (parked / "toolkit" / "SKILL.md").exists()
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_file_swap_during_unchanged_copy_is_not_claimed(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        installed.parent.mkdir(parents=True)
+        installed.write_text(skill_file.read_text())
+        parked = installed.with_name("SKILL-parked.md")
+        real_copy = sync_mod._copy_file_contents
+        swap_triggered = False
+
+        def swap_before_source_read(source: Path):
+            nonlocal swap_triggered
+            if source == skill_file and not swap_triggered:
+                installed.rename(parked)
+                installed.write_text("# foreign\n")
+                swap_triggered = True
+            return real_copy(source)
+
+        with patch.object(sync_mod, "_copy_file_contents", side_effect=swap_before_source_read):
+            self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert swap_triggered
+        assert installed.read_text() == "# foreign\n"
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_parent_swap_before_l1_replace_cannot_redirect_write(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        l2_source = repo / "retro" / "L2" / "topic.md"
+        l2_source.parent.mkdir(parents=True)
+        l2_source.write_text("**Tags**: safety\n\n### Rule\nKeep the boundary.\n")
+        retro = user_claude / "retro"
+        parked = user_claude / "retro-parked"
+        outside = tmp_path / "plugin-data"
+        outside.mkdir()
+        victim = outside / "L1.md"
+        victim.write_text("# foreign\n")
+        real_render = sync_mod._render_l1_at_dst
+        swap_triggered = False
+
+        def swap_before_l1_replace(destination: Path):
+            nonlocal swap_triggered
+            rendered = real_render(destination)
+            if not swap_triggered:
+                retro.rename(parked)
+                retro.symlink_to(outside, target_is_directory=True)
+                swap_triggered = True
+            return rendered
+
+        with patch.object(sync_mod, "_render_l1_at_dst", side_effect=swap_before_l1_replace):
+            self._run(repo, home, user_claude)
+
+        assert swap_triggered
+        assert victim.read_text() == "# foreign\n"
+        assert not (parked / "L1.md").exists()
+
     def test_copy_rejects_directory_at_file_destination(self, tmp_path: Path) -> None:
         repo, home, user_claude, _ = self._setup(tmp_path)
         foreign_dir = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
@@ -850,21 +934,161 @@ class TestOwnedStaleCleanup:
         assert victim.read_text() == "# foreign\n"
         assert "meta/toolkit/SKILL.md" not in manifest["skills"]
 
+    def test_parent_swap_before_unlink_cannot_redirect_delete(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.unlink()
+        parent = installed.parent
+        parked = parent.with_name("toolkit-parked")
+        outside = tmp_path / "plugin-data"
+        victim = outside / "SKILL.md"
+        outside.mkdir()
+        victim.write_text("# foreign\n")
+        real_unlink = os.unlink
+        swap_triggered = False
+
+        def swap_before_unlink(path, *args, **kwargs):
+            nonlocal swap_triggered
+            is_owned_target = Path(path) == installed or (path == installed.name and kwargs.get("dir_fd") is not None)
+            if is_owned_target and not swap_triggered:
+                parent.rename(parked)
+                parent.symlink_to(outside, target_is_directory=True)
+                swap_triggered = True
+            return real_unlink(path, *args, **kwargs)
+
+        with (
+            patch.object(Path, "home", return_value=home),
+            patch.object(sync_mod.os, "unlink", side_effect=swap_before_unlink),
+        ):
+            sync_mod._main_inner(repo, user_claude)
+
+        assert swap_triggered
+        assert victim.read_text() == "# foreign\n"
+        assert not (parked / "SKILL.md").exists()
+
+    def test_parent_swap_before_prune_cannot_remove_foreign_directory(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.unlink()
+        meta = installed.parent.parent
+        parked = meta.with_name("meta-parked")
+        outside = tmp_path / "plugin-data"
+        foreign_empty_dir = outside / "toolkit"
+        foreign_empty_dir.mkdir(parents=True)
+        real_rmdir = os.rmdir
+        swap_triggered = False
+
+        def swap_before_rmdir(path, *args, **kwargs):
+            nonlocal swap_triggered
+            is_owned_parent = Path(path) == installed.parent or (
+                path == installed.parent.name and kwargs.get("dir_fd") is not None
+            )
+            if is_owned_parent and not swap_triggered:
+                meta.rename(parked)
+                meta.symlink_to(outside, target_is_directory=True)
+                swap_triggered = True
+            return real_rmdir(path, *args, **kwargs)
+
+        with (
+            patch.object(Path, "home", return_value=home),
+            patch.object(sync_mod.os, "rmdir", side_effect=swap_before_rmdir),
+        ):
+            sync_mod._main_inner(repo, user_claude)
+
+        assert swap_triggered
+        assert foreign_empty_dir.is_dir()
+        assert not (parked / "toolkit").exists()
+
+    def test_unsupported_platform_skips_copy_and_claim(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        installed.parent.mkdir(parents=True)
+        installed.write_text("# foreign\n")
+
+        with patch.object(sync_mod, "_secure_dir_fd_available", return_value=False, create=True):
+            self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.read_text() == "# foreign\n"
+        assert "meta/toolkit/SKILL.md" not in manifest["skills"]
+
+    def test_unsupported_platform_retains_owned_stale_file(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.unlink()
+
+        with patch.object(sync_mod, "_secure_dir_fd_available", return_value=False, create=True):
+            self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.read_text() == "# toolkit\n"
+        assert "meta/toolkit/SKILL.md" in manifest["skills"]
+
+    @pytest.mark.skipif(not Path("/proc/self/fd").is_dir(), reason="requires procfs descriptor accounting")
+    def test_sync_does_not_leak_descriptors(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        before = len(list(Path("/proc/self/fd").iterdir()))
+
+        self._run(repo, home, user_claude)
+
+        after = len(list(Path("/proc/self/fd").iterdir()))
+        assert after == before
+
+    @pytest.mark.skipif(not Path("/proc/self/fd").is_dir(), reason="requires procfs descriptor accounting")
+    def test_failed_parent_traversal_closes_descriptors(self, tmp_path: Path) -> None:
+        repo, home, user_claude, _ = self._setup(tmp_path)
+        real_open = os.open
+        before = len(list(Path("/proc/self/fd").iterdir()))
+
+        def fail_nested_open(path, flags, *args, **kwargs):
+            if path == "toolkit" and flags & os.O_DIRECTORY and kwargs.get("dir_fd") is not None:
+                raise PermissionError("forced directory open failure")
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch.object(sync_mod.os, "open", side_effect=fail_nested_open):
+            self._run(repo, home, user_claude)
+
+        after = len(list(Path("/proc/self/fd").iterdir()))
+        assert after == before
+
+    def test_failed_secure_replace_preserves_target_and_cleans_temp(self, tmp_path: Path) -> None:
+        repo, home, user_claude, skill_file = self._setup(tmp_path)
+        self._run(repo, home, user_claude)
+        installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
+        skill_file.write_text("# updated\n")
+        real_rename = os.rename
+
+        def fail_skill_replace(src, dst, *args, **kwargs):
+            if str(src).startswith(".sync-") and dst == "SKILL.md":
+                raise OSError("forced secure replace failure")
+            return real_rename(src, dst, *args, **kwargs)
+
+        with patch.object(sync_mod.os, "rename", side_effect=fail_skill_replace):
+            self._run(repo, home, user_claude)
+
+        manifest = json.loads((user_claude / ".sync-manifest.json").read_text())
+        assert installed.read_text() == "# toolkit\n"
+        assert "meta/toolkit/SKILL.md" in manifest["skills"]
+        assert not list(installed.parent.glob(".sync-*.tmp"))
+
     def test_failed_copy_does_not_claim_foreign_file(self, tmp_path: Path) -> None:
         repo, home, user_claude, skill_file = self._setup(tmp_path)
         installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
         installed.parent.mkdir(parents=True)
         installed.write_text("# foreign collision\n")
-        real_copy2 = shutil.copy2
+        real_copy = sync_mod._copy_file_contents
 
-        def fail_skill_copy(src, dst, *args, **kwargs):
+        def fail_skill_copy(src):
             if Path(src) == skill_file:
                 raise OSError("forced copy failure")
-            return real_copy2(src, dst, *args, **kwargs)
+            return real_copy(src)
 
         with (
             patch.object(Path, "home", return_value=home),
-            patch.object(sync_mod.shutil, "copy2", side_effect=fail_skill_copy),
+            patch.object(sync_mod, "_copy_file_contents", side_effect=fail_skill_copy),
         ):
             sync_mod._main_inner(repo, user_claude)
 
@@ -881,16 +1105,16 @@ class TestOwnedStaleCleanup:
         self._run(repo, home, user_claude)
         installed = user_claude / "skills" / "meta" / "toolkit" / "SKILL.md"
         skill_file.write_text("# updated\n")
-        real_copy2 = shutil.copy2
+        real_copy = sync_mod._copy_file_contents
 
-        def fail_skill_copy(src, dst, *args, **kwargs):
+        def fail_skill_copy(src):
             if Path(src) == skill_file:
                 raise OSError("forced copy failure")
-            return real_copy2(src, dst, *args, **kwargs)
+            return real_copy(src)
 
         with (
             patch.object(Path, "home", return_value=home),
-            patch.object(sync_mod.shutil, "copy2", side_effect=fail_skill_copy),
+            patch.object(sync_mod, "_copy_file_contents", side_effect=fail_skill_copy),
         ):
             sync_mod._main_inner(repo, user_claude)
 

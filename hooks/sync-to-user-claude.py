@@ -17,11 +17,14 @@ to prevent phantom hook errors when switching branches.
 Unchanged files are skipped via content comparison.
 """
 
+import errno
 import filecmp
 import json
 import os
 import re
+import secrets
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -171,61 +174,289 @@ def _read_sync_manifest(path: Path, destinations: set[str]) -> dict[str, set[Pat
     return owned
 
 
-def _safe_destination_file(root: Path, relative: Path, *, create_parents: bool) -> Path | None:
-    """Resolve a file below root without accepting symlinked path components."""
+_DIR_FD_CALLS = (os.open, os.mkdir, os.stat, os.unlink, os.rmdir, os.rename)
+_SECURE_DIR_FD_AVAILABLE = (
+    os.name == "posix"
+    and hasattr(os, "O_DIRECTORY")
+    and hasattr(os, "O_NOFOLLOW")
+    and all(call in os.supports_dir_fd for call in _DIR_FD_CALLS)
+    and os.stat in os.supports_follow_symlinks
+    and os.utime in os.supports_fd
+    and hasattr(os, "fchmod")
+)
+
+
+def _secure_dir_fd_available() -> bool:
+    """Return whether this platform can pin no-follow directory traversal."""
+    return _SECURE_DIR_FD_AVAILABLE
+
+
+def _same_identity(left: os.stat_result, right: os.stat_result) -> bool:
+    return left.st_dev == right.st_dev and left.st_ino == right.st_ino
+
+
+def _close_fds(fds: list[int]) -> None:
+    for fd in reversed(fds):
+        try:
+            os.close(fd)
+        except OSError as e:
+            print(f"[sync] WARNING: failed to close directory descriptor: {e}", file=sys.stderr)
+
+
+class _PinnedDestination:
+    """Open directory chain for one destination-relative file."""
+
+    def __init__(self, root: Path, relative: Path, directory_fds: list[int]):
+        self.root = root
+        self.relative = relative
+        self._directory_fds = directory_fds
+
+    @property
+    def parent_fd(self) -> int:
+        return self._directory_fds[-1]
+
+    @property
+    def filename(self) -> str:
+        return self.relative.name
+
+    def close(self) -> None:
+        fds, self._directory_fds = self._directory_fds, []
+        _close_fds(fds)
+
+    def __enter__(self) -> "_PinnedDestination":
+        return self
+
+    def __exit__(self, _exc_type, _exc, _traceback) -> None:
+        self.close()
+
+    def _directory_entry_matches(self, index: int) -> bool:
+        try:
+            named = os.stat(
+                self.relative.parts[index - 1],
+                dir_fd=self._directory_fds[index - 1],
+                follow_symlinks=False,
+            )
+            opened = os.fstat(self._directory_fds[index])
+        except OSError:
+            return False
+        return stat.S_ISDIR(named.st_mode) and _same_identity(named, opened)
+
+    def chain_is_current(self) -> bool:
+        try:
+            named_root = os.stat(self.root, follow_symlinks=False)
+            opened_root = os.fstat(self._directory_fds[0])
+        except OSError:
+            return False
+        if not stat.S_ISDIR(named_root.st_mode) or not _same_identity(named_root, opened_root):
+            return False
+        return all(self._directory_entry_matches(index) for index in range(1, len(self._directory_fds)))
+
+    def file_entry_matches(self, opened: os.stat_result) -> bool:
+        try:
+            named = os.stat(self.filename, dir_fd=self.parent_fd, follow_symlinks=False)
+        except OSError:
+            return False
+        return stat.S_ISREG(named.st_mode) and _same_identity(named, opened)
+
+    def file_is_current(self, opened: os.stat_result | None) -> bool:
+        return opened is not None and self.chain_is_current() and self.file_entry_matches(opened)
+
+    def prune_empty_parents(self) -> None:
+        """Remove only pinned empty ancestors, deepest first."""
+        for index in range(len(self._directory_fds) - 1, 0, -1):
+            if not self._directory_entry_matches(index):
+                return
+            name = self.relative.parts[index - 1]
+            try:
+                os.rmdir(name, dir_fd=self._directory_fds[index - 1])
+            except FileNotFoundError:
+                return
+            except OSError as e:
+                if e.errno in {errno.ENOTEMPTY, errno.EEXIST, errno.ENOTDIR}:
+                    return
+                raise
+
+
+def _open_pinned_destination(root: Path, relative: Path, *, create_parents: bool) -> _PinnedDestination | None:
+    """Open a no-follow directory chain and retain every descriptor."""
+    if not _secure_dir_fd_available():
+        raise OSError(errno.ENOTSUP, "secure descriptor-relative operations unavailable")
     validated = _manifest_rel_path(relative.as_posix())
     if validated != relative:
         return None
-    if root.is_symlink() or not root.is_dir():
-        return None
-    try:
-        resolved_root = root.resolve(strict=True)
-    except OSError:
-        return None
 
-    parent = root
-    for part in relative.parts[:-1]:
-        parent /= part
-        if parent.is_symlink():
-            return None
-        if parent.exists():
-            if not parent.is_dir():
-                return None
-        elif create_parents:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    directory_fds: list[int] = []
+    try:
+        directory_fds.append(os.open(root, flags))
+        for part in relative.parts[:-1]:
             try:
-                parent.mkdir()
-            except OSError:
-                return None
-        else:
+                child_fd = os.open(part, flags, dir_fd=directory_fds[-1])
+            except FileNotFoundError:
+                if not create_parents:
+                    _close_fds(directory_fds)
+                    return None
+                try:
+                    os.mkdir(part, dir_fd=directory_fds[-1])
+                except FileExistsError:
+                    pass
+                child_fd = os.open(part, flags, dir_fd=directory_fds[-1])
+            directory_fds.append(child_fd)
+    except OSError as e:
+        _close_fds(directory_fds)
+        if e.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
             return None
-        try:
-            if parent.is_symlink() or not parent.resolve(strict=True).is_relative_to(resolved_root):
-                return None
-        except OSError:
-            return None
+        raise
+    return _PinnedDestination(root, relative, directory_fds)
 
-    target = parent / relative.name
-    if target.is_symlink() or (target.exists() and not target.is_file()):
-        return None
+
+def _read_all(fd: int) -> bytes:
+    os.lseek(fd, 0, os.SEEK_SET)
+    chunks = []
+    while chunk := os.read(fd, 1024 * 1024):
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _read_destination_bytes(
+    destination: _PinnedDestination, *, allow_symlink_replace: bool = False
+) -> tuple[bytes | None, os.stat_result | None]:
     try:
-        if not parent.resolve(strict=True).is_relative_to(resolved_root):
-            return None
-    except OSError:
-        return None
-    return target
+        named = os.stat(destination.filename, dir_fd=destination.parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return None, None
+    if stat.S_ISLNK(named.st_mode) and allow_symlink_replace:
+        return None, None
+    if not stat.S_ISREG(named.st_mode):
+        raise OSError(errno.ELOOP if stat.S_ISLNK(named.st_mode) else errno.EISDIR, "unsafe file destination")
+
+    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(destination.filename, flags, dir_fd=destination.parent_fd)
+    try:
+        opened = os.fstat(fd)
+        if not _same_identity(named, opened):
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed before open")
+        content = _read_all(fd)
+        if not destination.chain_is_current() or not destination.file_entry_matches(opened):
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed while reading")
+        return content, opened
+    finally:
+        os.close(fd)
 
 
-def _prune_empty_owned_parents(file_path: Path, root: Path) -> None:
-    """Remove empty ancestors of one pruned file, stopping before root."""
-    current = file_path.parent
-    while current != root:
-        if current.is_symlink():
-            return
+def _create_pinned_temp(destination: _PinnedDestination, mode: int) -> tuple[str, int]:
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    for _ in range(8):
+        name = f".sync-{secrets.token_hex(16)}.tmp"
         try:
-            current.rmdir()
-        except OSError:
-            return
-        current = current.parent
+            return name, os.open(name, flags, mode, dir_fd=destination.parent_fd)
+        except FileExistsError:
+            continue
+    raise OSError(errno.EEXIST, "could not allocate secure destination temp file")
+
+
+def _write_all(fd: int, content: bytes) -> None:
+    view = memoryview(content)
+    while view:
+        written = os.write(fd, view)
+        if written == 0:
+            raise OSError(errno.EIO, "short destination write")
+        view = view[written:]
+
+
+def _replace_pinned_bytes(
+    destination: _PinnedDestination,
+    content: bytes,
+    *,
+    mode: int,
+    timestamps_ns: tuple[int, int] | None = None,
+) -> None:
+    temp_name, temp_fd = _create_pinned_temp(destination, mode)
+    renamed = False
+    try:
+        _write_all(temp_fd, content)
+        os.fchmod(temp_fd, mode)
+        if timestamps_ns is not None:
+            os.utime(temp_fd, ns=timestamps_ns)
+        os.fsync(temp_fd)
+        if not destination.chain_is_current():
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination parent changed during write")
+        opened = os.fstat(temp_fd)
+        os.rename(
+            temp_name,
+            destination.filename,
+            src_dir_fd=destination.parent_fd,
+            dst_dir_fd=destination.parent_fd,
+        )
+        renamed = True
+        if not destination.chain_is_current() or not destination.file_entry_matches(opened):
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed during replace")
+    finally:
+        try:
+            os.close(temp_fd)
+        except OSError as e:
+            print(f"[sync] WARNING: failed to close destination temp file: {e}", file=sys.stderr)
+        if not renamed:
+            try:
+                os.unlink(temp_name, dir_fd=destination.parent_fd)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                print(f"[sync] WARNING: failed to remove destination temp file: {e}", file=sys.stderr)
+
+
+def _copy_file_contents(source: Path) -> tuple[bytes, os.stat_result]:
+    source_stat = source.stat()
+    with open(source, "rb") as stream:
+        return stream.read(), source_stat
+
+
+def _copy_file_pinned(source: Path, destination: _PinnedDestination) -> None:
+    existing, existing_stat = _read_destination_bytes(destination)
+    content, source_stat = _copy_file_contents(source)
+    if existing == content:
+        if not destination.file_is_current(existing_stat):
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed during compare")
+        return
+    _replace_pinned_bytes(
+        destination,
+        content,
+        mode=stat.S_IMODE(source_stat.st_mode),
+        timestamps_ns=(source_stat.st_atime_ns, source_stat.st_mtime_ns),
+    )
+
+
+def _write_bytes_pinned(
+    root: Path,
+    relative: Path,
+    content: bytes,
+    *,
+    mode: int,
+    allow_symlink_replace: bool = False,
+) -> bool:
+    destination = _open_pinned_destination(root, relative, create_parents=True)
+    if destination is None:
+        return False
+    with destination:
+        existing, existing_stat = _read_destination_bytes(destination, allow_symlink_replace=allow_symlink_replace)
+        if existing == content:
+            if not destination.file_is_current(existing_stat):
+                raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed during compare")
+            return True
+        _replace_pinned_bytes(destination, content, mode=mode)
+        return True
+
+
+def _unlink_file_pinned(destination: _PinnedDestination) -> bool:
+    try:
+        named = os.stat(destination.filename, dir_fd=destination.parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISREG(named.st_mode) or not destination.chain_is_current():
+        return False
+    os.unlink(destination.filename, dir_fd=destination.parent_fd)
+    destination.prune_empty_parents()
+    return True
 
 
 def _parse_retro_entries(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -249,21 +480,7 @@ def _parse_retro_entries(text: str) -> tuple[str, list[tuple[str, str]]]:
     return header, entries
 
 
-def merge_retro_file(src_path: Path, dst_path: Path) -> None:
-    """Merge a retro markdown file: union of ### entries from both src and dst.
-
-    Entries are identified by their ### heading name. If both files have an
-    entry with the same name, the source (repo) version wins. Entries that
-    exist only in the destination are preserved.
-    """
-    src_text = src_path.read_text()
-
-    if not dst_path.exists():
-        dst_path.write_text(src_text)
-        return
-
-    dst_text = dst_path.read_text()
-
+def _merge_retro_text(src_text: str, dst_text: str) -> str:
     src_header, src_entries = _parse_retro_entries(src_text)
     _, dst_entries = _parse_retro_entries(dst_text)
 
@@ -280,23 +497,45 @@ def merge_retro_file(src_path: Path, dst_path: Path) -> None:
         result += block
 
     # Ensure single trailing newline
-    result = result.rstrip("\n") + "\n"
-    dst_path.write_text(result)
+    return result.rstrip("\n") + "\n"
 
 
-def regenerate_l1_at_dst(dst_retro: Path) -> None:
-    """Regenerate L1.md at the destination from merged L2 files.
+def merge_retro_file(src_path: Path, dst_path: Path) -> None:
+    """Merge a retro markdown file: union of ### entries from both src and dst.
 
-    Mirrors the logic in feature-state.py _regenerate_l1() but runs
-    at sync time against ~/.claude/retro/.
+    Entries are identified by their ### heading name. If both files have an
+    entry with the same name, the source (repo) version wins. Entries that
+    exist only in the destination are preserved.
     """
+    src_text = src_path.read_text()
+    if not dst_path.exists():
+        dst_path.write_text(src_text)
+        return
+    dst_path.write_text(_merge_retro_text(src_text, dst_path.read_text()))
+
+
+def _merge_retro_file_pinned(source: Path, destination: _PinnedDestination) -> None:
+    existing, existing_stat = _read_destination_bytes(destination)
+    source_text = source.read_text()
+    result = source_text if existing is None else _merge_retro_text(source_text, existing.decode())
+    content = result.encode()
+    if existing == content:
+        if not destination.file_is_current(existing_stat):
+            raise OSError(getattr(errno, "ESTALE", errno.EIO), "destination changed during merge")
+        return
+    mode = stat.S_IMODE(existing_stat.st_mode) if existing_stat is not None else stat.S_IMODE(source.stat().st_mode)
+    _replace_pinned_bytes(destination, content, mode=mode)
+
+
+def _render_l1_at_dst(dst_retro: Path) -> str | None:
+    """Render L1.md content from merged destination L2 files."""
     l2_dir = dst_retro / "L2"
     if not l2_dir.is_dir():
-        return
+        return None
 
     l2_files = sorted(l2_dir.glob("*.md"))
     if not l2_files:
-        return
+        return None
 
     topic_groups: dict[str, list[str]] = {}
 
@@ -348,8 +587,36 @@ def regenerate_l1_at_dst(dst_retro: Path) -> None:
         lines.append("")
         lines_used += 1
 
-    l1_path = dst_retro / "L1.md"
-    l1_path.write_text("\n".join(lines) + "\n")
+    return "\n".join(lines) + "\n"
+
+
+def regenerate_l1_at_dst(dst_retro: Path) -> None:
+    """Regenerate L1.md at the destination from merged L2 files.
+
+    Mirrors the logic in feature-state.py _regenerate_l1() but runs
+    at sync time against ~/.claude/retro/.
+    """
+    content = _render_l1_at_dst(dst_retro)
+    if content is not None:
+        (dst_retro / "L1.md").write_text(content)
+
+
+def _regenerate_l1_at_dst_pinned(dst_retro: Path) -> None:
+    destination = _open_pinned_destination(dst_retro, Path("L1.md"), create_parents=True)
+    if destination is None:
+        raise OSError("unsafe L1 destination path")
+    with destination:
+        existing, existing_stat = _read_destination_bytes(destination)
+        rendered = _render_l1_at_dst(dst_retro)
+        if rendered is None:
+            return
+        content = rendered.encode()
+        if existing == content:
+            if not destination.file_is_current(existing_stat):
+                raise OSError(getattr(errno, "ESTALE", errno.EIO), "L1 destination changed during render")
+            return
+        mode = stat.S_IMODE(existing_stat.st_mode) if existing_stat is not None else 0o644
+        _replace_pinned_bytes(destination, content, mode=mode)
 
 
 # NOTE: Hook sync uses repo-as-source-of-truth (replace, not merge) to prevent
@@ -658,7 +925,7 @@ def _merged_runtime_index(tracked: Path, local: Path) -> dict | None:
     return merged
 
 
-def _sync_runtime_skill_index(src: Path, dst: Path) -> bool:
+def _sync_runtime_skill_index(src: Path, dst: Path, *, secure_destination: bool = False) -> bool:
     """Write ~/.claude/skills/INDEX.json as a real merged file.
 
     The runtime index the harness reads — and may rewrite in place — must be
@@ -676,6 +943,15 @@ def _sync_runtime_skill_index(src: Path, dst: Path) -> bool:
     if merged is None:
         return False
     runtime = dst / "INDEX.json"
+    if secure_destination:
+        content = (json.dumps(merged, indent=2) + "\n").encode()
+        return _write_bytes_pinned(
+            dst,
+            Path("INDEX.json"),
+            content,
+            mode=0o600,
+            allow_symlink_replace=True,
+        )
     # Skip the write when content already matches. Only compare a real file:
     # reading through a symlink would compare repo content and leave the
     # leaking symlink in place.
@@ -1046,6 +1322,9 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
     dst_source_paths: dict[str, set[Path]] = {name: set() for name in owned_destinations}
     dst_owned_paths: dict[str, set[Path]] = {name: set() for name in owned_destinations}
     failed_destinations: set[str] = set()
+    secure_dir_fd = _secure_dir_fd_available()
+    if install_mode == "copy" and not secure_dir_fd:
+        failed_destinations.update(owned_destinations)
 
     for src_name, dst_name in components:
         src = repo_root / src_name
@@ -1077,6 +1356,9 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                     synced.append(f"{dst_name}(symlink)")
                 continue
 
+            if not secure_dir_fd:
+                raise OSError(errno.ENOTSUP, "secure descriptor-relative operations unavailable")
+
             # Copy mode: resolve any existing symlinks to a real directory before
             # file-by-file sync. This handles the transition from symlink to copy mode.
             if dst.is_symlink():
@@ -1094,25 +1376,25 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                 if item.is_file():
                     rel = item.relative_to(src)
                     src_relative_paths.add(rel)
-                    target: Path | None = None
+                    destination: _PinnedDestination | None = None
                     try:
-                        target = _safe_destination_file(dst, rel, create_parents=True)
-                        if target is None:
+                        if use_merge and item.name == "L1.md":
+                            count += 1
+                            continue  # Skip L1 — regenerated below
+                        destination = _open_pinned_destination(dst, rel, create_parents=True)
+                        if destination is None:
                             raise OSError("unsafe destination path")
-                        if use_merge and item.suffix == ".md" and item.name != "L1.md":
-                            merge_retro_file(item, target)
-                            merge_count += 1
-                        elif use_merge and item.name == "L1.md":
-                            pass  # Skip L1 — regenerated below
-                        elif target.exists() and filecmp.cmp(item, target, shallow=False):
-                            pass  # Unchanged — skip copy
-                        else:
-                            shutil.copy2(item, target)
+                        with destination:
+                            if use_merge and item.suffix == ".md":
+                                _merge_retro_file_pinned(item, destination)
+                                merge_count += 1
+                            else:
+                                _copy_file_pinned(item, destination)
                         count += 1
                         if tracks_ownership:
                             successfully_owned_paths.add(rel)
                     except Exception as file_err:
-                        if target is not None and rel in prior_owned.get(dst_name, set()):
+                        if destination is not None and rel in prior_owned.get(dst_name, set()):
                             successfully_owned_paths.add(rel)
                         print(
                             f"[sync] ERROR: {dst_name}/{rel}: {file_err}",
@@ -1123,14 +1405,14 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
             # tracked+local merge (same invariants as symlink mode). Record
             # its path so deferred stale cleanup spares it even when the repo
             # has only INDEX.local.json.
-            if src_name == "skills" and _sync_runtime_skill_index(src, dst):
+            if src_name == "skills" and _sync_runtime_skill_index(src, dst, secure_destination=True):
                 src_relative_paths.add(Path("INDEX.json"))
                 if tracks_ownership:
                     successfully_owned_paths.add(Path("INDEX.json"))
 
             # For merge components, regenerate L1 from merged L2 files
             if use_merge and merge_count > 0:
-                regenerate_l1_at_dst(dst)
+                _regenerate_l1_at_dst_pinned(dst)
                 synced.append(f"{dst_name}({count}, {merge_count} merged)")
             else:
                 synced.append(f"{dst_name}({count})")
@@ -1157,9 +1439,7 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
             stale_paths = prior_owned.get(dst_name, set()) - dst_source_paths[dst_name]
             dst = user_claude / dst_name
             for rel in sorted(stale_paths):
-                stale_file = _safe_destination_file(dst, rel, create_parents=False)
-                if stale_file is None or not stale_file.is_file():
-                    continue
+                stale_file = dst / rel
                 if _resolves_inside(stale_file, protected_roots):
                     print(
                         f"[sync] BLOCKED: stale-cleanup refusing to unlink {dst_name}/{rel} (resolves inside repo)",
@@ -1167,12 +1447,14 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                     )
                     continue
                 try:
-                    stale_file.unlink()
+                    destination = _open_pinned_destination(dst, rel, create_parents=False)
+                    if destination is None:
+                        continue
+                    with destination:
+                        _unlink_file_pinned(destination)
                 except OSError as e:
                     next_owned[dst_name].add(rel)
                     errors.append(f"stale-cleanup-{dst_name}/{rel}: {e}")
-                else:
-                    _prune_empty_owned_parents(stale_file, dst)
 
         manifest_data = {name: sorted(path.as_posix() for path in paths) for name, paths in sorted(next_owned.items())}
         try:
