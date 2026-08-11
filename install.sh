@@ -234,7 +234,7 @@ _symlink_points_to() {
     [ "$(_canonical_path "$actual")" = "$(_canonical_path "$expected")" ]
 }
 
-clean_codex_hooks_mirror_if_looped() {
+clean_hooks_mirror_if_source_link() {
     local hook_dir="$1"
     local hook_source_dir="$2"
 
@@ -244,11 +244,11 @@ clean_codex_hooks_mirror_if_looped() {
 
     if _symlink_points_to "$hook_dir" "$hook_source_dir"; then
         if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}  Would remove stale Codex hooks mirror symlink: ${hook_dir}${NC}"
+            echo -e "${YELLOW}  Would remove stale hooks mirror symlink: ${hook_dir}${NC}"
             echo -e "${YELLOW}  (points back into source hooks: ${hook_source_dir})${NC}"
             return
         fi
-        echo -e "${YELLOW}  Removing stale Codex hooks mirror symlink: ${hook_dir}${NC}"
+        echo -e "${YELLOW}  Removing stale hooks mirror symlink: ${hook_dir}${NC}"
         echo -e "${YELLOW}  (points back into source hooks: ${hook_source_dir})${NC}"
         unlink "$hook_dir"
     fi
@@ -1718,7 +1718,7 @@ if [ "$MIRROR_CODEX" = true ]; then
     CODEX_MANAGED_HOOKS_MANIFEST="${CODEX_HOOKS_DIR}/.vexjoy-managed-hooks"
 
     if [ -f "$CODEX_HOOKS_ALLOWLIST" ]; then
-        clean_codex_hooks_mirror_if_looped "$CODEX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
+        clean_hooks_mirror_if_source_link "$CODEX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
 
         # Remove only files recorded by the previous VexJoy install. This
         # refreshes hooks removed from the current compatibility inventory
@@ -2206,6 +2206,8 @@ REASONIX_HOOK_FAILED=false       # settings.json generator failed → hooks neve
 REASONIX_HOOKS_ALLOWLIST="${SCRIPT_DIR}/scripts/reasonix-hooks-allowlist.txt"
 
 if [ -f "$REASONIX_HOOKS_ALLOWLIST" ]; then
+    clean_hooks_mirror_if_source_link "$REASONIX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
+
     if [ "$DRY_RUN" = true ]; then
         echo -e "${BLUE}  Would create: ${REASONIX_HOOKS_DIR}${NC}"
     else
