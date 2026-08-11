@@ -213,45 +213,80 @@ print_manual_pip_command() {
 }
 
 _canonical_path() {
-    python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+    local python_cmd=${PYTHON_CMD:-}
+
+    if [ -z "$python_cmd" ]; then
+        if command -v python3 > /dev/null 2>&1; then
+            python_cmd="python3"
+        elif command -v python > /dev/null 2>&1; then
+            python_cmd="python"
+        else
+            return 1
+        fi
+    fi
+
+    "$python_cmd" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
 }
 
 is_command_available() {
     command -V -- "$1" >/dev/null 2>&1
 }
 
-_symlink_points_to() {
+_symlink_target_state() {
     local link=$1
     local expected=$2
-    local actual
+    local actual actual_canonical expected_canonical
 
     [ -L "$link" ] || return 1
-    actual=$(readlink "$link") || return 1
+    actual=$(readlink "$link") || return 2
     case "$actual" in
         /*) ;;
         *) actual="$(dirname "$link")/$actual" ;;
     esac
-    [ "$(_canonical_path "$actual")" = "$(_canonical_path "$expected")" ]
+    actual_canonical=$(_canonical_path "$actual") || return 2
+    expected_canonical=$(_canonical_path "$expected") || return 2
+    [ -n "$actual_canonical" ] || return 2
+    [ -n "$expected_canonical" ] || return 2
+    [ "$actual_canonical" = "$expected_canonical" ] && return 0
+    return 1
 }
 
-clean_codex_hooks_mirror_if_looped() {
+_symlink_points_to() {
+    _symlink_target_state "$1" "$2" && return 0
+    return 1
+}
+
+clean_hooks_mirror_if_source_link() {
     local hook_dir="$1"
     local hook_source_dir="$2"
+    local link_state
 
     if [ -z "$hook_dir" ] || [ -z "$hook_source_dir" ]; then
-        return
+        return 2
     fi
 
-    if _symlink_points_to "$hook_dir" "$hook_source_dir"; then
+    if _symlink_target_state "$hook_dir" "$hook_source_dir"; then
+        link_state=0
+    else
+        link_state=$?
+    fi
+
+    if [ "$link_state" -eq 2 ]; then
+        echo -e "${YELLOW}  Skipping hooks mirror: could not verify symlink target: ${hook_dir}${NC}"
+        return 2
+    fi
+
+    if [ "$link_state" -eq 0 ]; then
         if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}  Would remove stale Codex hooks mirror symlink: ${hook_dir}${NC}"
+            echo -e "${YELLOW}  Would remove stale hooks mirror symlink: ${hook_dir}${NC}"
             echo -e "${YELLOW}  (points back into source hooks: ${hook_source_dir})${NC}"
             return
         fi
-        echo -e "${YELLOW}  Removing stale Codex hooks mirror symlink: ${hook_dir}${NC}"
+        echo -e "${YELLOW}  Removing stale hooks mirror symlink: ${hook_dir}${NC}"
         echo -e "${YELLOW}  (points back into source hooks: ${hook_source_dir})${NC}"
         unlink "$hook_dir"
     fi
+    return 0
 }
 
 # unlink_skills_nested TARGET — tear down a nested skills tree built by
@@ -1718,7 +1753,7 @@ if [ "$MIRROR_CODEX" = true ]; then
     CODEX_MANAGED_HOOKS_MANIFEST="${CODEX_HOOKS_DIR}/.vexjoy-managed-hooks"
 
     if [ -f "$CODEX_HOOKS_ALLOWLIST" ]; then
-        clean_codex_hooks_mirror_if_looped "$CODEX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"
+        if clean_hooks_mirror_if_source_link "$CODEX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"; then
 
         # Remove only files recorded by the previous VexJoy install. This
         # refreshes hooks removed from the current compatibility inventory
@@ -1868,6 +1903,9 @@ ${filename}"
             fi
         else
             echo -e "${BLUE}  (codex CLI not installed; hooks will activate when Codex is installed)${NC}"
+        fi
+        else
+            echo -e "${YELLOW}  ⚠ Codex hooks mirror left unchanged because its target could not be verified.${NC}"
         fi
     else
         echo -e "${YELLOW}  ⚠ Codex hooks allowlist not found at ${CODEX_HOOKS_ALLOWLIST}; skipping hooks mirror${NC}"
@@ -2206,6 +2244,8 @@ REASONIX_HOOK_FAILED=false       # settings.json generator failed → hooks neve
 REASONIX_HOOKS_ALLOWLIST="${SCRIPT_DIR}/scripts/reasonix-hooks-allowlist.txt"
 
 if [ -f "$REASONIX_HOOKS_ALLOWLIST" ]; then
+    if clean_hooks_mirror_if_source_link "$REASONIX_HOOKS_DIR" "${SCRIPT_DIR}/hooks"; then
+
     if [ "$DRY_RUN" = true ]; then
         echo -e "${BLUE}  Would create: ${REASONIX_HOOKS_DIR}${NC}"
     else
@@ -2267,6 +2307,9 @@ if [ -f "$REASONIX_HOOKS_ALLOWLIST" ]; then
             echo -e "${RED}  ✗ Failed to generate ${REASONIX_SETTINGS} — Reasonix hooks are NOT wired in.${NC}"
             echo -e "${RED}${gen_err}${NC}"
         fi
+    fi
+    else
+        echo -e "${YELLOW}  ⚠ Reasonix hooks mirror left unchanged because its target could not be verified.${NC}"
     fi
 else
     echo -e "${YELLOW}  ⚠ Reasonix hooks allowlist not found at ${REASONIX_HOOKS_ALLOWLIST}; skipping hooks mirror${NC}"
