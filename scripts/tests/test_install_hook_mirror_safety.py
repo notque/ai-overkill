@@ -222,6 +222,34 @@ def test_python_only_source_link_is_replaced(
 
 
 @pytest.mark.parametrize(("args", "stdin", "expect_link"), MODES)
+@pytest.mark.parametrize("canonicalization", ["fail", "empty"])
+def test_source_link_is_preserved_when_resolution_is_unknown(
+    installer_tree: Path,
+    tmp_path: Path,
+    args: list[str],
+    stdin: str | None,
+    expect_link: bool,
+    canonicalization: str,
+) -> None:
+    del expect_link
+    home = tmp_path / f"{canonicalization} source home"
+    reasonix = home / ".reasonix"
+    reasonix.mkdir(parents=True)
+    hooks_dir = reasonix / "hooks"
+    hooks_dir.symlink_to(installer_tree / "hooks", target_is_directory=True)
+    source_hook = installer_tree / "hooks" / HOOK_NAME
+    original = source_hook.read_bytes()
+    python_bin = _isolated_python_bin(tmp_path / canonicalization, canonicalization)
+
+    result = _run_install(installer_tree, home, python_bin, args, stdin, isolated_path=True)
+
+    assert result.returncode == 0, f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert hooks_dir.is_symlink() and hooks_dir.resolve() == (installer_tree / "hooks").resolve()
+    assert source_hook.is_file() and not source_hook.is_symlink()
+    assert source_hook.read_bytes() == original
+
+
+@pytest.mark.parametrize(("args", "stdin", "expect_link"), MODES)
 @pytest.mark.parametrize("canonicalization", ["ok", "fail", "empty"])
 def test_python_only_external_link_is_preserved_when_resolution_is_not_proven(
     installer_tree: Path,
@@ -248,8 +276,12 @@ def test_python_only_external_link_is_preserved_when_resolution_is_not_proven(
     assert hooks_dir.is_symlink() and hooks_dir.resolve() == external_hooks.resolve()
     assert sentinel.read_text(encoding="utf-8") == "keep me\n"
     installed_hook = external_hooks / HOOK_NAME
-    assert installed_hook.read_bytes() == (installer_tree / "hooks" / HOOK_NAME).read_bytes()
-    assert installed_hook.is_symlink() is expect_link
+    if canonicalization == "ok":
+        assert installed_hook.read_bytes() == (installer_tree / "hooks" / HOOK_NAME).read_bytes()
+        assert installed_hook.is_symlink() is expect_link
+    else:
+        assert not installed_hook.exists()
+        assert not installed_hook.is_symlink()
 
 
 @pytest.mark.parametrize(("args", "stdin", "expect_link"), MODES)
