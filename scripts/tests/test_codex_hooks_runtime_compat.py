@@ -356,6 +356,19 @@ def _prepare_case(
             "Please preserve this authentic runtime request while checking that the Codex prompt capture hook "
             "records natural language from a real development repository without mistaking it for generated text."
         )
+    elif filename == "pretool-plan-gate.py":
+        git_env = dict(env)
+        for key in ("GIT_COMMON_DIR", "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"):
+            git_env.pop(key, None)
+        git_env.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_SYSTEM": os.devnull})
+        completed = subprocess.run(
+            ["git", "-c", "core.hooksPath=/dev/null", "init", "--quiet"],
+            cwd=cwd,
+            env=git_env,
+            capture_output=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
     elif filename in {"routing-outcome-finalizer.py", "routing-outcome-recorder.py"}:
         evidence["routing_state"] = _seed_pending_route(env, session_id)
         if filename == "routing-outcome-finalizer.py":

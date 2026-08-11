@@ -18,10 +18,55 @@ ADAPTER = ROOT / "hooks" / "codex-hook-adapter.py"
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     root = tmp_path / "project"
-    (root / ".git").mkdir(parents=True)
+    _init_repository(root)
     (root / "agents" / "example").mkdir(parents=True)
     (root / "skills" / "example").mkdir(parents=True)
     return root
+
+
+def _git_environment() -> dict[str, str]:
+    env = dict(os.environ)
+    for key in ("GIT_COMMON_DIR", "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"):
+        env.pop(key, None)
+    env.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_SYSTEM": os.devnull,
+        }
+    )
+    return env
+
+
+def _run_git(*args: str, cwd: Path) -> None:
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=_git_environment(),
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def _init_repository(root: Path) -> None:
+    root.parent.mkdir(parents=True, exist_ok=True)
+    _run_git("init", "--quiet", str(root), cwd=root.parent)
+
+
+def _write_linked_metadata(marker: Path, common: Path) -> None:
+    admin = common / "worktrees" / "forged"
+    (common / "objects").mkdir(parents=True)
+    (common / "refs").mkdir()
+    admin.mkdir(parents=True)
+    (common / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (common / "config").write_text("[core]\n\trepositoryformatversion = 0\n", encoding="utf-8")
+    (admin / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (admin / "commondir").write_text("../..\n", encoding="utf-8")
+    (admin / "gitdir").write_text(f"{marker}\n", encoding="utf-8")
+    marker.write_text(f"gitdir: {admin}\n", encoding="utf-8")
 
 
 def _run_hook(
@@ -58,6 +103,40 @@ def _run_hook(
         text=True,
         cwd="/",
         env=env,
+        timeout=10,
+        check=False,
+    )
+
+
+def _run_adapter(file_path: str, *, event_cwd: Path) -> subprocess.CompletedProcess[str]:
+    event = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "plan-gate-test",
+        "cwd": str(event_cwd),
+        "tool_name": "apply_patch",
+        "tool_input": {"command": f"*** Begin Patch\n*** Add File: {file_path}\n+content\n*** End Patch"},
+    }
+    return subprocess.run(
+        [
+            sys.executable,
+            str(ADAPTER),
+            "--hook",
+            str(HOOK),
+            "--event",
+            "PreToolUse",
+            "--matcher",
+            "Write|Edit",
+            "--mode",
+            "patch",
+            "--failure-policy",
+            "closed",
+            "--timeout",
+            "2",
+        ],
+        input=json.dumps(event),
+        capture_output=True,
+        text=True,
+        cwd=event_cwd,
         timeout=10,
         check=False,
     )
@@ -138,10 +217,36 @@ def test_environment_root_without_git_is_supported(tmp_path: Path) -> None:
 
 
 def test_worktree_git_file_anchors_nested_codex_cwd(tmp_path: Path) -> None:
-    worktree = tmp_path / "worktree"
+    repository = tmp_path / "repository"
+    worktree = tmp_path / "linked-worktree"
+    _init_repository(repository)
+    _run_git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=Plan Gate Test",
+        "-c",
+        "user.email=plan-gate@example.invalid",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "fixture",
+        cwd=repository,
+    )
+    _run_git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "worktree",
+        "add",
+        "--quiet",
+        "--detach",
+        str(worktree),
+        "HEAD",
+        cwd=repository,
+    )
     nested = worktree / "skills" / "example"
     nested.mkdir(parents=True)
-    (worktree / ".git").write_text("gitdir: /tmp/common/worktrees/example\n", encoding="utf-8")
     (worktree / "task_plan.md").write_text("# Plan\n", encoding="utf-8")
 
     result = _run_hook(
@@ -151,6 +256,113 @@ def test_worktree_git_file_anchors_nested_codex_cwd(tmp_path: Path) -> None:
     )
 
     _assert_allowed(result)
+
+
+def test_valid_repository_directory_anchors_nested_codex_cwd(project: Path) -> None:
+    nested = project / "skills" / "example"
+    (project / "task_plan.md").write_text("# Plan\n", encoding="utf-8")
+
+    result = _run_hook(
+        "SKILL.md",
+        event_cwd=str(nested),
+        project_dir=str(nested),
+    )
+
+    _assert_allowed(result)
+
+
+def test_invalid_nested_git_file_cannot_reanchor_adapter(project: Path) -> None:
+    nested = project / "skills" / "example"
+    (nested / ".git").write_text("not valid git metadata\n", encoding="utf-8")
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_nested_gitdir_file_with_missing_target_cannot_reanchor_adapter(project: Path) -> None:
+    nested = project / "skills" / "example"
+    (nested / ".git").write_text(
+        "gitdir: /missing/git/worktree/metadata\n",
+        encoding="utf-8",
+    )
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_empty_nested_git_directory_cannot_reanchor_adapter(project: Path) -> None:
+    nested = project / "skills" / "example"
+    (nested / ".git").mkdir()
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_plausible_nested_git_directory_is_ambiguous_and_denied(project: Path) -> None:
+    nested = project / "skills" / "example"
+    marker = nested / ".git"
+    (marker / "objects").mkdir(parents=True)
+    (marker / "refs").mkdir()
+    (marker / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (marker / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n",
+        encoding="utf-8",
+    )
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_forged_linked_worktree_cannot_override_outer_repository(project: Path, tmp_path: Path) -> None:
+    nested = project / "skills" / "example"
+    marker = nested / ".git"
+    common = tmp_path / "forged-common"
+    _write_linked_metadata(marker, common)
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_linked_marker_with_inaccessible_outer_marker_fails_closed(project: Path, tmp_path: Path) -> None:
+    nested = project / "skills" / "example"
+    _write_linked_metadata(nested / ".git", tmp_path / "forged-common")
+    outer_marker = project / ".git"
+    outer_marker.chmod(0)
+    try:
+        result = _run_adapter("SKILL.md", event_cwd=nested)
+    finally:
+        outer_marker.chmod(0o700)
+
+    _assert_denied(result)
+
+
+def test_unreadable_nested_git_file_cannot_reanchor_adapter(project: Path) -> None:
+    nested = project / "skills" / "example"
+    marker = nested / ".git"
+    marker.write_text("gitdir: /untrusted/location\n", encoding="utf-8")
+    marker.chmod(0)
+
+    result = _run_adapter("SKILL.md", event_cwd=nested)
+
+    _assert_denied(result)
+
+
+def test_relative_path_without_repository_marker_fails_closed(tmp_path: Path) -> None:
+    nested = tmp_path / "non-repository" / "skills" / "example"
+    nested.mkdir(parents=True)
+
+    result = _run_hook(
+        "SKILL.md",
+        event_cwd=str(nested),
+        project_dir=str(nested),
+    )
+
+    _assert_denied(result)
 
 
 def test_cwd_git_ancestor_is_used_when_project_environment_is_missing(project: Path) -> None:
@@ -373,38 +585,7 @@ def test_invalid_json_preserves_no_output_protocol() -> None:
 
 
 def test_codex_adapter_denies_relative_patch_without_plan(project: Path) -> None:
-    event = {
-        "hook_event_name": "PreToolUse",
-        "session_id": "plan-gate-test",
-        "cwd": str(project),
-        "tool_name": "apply_patch",
-        "tool_input": {"command": ("*** Begin Patch\n*** Add File: skills/example/SKILL.md\n+content\n*** End Patch")},
-    }
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ADAPTER),
-            "--hook",
-            str(HOOK),
-            "--event",
-            "PreToolUse",
-            "--matcher",
-            "Write|Edit",
-            "--mode",
-            "patch",
-            "--failure-policy",
-            "closed",
-            "--timeout",
-            "2",
-        ],
-        input=json.dumps(event),
-        capture_output=True,
-        text=True,
-        cwd=project,
-        timeout=10,
-        check=False,
-    )
+    result = _run_adapter("skills/example/SKILL.md", event_cwd=project)
 
     assert result.returncode == 0, result.stderr
     assert _decision(result) == "deny"

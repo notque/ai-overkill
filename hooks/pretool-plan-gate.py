@@ -21,6 +21,7 @@ Allow-through conditions:
 
 import json
 import os
+import stat
 import sys
 import traceback
 from pathlib import Path
@@ -32,6 +33,7 @@ from stdin_timeout import read_stdin
 
 _BYPASS_ENV = "PLAN_GATE_BYPASS"
 _PROJECT_DIR_ENV = "CLAUDE_PROJECT_DIR"
+_MAX_GIT_METADATA_BYTES = 4096
 
 _GATED_DIRECTORIES = ("agents", "skills")
 _GATED = "gated"
@@ -58,26 +60,170 @@ def _existing_directory(value: object) -> Path | None:
         return None
 
 
-def _git_root(start: Path) -> Path | None:
-    """Find the nearest Git root, including worktrees with a .git file."""
+def _real_directory(path: Path) -> bool:
+    """Return whether path is a directory, excluding symlinks."""
+    try:
+        return stat.S_ISDIR(path.lstat().st_mode)
+    except OSError:
+        return False
+
+
+def _regular_file(path: Path) -> bool:
+    """Return whether path is a regular file, excluding symlinks."""
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
+
+
+def _entry_present(path: Path) -> bool:
+    """Treat inaccessible entries as present so root selection fails closed."""
+    try:
+        path.lstat()
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+
+
+def _metadata_line(path: Path) -> str | None:
+    """Read one bounded metadata line without following a final symlink."""
+    if not _regular_file(path):
+        return None
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except (OSError, TypeError, ValueError):
+        return None
+
+    try:
+        file_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_size > _MAX_GIT_METADATA_BYTES:
+            return None
+        data = os.read(descriptor, _MAX_GIT_METADATA_BYTES + 1)
+    except OSError:
+        return None
+    finally:
+        os.close(descriptor)
+
+    if len(data) > _MAX_GIT_METADATA_BYTES or b"\x00" in data:
+        return None
+    try:
+        lines = data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return None
+    if len(lines) != 1 or not lines[0].strip():
+        return None
+    return lines[0].strip()
+
+
+def _valid_head(git_dir: Path) -> bool:
+    head = _metadata_line(git_dir / "HEAD")
+    if head is None:
+        return False
+    if len(head) in {40, 64} and all(character in "0123456789abcdefABCDEF" for character in head):
+        return True
+    if not head.startswith("ref: refs/"):
+        return False
+    ref = head.removeprefix("ref: ")
+    invalid = ("..", "//", "@{", "\\", "~", "^", ":", "?", "*", "[")
+    if any(token in ref for token in invalid) or any(
+        ord(character) <= 32 or ord(character) == 127 for character in ref
+    ):
+        return False
+    parts = ref.split("/")
+    return all(part and not part.startswith(".") and not part.endswith((".", ".lock")) for part in parts)
+
+
+def _valid_common_git_dir(git_dir: Path) -> bool:
+    return (
+        _real_directory(git_dir)
+        and _valid_head(git_dir)
+        and _real_directory(git_dir / "objects")
+        and _real_directory(git_dir / "refs")
+        and _regular_file(git_dir / "config")
+    )
+
+
+def _resolve_metadata_path(value: str, base: Path) -> Path | None:
+    try:
+        path = _input_path(value)
+        if not path.is_absolute():
+            path = base / path
+        return path.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def _valid_linked_worktree(candidate: Path, marker: Path) -> bool:
+    marker_line = _metadata_line(marker)
+    if marker_line is None or not marker_line.startswith("gitdir: "):
+        return False
+
+    git_dir = _resolve_metadata_path(marker_line.removeprefix("gitdir: "), candidate)
+    if git_dir is None or not _real_directory(git_dir) or not _valid_head(git_dir):
+        return False
+
+    common_line = _metadata_line(git_dir / "commondir")
+    backlink_line = _metadata_line(git_dir / "gitdir")
+    if common_line is None or backlink_line is None:
+        return False
+
+    common_dir = _resolve_metadata_path(common_line, git_dir)
+    backlink = _resolve_metadata_path(backlink_line, git_dir)
+    try:
+        marker_path = marker.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    if common_dir is None or backlink is None or backlink != marker_path:
+        return False
+    if not _valid_common_git_dir(common_dir):
+        return False
+
+    worktrees_dir = common_dir / "worktrees"
+    if not _real_directory(worktrees_dir) or git_dir.parent != worktrees_dir:
+        return False
+
+    outer_markers = [parent / ".git" for parent in candidate.parents if _entry_present(parent / ".git")]
+    if not outer_markers:
+        return True
+    outer_git_dirs = [marker for marker in outer_markers if _valid_common_git_dir(marker)]
+    return common_dir in outer_git_dirs
+
+
+def _git_root(start: Path, *, reject_nested: bool) -> Path | None:
+    """Find one structurally valid repository or linked-worktree root."""
+    linked_roots: list[Path] = []
+    repository_roots: list[Path] = []
     for candidate in (start, *start.parents):
-        try:
-            if (candidate / ".git").exists():
-                return candidate
-        except OSError:
-            continue
-    return None
+        marker = candidate / ".git"
+        if _valid_linked_worktree(candidate, marker):
+            linked_roots.append(candidate)
+        elif _valid_common_git_dir(marker):
+            repository_roots.append(candidate)
+
+    if len(linked_roots) == 1:
+        return linked_roots[0]
+    if linked_roots or not repository_roots:
+        return None
+    if reject_nested and len(repository_roots) != 1:
+        return None
+    return repository_roots[0]
 
 
-def _project_root(event_cwd: object) -> Path | None:
+def _project_root(event_cwd: object, *, require_repository: bool) -> Path | None:
     """Resolve the project root from the hook contract, then Git metadata."""
     project_dir = _existing_directory(os.environ.get(_PROJECT_DIR_ENV))
     if project_dir is not None:
-        return _git_root(project_dir) or project_dir
+        git_root = _git_root(project_dir, reject_nested=require_repository)
+        if git_root is not None:
+            return git_root
+        return None if require_repository else project_dir
 
     cwd = _existing_directory(event_cwd)
     if cwd is not None:
-        return _git_root(cwd)
+        return _git_root(cwd, reject_nested=require_repository)
     return None
 
 
@@ -196,7 +342,8 @@ def main() -> None:
     if not isinstance(file_path, str) or not file_path:
         sys.exit(0)
 
-    root = _project_root(event.get("cwd"))
+    require_repository = not _input_path(file_path).is_absolute() or "codex_tool_name" in event
+    root = _project_root(event.get("cwd"), require_repository=require_repository)
     if root is None:
         if _input_path(file_path).is_absolute() and not _mentions_gated_directory(file_path):
             sys.exit(0)
