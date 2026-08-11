@@ -50,18 +50,24 @@ Check for ADR path in this order:
 2. Active session context from adr-system hook (`.adr-session.json`)
 3. Ask the user which ADR to consult on
 
-Do not guess which ADR to consult on because an incorrect guess wastes a full consultation cycle.
+Do not guess which ADR to consult on because an incorrect guess wastes a full consultation cycle. Reject absolute, traversing, or prose-derived paths. Register the exact repository-relative path through `adr-query.py`, compute its hash, then require the shared resolver/containment/registration check to pass:
 
 ```bash
-cat .adr-session.json 2>/dev/null
-ls adr/*.md
+python3 scripts/adr-query.py register --adr 'adr/{adr-name}.md'
+python3 scripts/adr-query.py hash --adr 'adr/{adr-name}.md'
+python3 scripts/adr-query.py validate-registration \
+  --repo-root . \
+  --adr 'adr/{adr-name}.md' \
+  --hash 'sha256:{digest}'
 ```
+
+Keep that exact path and hash as consultation provenance. Stop if the resolver rejects the path, the content hash changes, or `.adr-session.json` names a different registration.
 
 Even if this ADR was discussed informally, run the formal consultation because undocumented discussion produces no persistent artifacts and cannot be referenced by future sessions.
 
 **Step 2: Check for prior consultation**
 
-Before dispatching, scan `adr/{adr-name}/` for existing agent files because silently overwriting prior consultation work destroys the audit trail.
+Before dispatching, scan `adr/{adr-name}/` for existing agent files because silently overwriting prior consultation work destroys the audit trail. Reuse a prior synthesis only when its `ADR Path` and `ADR Hash` match the validated provenance; otherwise it is stale and cannot satisfy a feature gate.
 
 ```bash
 ls adr/{adr-name}/ 2>/dev/null
@@ -79,7 +85,7 @@ Read the full ADR content. Extract: the decision being made, key components/chan
 mkdir -p adr/{adr-name}
 ```
 
-**Gate**: ADR content has been read, the consultation directory has been created, and the ADR name has been confirmed. Dispatch agents only after this gate passes.
+**Gate**: ADR content has been read, canonical path/hash registration has been validated, the consultation directory has been created, and the ADR name has been confirmed. Dispatch agents only after this gate passes.
 
 ---
 
@@ -140,7 +146,7 @@ The synthesizer can also identify cross-cutting concerns that individual agents 
 
 **Step 4: Write synthesis**
 
-Write `adr/{adr-name}/synthesis.md` using the template from `references/consultation-patterns.md` § Phase 3 Artifact Templates.
+Write `adr/{adr-name}/synthesis.md` using the template from `references/consultation-patterns.md` § Phase 3 Artifact Templates. Include the validated `ADR Path` and `ADR Hash` so the pre-IMPLEMENT consumer can reject stale or cross-ADR results.
 
 **Gate**: All concerns extracted to concerns.md, synthesis.md written. Proceed to Phase 4 only when both files exist in `adr/{adr-name}/`.
 

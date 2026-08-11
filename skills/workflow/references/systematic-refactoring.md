@@ -39,6 +39,22 @@ Safe, verifiable refactoring through 5 explicit phases with mandatory gates. Eac
 
 ---
 
+## Architecture Handoff Intake
+
+When architecture-deepening supplies an `Architecture Change Handoff` JSON path, validate it before reading any action-bearing field:
+
+```bash
+python3 scripts/handoff.py validate \
+  --repo-root . \
+  --handoff 'adr/handoffs/{handoff-name}.json' \
+  --expected-skill workflow \
+  --expected-pipeline systematic-refactoring
+```
+
+The consumer check resolves module, caller, decision-store, handoff, and consultation ADR paths against the repository and rejects traversal, controls, shell metacharacters, symlink escapes, stale ADR hashes, and unregistered ADRs. After it passes, use its module/caller scope as the refactor boundary, its current/proposed interface and migration as the target plan, and its success criteria as extra VERIFY gates. Stop on any mismatch; do not repair or reinterpret the handoff in this workflow.
+
+---
+
 ## Instructions
 
 ### Phase 1: CHARACTERIZE
