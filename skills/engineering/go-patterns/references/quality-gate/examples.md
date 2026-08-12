@@ -429,7 +429,8 @@ Would you like me to show you how to fix these issues?"
 **Fix**: Add error handling:
 ```go
 if err := someFunc(); err != nil {
-    return fmt.Errorf("operation failed: %w", err)
+    // The called function already provides clear context, so preserve it.
+    return err
 }
 ```
 

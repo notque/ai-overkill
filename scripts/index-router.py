@@ -29,6 +29,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+GO_SOURCE_OPERAND_RE = re.compile(r"\.go(?=(?::\d+|#L\d+)?(?:$|[\s`'\",;!?()\[\]{}]|\.(?=$|\s)))")
+PROTECTED_GO_COMPOSITE_ROUTES = {"pr-workflow", "pr-pipeline", "security-review"}
+PR_CREATE_INTENT_RE = re.compile(
+    r"\b(?:create|open|make|draft|submit|raise|file)\b"
+    r"(?:\s+\S+){0,5}?\s+(?:a\s+)?(?:pr|pull\s+request)\b",
+    re.IGNORECASE,
+)
+
 # Shared tracked+local INDEX merge — single source in routing_index_merge.py.
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
@@ -67,7 +75,7 @@ PHRASE_HIT_STEP = 0.1
 # unrelated to the skill. Keyed by entry name -> set of disqualifying context words.
 # When any guard word appears in the request, the match is discarded.
 SEMANTIC_GUARDS: dict[str, set[str]] = {
-    "pr-workflow": {"back", "pressure", "pushback", "pushed", "pushing"},
+    "pr-workflow": {"against", "back", "pressure", "pushback", "pushed", "pushing"},
     "shell-config": {"for", "bugs", "compliments", "information", "ideas", "answers"},
     "voice-writer": {"remove", "strip", "clean", "detect", "identify", "fix", "scan", "audit"},
 }
@@ -249,6 +257,20 @@ def check_force_routes(request: str, entries: list[IndexEntry]) -> IndexEntry | 
     """
     lowered = request.lower()
     request_words = set(re.findall(r"\b\w+\b", lowered))
+    go_operand = GO_SOURCE_OPERAND_RE.search(request) is not None
+
+    if go_operand:
+        forced_name = None
+        pr_guards = SEMANTIC_GUARDS["pr-workflow"]
+        genuine_push = bool(re.search(r"\bpush\b", lowered)) and not (request_words & pr_guards)
+        if PR_CREATE_INTENT_RE.search(request) or genuine_push:
+            forced_name = "pr-workflow"
+        elif re.search(r"\bsecurity\s+audit\b", lowered):
+            forced_name = "security-review"
+        if forced_name is not None:
+            forced = next((entry for entry in entries if entry.name == forced_name and entry.force_route), None)
+            if forced is not None:
+                return forced
 
     best_match: IndexEntry | None = None
     best_specificity = -1
@@ -269,6 +291,10 @@ def check_force_routes(request: str, entries: list[IndexEntry]) -> IndexEntry | 
         for trigger in entry.triggers:
             if _trigger_matches(trigger, lowered):
                 specificity = len(trigger)
+                if entry.name == "go-patterns" and go_operand:
+                    specificity += 100
+                if entry.name in PROTECTED_GO_COMPOSITE_ROUTES and go_operand:
+                    specificity += 200
                 if specificity > best_specificity:
                     best_specificity = specificity
                     best_match = entry
@@ -483,17 +509,19 @@ def check_composition_chains(matched_name: str | None) -> list[list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def route_request(request: str, force_only: bool = False) -> RoutingResult:
+def route_request(request: str, force_only: bool = False, entries: list[IndexEntry] | None = None) -> RoutingResult:
     """Route a request using INDEX file data.
 
     Args:
         request: The user request text.
         force_only: If True, only check force routes (fast path).
+        entries: Optional preloaded entries for deterministic callers and tests.
 
     Returns:
         RoutingResult with force route, candidates, pairs, model, and chains.
     """
-    entries = load_indexes()
+    if entries is None:
+        entries = load_indexes()
     result = RoutingResult()
 
     # Step 1: Check force routes
@@ -517,6 +545,12 @@ def route_request(request: str, force_only: bool = False) -> RoutingResult:
         result.force_route = force_dict
         result.model_preference = force_match.model
         result.pairs_with = suggest_pairs([force_match])
+        if (
+            force_match.name in PROTECTED_GO_COMPOSITE_ROUTES
+            and GO_SOURCE_OPERAND_RE.search(request)
+            and "go-patterns" not in result.pairs_with
+        ):
+            result.pairs_with.append("go-patterns")
         result.composition_chains = check_composition_chains(force_match.name)
         if force_only:
             return result

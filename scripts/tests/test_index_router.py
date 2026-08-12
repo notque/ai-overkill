@@ -28,6 +28,7 @@ SAMPLE_SKILLS_INDEX = {
             "file": "skills/engineering/go-patterns/SKILL.md",
             "description": "Go patterns: testing, concurrency, error handling, code review, conventions.",
             "triggers": [
+                ".go",
                 "Go test",
                 "_test.go",
                 "table-driven",
@@ -41,6 +42,13 @@ SAMPLE_SKILLS_INDEX = {
             "agent": "golang-general-engineer",
             "pairs_with": [],
             "category": "language",
+        },
+        "quick": {
+            "file": "skills/process/quick/SKILL.md",
+            "description": "Small mechanical changes.",
+            "triggers": ["fix typo", "typo in"],
+            "force_route": True,
+            "category": "process",
         },
         "systematic-debugging": {
             "file": "skills/systematic-debugging/SKILL.md",
@@ -170,8 +178,8 @@ class TestLoadIndexes:
 
     def test_loads_correct_count(self) -> None:
         entries = index_router.load_indexes()
-        # 5 skills + 3 pipelines + 2 agents = 10
-        assert len(entries) == 10
+        # 6 skills + 3 pipelines + 2 agents = 11
+        assert len(entries) == 11
 
     def test_skill_entry_fields(self) -> None:
         entries = index_router.load_indexes()
@@ -197,8 +205,8 @@ class TestLoadIndexes:
         (mock_indexes / "agents" / "INDEX.json").unlink()
         with patch.object(index_router, "INDEX_PATHS", _patched_paths(mock_indexes)):
             entries = index_router.load_indexes()
-        # Should still load skills and pipelines (5 + 3 = 8 entries)
-        assert len(entries) == 8
+        # Should still load skills and pipelines (6 + 3 = 9 entries)
+        assert len(entries) == 9
         assert all(e.entry_type != "agent" for e in entries)
 
     def test_malformed_json_graceful(self, mock_indexes: Path) -> None:
@@ -286,6 +294,38 @@ class TestCheckForceRoutes:
         match = index_router.check_force_routes("write table-driven tests for auth", entries)
         assert match is not None
         assert match.name == "go-patterns"
+
+    def test_go_file_edit_outranks_quick(self) -> None:
+        entries = index_router.load_indexes()
+        match = index_router.check_force_routes("fix typo in foo.go", entries)
+        assert match is not None
+        assert match.name == "go-patterns"
+
+    @pytest.mark.parametrize(
+        "operand",
+        ["foo.go", "foo.go:42", "foo.go#L42", "foo.go,", "foo.go.", "`foo.go`", "(foo.go)"],
+    )
+    def test_go_source_operand_positive_matrix(self, operand: str) -> None:
+        entries = index_router.load_indexes()
+        match = index_router.check_force_routes(f"fix typo in {operand}", entries)
+        assert match is not None
+        assert match.name == "go-patterns"
+
+    @pytest.mark.parametrize(
+        "operand",
+        ["foo.go.txt", "changelog.go.md", ".golangci.yml", ".goreleaser.yml", "example.google", "foo.gox"],
+    )
+    def test_go_source_operand_negative_matrix(self, operand: str) -> None:
+        entries = index_router.load_indexes()
+        match = index_router.check_force_routes(f"fix typo in {operand}", entries)
+        assert match is not None
+        assert match.name == "quick"
+
+    @pytest.mark.parametrize("query", ["push back on foo.go", "push against foo.go", "pushback on foo.go"])
+    def test_go_operand_push_metaphors_do_not_route_pr(self, query: str) -> None:
+        entries = index_router.load_indexes()
+        match = index_router.check_force_routes(query, entries)
+        assert match is None or match.name != "pr-workflow"
 
 
 # ---------------------------------------------------------------------------
@@ -806,6 +846,42 @@ class TestRouteRequest:
         assert result.force_route is not None
         assert result.force_route.get("pipeline") == "doc-pipeline"
 
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            ("create PR for foo.go", "pr-workflow"),
+            ("push foo.go", "pr-workflow"),
+            ("security review foo.go", "security-review"),
+            ("security audit foo.go", "security-review"),
+        ],
+    )
+    def test_protected_composite_keeps_primary_and_pairs_go(self, query: str, expected: str) -> None:
+        entries = [
+            index_router.IndexEntry(
+                name="go-patterns",
+                entry_type="skill",
+                triggers=[".go"],
+                force_route=True,
+                agent="golang-general-engineer",
+            ),
+            index_router.IndexEntry(
+                name="pr-workflow",
+                entry_type="skill",
+                triggers=["create PR"],
+                force_route=True,
+            ),
+            index_router.IndexEntry(
+                name="security-review",
+                entry_type="skill",
+                triggers=["security review"],
+                force_route=True,
+            ),
+        ]
+        result = index_router.route_request(query, force_only=True, entries=entries)
+        assert result.force_route is not None
+        assert result.force_route.get("skill") == expected
+        assert "go-patterns" in result.pairs_with
+
 
 # ---------------------------------------------------------------------------
 # Output formatting tests
@@ -886,6 +962,54 @@ class TestCLI:
         parsed = json.loads(result.stdout)
         assert parsed["candidates"] == []
         assert parsed["force_route"] is not None
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "create a PR for main.go",
+            "open a PR for main.go",
+            "make a pull request for main.go",
+            "draft a PR for main.go",
+            "submit main.go as a PR",
+            "raise a PR for main.go",
+            "file a pull request for main.go",
+        ],
+    )
+    def test_real_index_article_bearing_pr_intent(self, query: str) -> None:
+        result = subprocess.run(
+            [sys.executable, SCRIPT_PATH, "--request", query, "--force-only", "--json"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        parsed = json.loads(result.stdout)
+        assert parsed["force_route"]["skill"] == "pr-workflow"
+        assert "go-patterns" in parsed["pairs_with"]
+
+    @pytest.mark.parametrize(
+        "query",
+        ["open main.go", "make main.go", "draft main.go", "submit main.go", "raise main.go", "file main.go"],
+    )
+    def test_real_index_bounded_pr_verbs_without_pr_noun_stay_go(self, query: str) -> None:
+        result = subprocess.run(
+            [sys.executable, SCRIPT_PATH, "--request", query, "--force-only", "--json"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        parsed = json.loads(result.stdout)
+        assert parsed["force_route"]["skill"] == "go-patterns"
+
+    @pytest.mark.parametrize("query", ["push back on foo.go", "push against foo.go", "pushback on foo.go"])
+    def test_real_index_push_metaphors_do_not_route_pr(self, query: str) -> None:
+        result = subprocess.run(
+            [sys.executable, SCRIPT_PATH, "--request", query, "--force-only", "--json"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        parsed = json.loads(result.stdout)
+        assert parsed["force_route"] is None or parsed["force_route"].get("skill") != "pr-workflow"
 
     def test_always_exits_zero(self) -> None:
         result = subprocess.run(

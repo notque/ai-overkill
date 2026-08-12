@@ -54,6 +54,80 @@ class TestSpecifiedRoutes:
         # Should match go-patterns (force-route skill with "go test" trigger)
         assert result["skill"] == "go-patterns" or result["agent"] == "golang-general-engineer"
 
+    @pytest.mark.parametrize("query", ["fix typo in foo.go", "fix the spelling in main.go"])
+    def test_go_file_edits_match_go_patterns(self, pre_route, real_entries, query: str) -> None:
+        """Even trivial .go edits must load the mandatory Go style baseline."""
+        result = pre_route.route(query, entries=real_entries)
+        assert result["matched"] is True
+        assert result["skill"] == "go-patterns"
+        assert result["match_type"] == "force_route"
+
+    def test_non_go_typo_stays_quick(self, pre_route, real_entries) -> None:
+        result = pre_route.route("fix typo in README.md", entries=real_entries)
+        assert result["skill"] == "quick"
+
+    @pytest.mark.parametrize(
+        "operand",
+        ["foo.go", "foo.go:42", "foo.go#L42", "foo.go,", "foo.go.", "`foo.go`", "(foo.go)"],
+    )
+    def test_go_source_operand_positive_matrix(self, pre_route, real_entries, operand: str) -> None:
+        result = pre_route.route(f"fix typo in {operand}", entries=real_entries)
+        assert result["skill"] == "go-patterns"
+
+    @pytest.mark.parametrize(
+        "operand",
+        ["foo.go.txt", "changelog.go.md", ".golangci.yml", ".goreleaser.yml", "example.google", "foo.gox"],
+    )
+    def test_go_source_operand_negative_matrix(self, pre_route, real_entries, operand: str) -> None:
+        result = pre_route.route(f"fix typo in {operand}", entries=real_entries)
+        assert result["skill"] == "quick"
+
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            ("create PR for foo.go", "pr-workflow"),
+            ("push foo.go", "pr-workflow"),
+            ("security review foo.go", "security-review"),
+            ("security audit foo.go", "security-review"),
+        ],
+    )
+    def test_protected_composite_keeps_primary_and_stacks_go(
+        self, pre_route, real_entries, query: str, expected: str
+    ) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result["skill"] == expected
+        assert result["stack"] == ["go-patterns"]
+
+    @pytest.mark.parametrize("query", ["push back on foo.go", "push against foo.go", "pushback on foo.go"])
+    def test_go_operand_push_metaphors_do_not_route_pr(self, pre_route, real_entries, query: str) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result["skill"] != "pr-workflow"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "create a PR for main.go",
+            "open a PR for main.go",
+            "make a pull request for main.go",
+            "draft a PR for main.go",
+            "submit main.go as a PR",
+            "raise a PR for main.go",
+            "file a pull request for main.go",
+        ],
+    )
+    def test_article_bearing_pr_intent_stays_primary(self, pre_route, real_entries, query: str) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result["skill"] == "pr-workflow"
+        assert result["stack"] == ["go-patterns"]
+
+    @pytest.mark.parametrize(
+        "query",
+        ["open main.go", "make main.go", "draft main.go", "submit main.go", "raise main.go", "file main.go"],
+    )
+    def test_bounded_pr_verbs_without_pr_noun_stay_go(self, pre_route, real_entries, query: str) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result["skill"] == "go-patterns"
+
     def test_create_pr_matches_pr_workflow(self, pre_route, real_entries) -> None:
         """'create a PR' should match pr-workflow (force-route)."""
         result = pre_route.route("create a PR", entries=real_entries)
