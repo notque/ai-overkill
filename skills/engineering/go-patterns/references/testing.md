@@ -2,8 +2,8 @@
 # Go Testing Skill
 
 Go testing follows a 4-phase workflow: understand what needs testing, write
-idiomatic tests, run and verify, review quality. Every function with multiple
-test cases uses table-driven pattern. Every helper calls t.Helper(). Every
+idiomatic tests, run and verify, review quality. Use table-driven tests when
+many cases share the same test logic. Every helper calls t.Helper(). Every
 concurrent test runs with -race.
 
 ## Instructions
@@ -24,7 +24,8 @@ override these defaults.
 
 | Need | Test Type | Pattern |
 |------|-----------|---------|
-| Multiple input/output cases | Table-driven unit test | `[]struct` + `t.Run` |
+| Many similar input/output cases | Table-driven unit test | `[]struct` + `t.Run` |
+| Distinct scenarios with different logic | Focused unit tests | Separate `TestXxx` functions |
 | Single specific behavior | Focused unit test | Standard `TestXxx` |
 | Cross-component interaction | Integration test | Setup/teardown helpers |
 | Performance measurement | Benchmark | `b.Loop()` with `b.ReportAllocs()` |
@@ -53,11 +54,13 @@ unexported behavior that can't be reached through the public API.
 
 **Goal**: Implement tests following Go idioms.
 
-**Step 1: Table-driven tests for multiple cases**
+**Step 1: Choose table-driven or focused tests**
 
-Multiple related cases MUST use table-driven pattern — this is the canonical Go
-testing idiom because it makes adding cases trivial and the input/output
-relationship explicit:
+Use a table-driven pattern when many cases can be tested with similar logic and
+the cases benefit from an explicit input/output table. Keep cases in separate
+focused tests when they need different setup, assertions, or control flow. Do
+not force unrelated scenarios into one table merely because there is more than
+one case.
 
 ```go
 func TestParseConfig(t *testing.T) {
@@ -150,7 +153,7 @@ for _, tt := range tests {
 Test error conditions, not just happy paths. If a function can return an error,
 write at least one test case that triggers that error and verifies the message.
 
-**Gate**: Tests follow table-driven pattern, helpers use `t.Helper()`, mocks use function fields. Proceed only when gate passes.
+**Gate**: Test structure matches the cases, helpers use `t.Helper()`, and test doubles are no more complex than needed. Proceed only when the gate passes.
 
 ### Phase 3: RUN and Verify
 
@@ -198,7 +201,7 @@ Verify no regressions in other packages.
 **Goal**: Ensure tests are maintainable and complete.
 
 **Checklist**:
-- [ ] Table-driven tests for multiple cases?
+- [ ] Table-driven tests used only where many cases share similar logic?
 - [ ] Test helpers marked with `t.Helper()`?
 - [ ] Parallel execution where safe?
 - [ ] Error conditions tested?

@@ -40,6 +40,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+GO_SOURCE_OPERAND_RE = re.compile(r"\.go(?=(?::\d+|#L\d+)?(?:$|[\s`'\",;!?()\[\]{}]|\.(?=$|\s)))")
+PROTECTED_GO_COMPOSITE_SKILLS = {"pr-workflow", "pr-pipeline", "security-review"}
+PR_CREATE_INTENT_RE = re.compile(
+    r"\b(?:create|open|make|draft|submit|raise|file)\b"
+    r"(?:\s+\S+){0,5}?\s+(?:a\s+)?(?:pr|pull\s+request)\b",
+    re.IGNORECASE,
+)
+
 # Shared tracked+local INDEX merge — single source in routing_index_merge.py.
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
@@ -235,6 +243,7 @@ SUPPLEMENTAL_TRIGGERS: dict[str, tuple[str, ...]] = {
 SEMANTIC_GUARDS: dict[str, set[str] | dict[str, set[str]]] = {
     "pr-workflow": {
         "back",
+        "against",
         "pressure",
         "pushback",
         "pushed",
@@ -733,6 +742,41 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
     table = build_match_table(entries)
     candidates = score_matches(table, request)
 
+    go_operand = GO_SOURCE_OPERAND_RE.search(request) is not None
+
+    # A bare "push <file.go>" is still a git/PR operation even though the
+    # pr-workflow trigger list intentionally avoids the overloaded bare verb.
+    request_words = set(re.findall(r"\b\w+\b", request.lower()))
+    pr_guards = SEMANTIC_GUARDS["pr-workflow"]
+    assert isinstance(pr_guards, set)
+    genuine_push = bool(re.search(r"\bpush\b", request, re.IGNORECASE)) and not (request_words & pr_guards)
+    protected_pr_intent = PR_CREATE_INTENT_RE.search(request) is not None or genuine_push
+    if go_operand and protected_pr_intent and "skill:pr-workflow" not in candidates:
+        pr_entry = next((entry for entry in table if entry.name == "pr-workflow"), None)
+        if pr_entry is not None:
+            candidates["skill:pr-workflow"] = ScoredMatch(
+                name="pr-workflow",
+                entry_type="skill",
+                agent=pr_entry.agent,
+                force_route=True,
+                matched_triggers=["protected PR intent with <go-source>"],
+                total_chars=len("protected PR intent with <go-source>"),
+                score=100,
+            )
+
+    if go_operand and re.search(r"\bsecurity\s+audit\b", request, re.IGNORECASE):
+        security_entry = next((entry for entry in table if entry.name == "security-review"), None)
+        if security_entry is not None:
+            candidates["skill:security-review"] = ScoredMatch(
+                name="security-review",
+                entry_type="skill",
+                agent=security_entry.agent,
+                force_route=True,
+                matched_triggers=["security audit"],
+                total_chars=len("security audit"),
+                score=100,
+            )
+
     if not candidates:
         return {
             "matched": False,
@@ -741,9 +785,17 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
             "confidence": "low",
             "match_type": "fallthrough",
             "reasoning": "no trigger keywords matched",
+            "stack": [],
         }
 
     # Sort by score descending, then by name ascending for deterministic tie-breaking
+    # A Go source-file extension is stronger domain evidence than a generic
+    # process phrase such as "fix typo". Ensure every .go edit loads the Go
+    # skill's mandatory style baseline while leaving non-Go typo work on quick.
+    protected = [candidate for candidate in candidates.values() if candidate.name in PROTECTED_GO_COMPOSITE_SKILLS]
+    if go_operand and not protected and "skill:go-patterns" in candidates:
+        candidates["skill:go-patterns"].score += 100
+
     ranked = sorted(candidates.values(), key=lambda m: (-m.score, m.name))
     top = ranked[0]
     confidence = determine_confidence(top)
@@ -756,6 +808,7 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
             "confidence": "low",
             "match_type": "fallthrough",
             "reasoning": f"weak match on {top.matched_triggers!r} for {top.name} (score={top.score:.2f})",
+            "stack": [],
         }
 
     # Determine agent and skill from the match
@@ -777,6 +830,7 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
         "confidence": confidence,
         "match_type": match_type,
         "reasoning": f"matched triggers [{triggers_str}] for {top.name}",
+        "stack": ["go-patterns"] if go_operand and top.name in PROTECTED_GO_COMPOSITE_SKILLS else [],
     }
 
 

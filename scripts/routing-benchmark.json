@@ -157,11 +157,11 @@
     },
     {
       "request": "fix the typo in main.go",
-      "expected_agent": null,
-      "expected_skill": "quick",
-      "category": "trivial-operations",
-      "routing_tier": "candidate",
-      "notes": "Mechanical one-character fix \u2014 quick should appear in top-3 candidates (absorbed fast skill per ADR-192). quick is force_route:true but 'fix the typo' does not match any trigger phrase exactly."
+      "expected_agent": "golang-general-engineer",
+      "expected_skill": "go-patterns",
+      "category": "go-development",
+      "routing_tier": "force_route",
+      "notes": "Any .go file edit must force-route to go-patterns so the mandatory Google style baseline loads; quick remains appropriate for non-Go typo work."
     },
     {
       "request": "rename this variable across the file",

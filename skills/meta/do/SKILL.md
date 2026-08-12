@@ -174,6 +174,7 @@ Stack on signals.
 | Voice profile (e.g. voice-example-profile) | Stack `voice-writer`; voice-*=profile |
 | Interview-mode heuristic | `planning` — `depth-first-interview.md` |
 | Objective with done-criteria / "loop until done" | Stack `objective-loop` |
+| Protected PR/security intent with a Go source operand | Keep `pr-workflow`/`security-review` primary and stack `go-patterns` from `PRE_ROUTE_RESULT.stack` or router `pairs_with` |
 
 Review overlap: real-diff row wins; fallback only without diff.
 
