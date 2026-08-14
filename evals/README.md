@@ -83,11 +83,20 @@ The command restores the working tree on every exit path; a crashed run leaves
 no base content checked out.
 
 `RECORD=1` writes one row per run to `learning.db` (topic `eval:<dir>`,
-`git_commit_sha` = head SHA), so eval history becomes a queryable time-series:
+`git_commit_sha` = head SHA), so eval history becomes a queryable time-series.
+Use the repository's learning DB CLI to query it:
 
 ```bash
-python3 scripts/learning-db.py query --topic "eval:evals/new-skills-ab-test"
+python3 scripts/learning-db.py telemetry-query \
+  --topic "eval:evals/new-skills-ab-test" --git-sha <head-sha> --format json
 ```
+
+The command reads the per-run `telemetry_runs` rows on current databases. It
+also reads the older `learnings` fallback written by degraded ablation runs;
+fallback JSON rows have `"storage": "learnings"`, parsed `pass_rate`, `runs`,
+`base_sha`, and `head_sha` fields. When both representations exist for the
+same topic/key, the per-run telemetry rows are authoritative and the fallback
+summary is not duplicated.
 
 If PR-A's telemetry envelope columns are absent, `--record` degrades to a no-op
 against those columns: it still writes the row (envelope packed into `value`)

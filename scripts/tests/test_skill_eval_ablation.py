@@ -138,6 +138,51 @@ def test_record_no_envelope_still_writes_db_row(temp_db_no_envelope, tmp_path, m
     assert "git_commit_sha=" + "h" * 40 in rows[0]["value"]
 
 
+def test_telemetry_query_reads_no_envelope_fallback(temp_db_no_envelope, tmp_path, monkeypatch):
+    """The established CLI returns the packed pre-telemetry ablation record."""
+    mod = _load_module()
+    monkeypatch.setattr(mod, "ABLATION_LOG", tmp_path / "log.jsonl", raising=False)
+    head = "h" * 40
+    mod.record_run(
+        eval_dir="evals/x",
+        skill="quick",
+        arm="base",
+        pass_rate=0.5,
+        runs=2,
+        base_sha="b" * 40,
+        head_sha=head,
+        model_id="claude-x",
+        skill_version="1.0.0",
+    )
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(LEARNING_DB_CLI),
+            "telemetry-query",
+            "--topic",
+            "eval:evals/x",
+            "--git-sha",
+            head,
+            "--key",
+            f"quick@{head}:base",
+            "--format",
+            "json",
+        ],
+        capture_output=True,
+        text=True,
+        env={**_clean_env(), "CLAUDE_LEARNING_DIR": str(temp_db_no_envelope.parent)},
+    )
+    assert res.returncode == 0, res.stderr
+    rows = json.loads(res.stdout)
+    assert len(rows) == 1
+    assert rows[0]["storage"] == "learnings"
+    assert rows[0]["git_sha"] == head
+    assert rows[0]["base_sha"] == "b" * 40
+    assert rows[0]["pass_rate"] == 0.5
+    assert rows[0]["runs"] == 2
+
+
 # ---------------------------------------------------------------------------
 # --record promotion (PR-A envelope present) -- Validation Requirement 5.
 #
@@ -184,6 +229,8 @@ def test_record_with_envelope_writes_telemetry_run(temp_db_with_envelope, tmp_pa
     assert res.returncode == 0, res.stderr
     rows = json.loads(res.stdout)
     assert rows, "expected at least one telemetry_runs row"
+    assert len(rows) == 1, "telemetry row is authoritative over its learnings summary"
+    assert rows[0]["storage"] == "telemetry_runs"
     assert any(r.get("git_sha") == head for r in rows)
     assert all(r.get("git_sha") == head for r in rows)
     # The human summary row still lands in learnings for queryability.
