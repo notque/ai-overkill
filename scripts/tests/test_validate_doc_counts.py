@@ -8,6 +8,48 @@ import sys
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent.parent / "validate-doc-counts.py"
+VALIDATOR = SCRIPT
+
+
+def make_repo(tmp_path: Path, table_counts: tuple[int, int, int, int]) -> Path:
+    root = tmp_path / "repo"
+    for directory, count, suffix in (
+        ("agents", 2, ".md"),
+        ("hooks", 1, ".py"),
+        ("scripts", 4, ".py"),
+    ):
+        target = root / directory
+        target.mkdir(parents=True)
+        for index in range(count):
+            (target / f"item-{index}{suffix}").write_text("", encoding="utf-8")
+
+    skill_root = root / "skills" / "example"
+    for index in range(3):
+        skill_dir = skill_root / f"skill-{index}"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("", encoding="utf-8")
+
+    agents, skills, hooks, scripts = table_counts
+    (root / "README.md").write_text(
+        "## Four Layers\n\n"
+        "| Layer | Count | Does |\n"
+        "|---|---|---|\n"
+        f"| Agents | {agents} | agent layer |\n"
+        f"| Skills | {skills} | skill layer |\n"
+        f"| Hooks | {hooks} | hook layer |\n"
+        f"| Scripts | {scripts} | script layer |\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def run_validator(repo: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(VALIDATOR), "--repo-root", str(repo)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def test_repo_root_option_counts_target_as_data(tmp_path: Path) -> None:
@@ -31,3 +73,19 @@ def test_repo_root_option_counts_target_as_data(tmp_path: Path) -> None:
     assert report["truth"]["agents"] == 1
     assert report["truth"]["scripts"] == 1
     assert report["truth"]["hooks"] == 1
+
+
+def test_four_layers_table_matches_filesystem(tmp_path: Path) -> None:
+    result = run_validator(make_repo(tmp_path, (2, 3, 1, 4)))
+
+    assert result.returncode == 0
+    assert "All count claims agree with filesystem." in result.stdout
+
+
+def test_four_layers_mismatch_is_actionable_and_fails(tmp_path: Path) -> None:
+    result = run_validator(make_repo(tmp_path, (2, 4, 1, 4)))
+
+    assert result.returncode == 1
+    assert "README.md:6" in result.stdout
+    assert "Four Layers / Skills" in result.stdout
+    assert "expected=3 (filesystem), actual=4 (README)" in result.stdout

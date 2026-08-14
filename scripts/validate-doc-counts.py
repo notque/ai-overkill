@@ -29,6 +29,13 @@ DOCS_DIR = REPO_ROOT / "docs"
 ROOT_MARKDOWN = ["README.md", "CONTRIBUTING.md", "CLAUDE.md"]
 SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 BANNED_PATTERNS = REPO_ROOT / "scripts" / "data" / "banned-patterns.json"
+FOUR_LAYERS = ("agents", "skills", "hooks", "scripts")
+FOUR_LAYERS_HEADING = re.compile(r"^\s*##\s+Four Layers\s*$", re.IGNORECASE)
+NEXT_SECTION = re.compile(r"^\s*##\s+")
+FOUR_LAYERS_ROW = re.compile(
+    r"^\s*\|\s*(Agents|Skills|Hooks|Scripts)\s*\|\s*([^|]+?)\s*\|",
+    re.IGNORECASE,
+)
 
 
 def configure_repo_root(repo_root: Path) -> None:
@@ -142,6 +149,97 @@ def collect_markdown_files() -> list[Path]:
     return files
 
 
+def validate_four_layers() -> tuple[list[dict], int]:
+    """Compare the README Four Layers table with the filesystem counts."""
+    readme = REPO_ROOT / "README.md"
+    if not readme.is_file():
+        return [], 0
+
+    lines = readme.read_text(encoding="utf-8", errors="replace").splitlines()
+    heading_line = next(
+        (index for index, line in enumerate(lines) if FOUR_LAYERS_HEADING.match(line)),
+        None,
+    )
+    if heading_line is None:
+        return [
+            {
+                "kind": "four_layers",
+                "source": "README.md",
+                "line": 1,
+                "message": "Four Layers table is missing; add the `## Four Layers` section",
+            }
+        ], 0
+
+    rows: dict[str, tuple[int, str, int | None]] = {}
+    drifts: list[dict] = []
+    for offset, line in enumerate(lines[heading_line + 1 :], start=heading_line + 2):
+        if NEXT_SECTION.match(line):
+            break
+        match = FOUR_LAYERS_ROW.match(line)
+        if not match:
+            continue
+        layer = match.group(1).lower()
+        raw_count = match.group(2).strip()
+        if layer in rows:
+            drifts.append(
+                {
+                    "kind": "four_layers",
+                    "source": "README.md",
+                    "line": offset,
+                    "layer": layer,
+                    "message": f"duplicate {layer.title()} row; keep exactly one Four Layers row",
+                }
+            )
+            continue
+        claimed = int(raw_count) if raw_count.isdigit() else None
+        rows[layer] = (offset, raw_count, claimed)
+
+    truth = ground_truth()
+    for layer in FOUR_LAYERS:
+        row = rows.get(layer)
+        if row is None:
+            drifts.append(
+                {
+                    "kind": "four_layers",
+                    "source": "README.md",
+                    "line": heading_line + 1,
+                    "layer": layer,
+                    "expected": truth[layer],
+                    "actual": None,
+                    "message": f"missing {layer.title()} row; add it with the filesystem count",
+                }
+            )
+            continue
+
+        line_no, raw_count, claimed = row
+        if claimed is None:
+            drifts.append(
+                {
+                    "kind": "four_layers",
+                    "source": "README.md",
+                    "line": line_no,
+                    "layer": layer,
+                    "expected": truth[layer],
+                    "actual": raw_count,
+                    "message": f"{layer.title()} count must be a decimal integer",
+                }
+            )
+        elif claimed != truth[layer]:
+            drifts.append(
+                {
+                    "kind": "four_layers",
+                    "source": "README.md",
+                    "line": line_no,
+                    "layer": layer,
+                    "expected": truth[layer],
+                    "actual": claimed,
+                    "message": f"{layer.title()} count differs from filesystem ground truth",
+                }
+            )
+
+    return drifts, len(rows)
+
+
 def normalize(thing: str) -> str:
     t = thing.lower().rstrip("s")
     if t == "hook event":
@@ -203,6 +301,10 @@ def main() -> int:
     drifts: list[dict] = []
     checked = 0
 
+    four_layers_drifts, four_layers_checked = validate_four_layers()
+    drifts.extend(four_layers_drifts)
+    checked += four_layers_checked
+
     for md in collect_markdown_files():
         text = md.read_text(encoding="utf-8", errors="replace")
         rel = md.relative_to(REPO_ROOT)
@@ -250,7 +352,17 @@ def main() -> int:
         if drifts:
             print(f"\nDrifts: {len(drifts)}")
             for d in drifts:
-                print(f"  {d['source']}:{d['line']}  {d['claim']!r}  actual={d['actual']}")
+                if d.get("kind") == "four_layers":
+                    layer_label = d.get("layer", "table").title()
+                    if "expected" in d and "actual" in d:
+                        print(
+                            f"  {d['source']}:{d['line']}  Four Layers / {layer_label}: "
+                            f"expected={d['expected']} (filesystem), actual={d['actual']} (README)"
+                        )
+                    else:
+                        print(f"  {d['source']}:{d['line']}  Four Layers / {layer_label}: {d['message']}")
+                else:
+                    print(f"  {d['source']}:{d['line']}  {d['claim']!r}  actual={d['actual']}")
         else:
             print("All count claims agree with filesystem.")
 
