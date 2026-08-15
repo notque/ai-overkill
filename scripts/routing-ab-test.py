@@ -72,8 +72,13 @@ new run its own subdirectory.
 
 Corpus schema: {request, expected_agent, expected_skill, category, bucket,
 notes} plus OPTIONAL expected_pipeline (default null), acceptable (list of
-{agent, skill} alternate pairs), uncertain (best-effort gold label). Absent
-optional fields mean legacy behavior; the 49 legacy cases are untouched.
+{agent, skill} alternate pairs), uncertain (best-effort gold label), provenance
+({source, workload, sample}: where the case came from — local-telemetry names
+the single machine's workload it was sampled from, catalog-derived means it was
+written from INDEX semantics, absent resolves to unknown-legacy). Carried into
+queries.json/raw.json so a run can be sliced by workload: a delta driven by one
+workload's cases is not evidence about the other machines. Absent optional
+fields mean legacy behavior; the 49 legacy cases are untouched.
 
 Stdlib only. Deterministic given fixed inputs (shuffle uses a fixed seed).
 
@@ -153,7 +158,7 @@ FORCE-ROUTE RULE: Entries marked "FORCE" MUST be selected when their domain clea
 
 # Optional corpus fields carried into queries.json/raw.json ONLY when present,
 # so legacy artifacts stay byte-identical.
-OPTIONAL_CASE_FIELDS = ("expected_pipeline", "acceptable", "uncertain")
+OPTIONAL_CASE_FIELDS = ("expected_pipeline", "acceptable", "uncertain", "provenance")
 
 
 def _norm(value: object) -> str | None:

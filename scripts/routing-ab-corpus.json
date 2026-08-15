@@ -1,6 +1,6 @@
 {
-  "version": "1.2",
-  "description": "Blind A/B routing corpus for the semantic-first experiment. Two segments: (1) international/paraphrase cases that express the SAME intents as routing-benchmark.json but in plain non-native English avoiding the trigger keywords the deterministic pre-router matches on; (2) a sample drawn from routing-benchmark.json spanning all tiers including false-positive guards. Combined the corpus measures whether reading-for-intent-first (Arm B) recovers the long tail of paraphrased requests without regressing the safety-critical force-routes (pr-workflow, security-review) or re-introducing false positives. Each paraphrase case avoids the exact trigger phrases listed in skills/INDEX.json so pre-route.py falls through and the semantic router is the only path that can recover the route. Extension (v1.1, feat/route-ab-harness): 50 additional cases in five new buckets — stub-tier (skills with zero recorded routes; tiered-manifest tripwire), sibling-disambiguation, pipeline-pick (optional expected_pipeline; near-misses must return pipeline null), vague-interview (underspecified requests that should land planning), and plain-english (non-jargon phrasing). Optional fields: expected_pipeline (default null), acceptable (list of {agent, skill} alternates), uncertain (best-effort gold label). Absence of the optional fields means legacy behavior; the 49 legacy cases are byte-identical to v1.0. Extension (v1.2, feat/full-catalog-reachability): 73 reachability cases covering every previously-uncovered routable skill in the merged catalog. Bucket \"reachability\" — held-out probes expressing genuine user needs without quoting trigger keywords. 22 skills classified never-routable-by-design (voice profiles, shared patterns, pipeline sub-skills, internal orchestration).",
+  "version": "1.4",
+  "description": "Blind A/B routing corpus for the semantic-first experiment. Two segments: (1) international/paraphrase cases that express the SAME intents as routing-benchmark.json but in plain non-native English avoiding the trigger keywords the deterministic pre-router matches on; (2) a sample drawn from routing-benchmark.json spanning all tiers including false-positive guards. Combined the corpus measures whether reading-for-intent-first (Arm B) recovers the long tail of paraphrased requests without regressing the safety-critical force-routes (pr-workflow, security-review) or re-introducing false positives. Each paraphrase case avoids the exact trigger phrases listed in skills/INDEX.json so pre-route.py falls through and the semantic router is the only path that can recover the route. Extension (v1.1, feat/route-ab-harness): 50 additional cases in five new buckets — stub-tier (skills with zero recorded routes; tiered-manifest tripwire), sibling-disambiguation, pipeline-pick (optional expected_pipeline; near-misses must return pipeline null), vague-interview (underspecified requests that should land planning), and plain-english (non-jargon phrasing). Optional fields: expected_pipeline (default null), acceptable (list of {agent, skill} alternates), uncertain (best-effort gold label). Absence of the optional fields means legacy behavior; the 49 legacy cases are byte-identical to v1.0. Extension (v1.2, feat/full-catalog-reachability): 73 reachability cases covering every previously-uncovered routable skill in the merged catalog. Bucket \"reachability\" — held-out probes expressing genuine user needs without quoting trigger keywords. 22 skills classified never-routable-by-design (voice profiles, shared patterns, pipeline sub-skills, internal orchestration). Extension (v1.3, feat/aggressive-routing-wave1): 91 cases drawn from 128 recorded production dispatches that fell back to general-purpose. The corpus before this extension asserted expected_agent null on 142 of 178 cases (79.8%), so a router that routed LESS scored BETTER and under-routing was undetectable. Four new buckets: prod-fallback-specialist (a domain agent is correct), prod-fallback-general (general-purpose is correct, labelled explicitly rather than null so over-routing also fails), prod-fallback-coordinator (multi-deliverable conjunctive requests; project-coordinator-engineer was chosen zero times in 287 dispatches), and prod-fallback-ambiguous (expected_agent null WITH a stated reason). expected_agent may now be the built-in agent name general-purpose, which is absent from agents/INDEX.json by design; routing-benchmark.py accepts built-in agent names, matching validate-do-references.py and validate-merged-index.py. The requests come from one Flask/Peewee/SQLite site plus its ops surface, so `acceptable` sometimes names five-star-booker, that repo's project skill, which lives in the local overlay index rather than the public one. Extension (v1.4, feat/aggressive-routing-wave1): every taggable case carries `provenance` {source, workload, sample}. This toolkit runs on several machines with different workloads, and learning.db is per-box with no host or project column and no cross-box aggregation — so a local sample is evidence about ONE machine and local absence is NOT evidence that an agent or skill is unused anywhere. source is one of: local-telemetry (recorded dispatches from a single machine; workload names it), catalog-derived (written from INDEX semantics, no telemetry), unknown-legacy (provenance not recorded at the time). The 49 pinned v1.0 cases cannot carry the field without breaking their SHA-256 pin, so ABSENCE resolves to unknown-legacy; they are believed to be paraphrases of routing-benchmark.json, but that is not recorded, so it is not asserted. test_no_single_workload_dominates_agent_labels caps any one workload's share of the agent-asserting cases: without it, a corpus tuned to one box could certify a routing change that regresses every other box — the #860 failure mode pointed the other way.",
   "test_cases": [
     {
       "request": "send my commits to the server",
@@ -400,7 +400,12 @@
       "expected_skill": "e2e-testing",
       "category": "testing",
       "bucket": "stub-tier",
-      "notes": "STUB (zero recorded routes). Playwright E2E = e2e-testing per INDEX. Tiered manifest must keep it reachable."
+      "notes": "STUB (zero recorded routes). Playwright E2E = e2e-testing per INDEX. Tiered manifest must keep it reachable.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "the checkout pod in the staging namespace keeps restarting with CrashLoopBackOff, figure out what is wrong",
@@ -408,7 +413,12 @@
       "expected_skill": "kubernetes",
       "category": "infrastructure",
       "bucket": "stub-tier",
-      "notes": "STUB. Pod failure debugging = kubernetes per INDEX."
+      "notes": "STUB. Pod failure debugging = kubernetes per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "my Kotlin Flow collector in SyncService.kt stops emitting after the first error, fix the coroutine handling",
@@ -416,7 +426,12 @@
       "expected_skill": "kotlin",
       "category": "kotlin-development",
       "bucket": "stub-tier",
-      "notes": "STUB. Flow/coroutine error handling = kotlin per INDEX."
+      "notes": "STUB. Flow/coroutine error handling = kotlin per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "add PHPUnit tests with a database fixture for the InvoiceRepository class in src/Repository/InvoiceRepository.php",
@@ -424,7 +439,12 @@
       "expected_skill": "php",
       "category": "php-development",
       "bucket": "stub-tier",
-      "notes": "STUB. PHPUnit + database testing = php per INDEX."
+      "notes": "STUB. PHPUnit + database testing = php per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "convert the completion-handler callbacks in NetworkClient.swift to async/await and make the cache actor-safe",
@@ -432,7 +452,12 @@
       "expected_skill": "swift",
       "category": "swift-development",
       "bucket": "stub-tier",
-      "notes": "STUB. async/await + Actor migration = swift per INDEX."
+      "notes": "STUB. async/await + Actor migration = swift per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "take the renders in assets/frames/ and the narration in voiceover.mp3 and stitch them into an mp4",
@@ -440,7 +465,12 @@
       "expected_skill": "video-editing",
       "category": "media",
       "bucket": "stub-tier",
-      "notes": "STUB. FFmpeg video from images + audio = video-editing per INDEX."
+      "notes": "STUB. FFmpeg video from images + audio = video-editing per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "build an HTML slide deck that runs in the browser for my quarterly review talk, one slide per milestone",
@@ -448,7 +478,12 @@
       "expected_skill": "distinctive-frontend-design",
       "category": "content-creation",
       "bucket": "stub-tier",
-      "notes": "STUB. Browser HTML presentation = distinctive-frontend-design per INDEX."
+      "notes": "STUB. Browser HTML presentation = distinctive-frontend-design per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "translate docs/user-guide.md into Japanese and keep the code blocks untouched",
@@ -456,7 +491,12 @@
       "expected_skill": "translate",
       "category": "content-creation",
       "bucket": "stub-tier",
-      "notes": "STUB. Document translation = translate per INDEX."
+      "notes": "STUB. Document translation = translate per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "post this announcement as a thread on X with the screenshot attached",
@@ -464,7 +504,12 @@
       "expected_skill": "x-api",
       "category": "social-media",
       "bucket": "stub-tier",
-      "notes": "STUB. Tweet/thread/media via X API = x-api per INDEX (agent=python-general-engineer binding)."
+      "notes": "STUB. Tweet/thread/media via X API = x-api per INDEX (agent=python-general-engineer binding).",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "go through the cron scripts under ops/cron/ and tell me which ones could fail silently or clobber data",
@@ -478,7 +523,12 @@
           "agent": null,
           "skill": "forensics"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run the Vitest suite and tell me which tests fail and why",
@@ -492,7 +542,12 @@
           "agent": "testing-automation-engineer",
           "skill": "vitest-runner"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "add a tilemap level with arcade physics and a jumping player sprite to my Phaser 3 game in src/scenes/",
@@ -500,7 +555,12 @@
       "expected_skill": "phaser-gamedev",
       "category": "game-development",
       "bucket": "stub-tier",
-      "notes": "STUB. Phaser 3 scenes/physics/tilemaps = phaser-gamedev per INDEX."
+      "notes": "STUB. Phaser 3 scenes/physics/tilemaps = phaser-gamedev per INDEX.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "I have three competing proposals in docs/auth-redesign.md — tear them apart from several philosophical angles and tell me where they break",
@@ -514,7 +574,12 @@
           "agent": null,
           "skill": "roast"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "turn my rambling notes about last night's outage into a tidy status update I can send to management",
@@ -522,7 +587,12 @@
       "expected_skill": "professional-communication",
       "category": "communication",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: professional-communication vs multi-persona-critique vs productivity. Transform technical notes into business format = professional-communication."
+      "notes": "Sibling: professional-communication vs multi-persona-critique vs productivity. Transform technical notes into business format = professional-communication.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "before we build the export feature, pin down the requirements and acceptance criteria — there is a lot I have not decided yet",
@@ -530,7 +600,12 @@
       "expected_skill": "planning",
       "category": "planning",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: planning vs productivity. Spec/requirements/acceptance criteria = planning umbrella."
+      "notes": "Sibling: planning vs productivity. Spec/requirements/acceptance criteria = planning umbrella.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "help me sort out my week — I have four deadlines, two meetings to prep, and no idea what to tackle first",
@@ -538,7 +613,12 @@
       "expected_skill": "business-ops",
       "category": "productivity",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: productivity vs planning. Personal task/weekly planning = productivity, not software planning."
+      "notes": "Sibling: productivity vs planning. Personal task/weekly planning = productivity, not software planning.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "do a careful structured review of the changes in src/billing/ — understand them first, then assess risks and write up findings",
@@ -546,7 +626,12 @@
       "expected_skill": "systematic-code-review",
       "category": "code-review",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: systematic-code-review vs parallel-code-review. Single methodical 4-phase review = systematic-code-review."
+      "notes": "Sibling: systematic-code-review vs parallel-code-review. Single methodical 4-phase review = systematic-code-review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review this diff with separate reviewers for security, business logic, and architecture running at the same time",
@@ -554,7 +639,12 @@
       "expected_skill": "parallel-code-review",
       "category": "code-review",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: parallel-code-review vs systematic-code-review. Explicit concurrent 3-reviewer split = parallel-code-review."
+      "notes": "Sibling: parallel-code-review vs systematic-code-review. Explicit concurrent 3-reviewer split = parallel-code-review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review my Go error handling in internal/store/ against community conventions for wrapped errors",
@@ -562,7 +652,12 @@
       "expected_skill": "go-patterns",
       "category": "go-development",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: go-patterns vs agent-only. Go convention/pattern review = go-patterns skill."
+      "notes": "Sibling: go-patterns vs agent-only. Go convention/pattern review = go-patterns skill.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "add a new gRPC endpoint to the Go service in cmd/api that returns user quotas",
@@ -576,7 +671,12 @@
           "agent": "golang-general-engineer",
           "skill": "go-patterns"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "here are ten of my old blog posts, build a voice profile from them so future articles sound like me",
@@ -584,7 +684,12 @@
       "expected_skill": "create-voice",
       "category": "content-creation",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: create-voice vs voice-validator vs voice-writer. Profile FROM samples = create-voice."
+      "notes": "Sibling: create-voice vs voice-validator vs voice-writer. Profile FROM samples = create-voice.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check whether this draft actually sounds like my voice profile, and fix the spots that do not",
@@ -592,7 +697,12 @@
       "expected_skill": "voice-validator",
       "category": "content-creation",
       "bucket": "sibling-disambiguation",
-      "notes": "Sibling: voice-validator vs create-voice vs voice-writer. Fidelity check + rewrite loop = voice-validator."
+      "notes": "Sibling: voice-validator vs create-voice vs voice-writer. Fidelity check + rewrite loop = voice-validator.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run a formal research effort on local-first sync engines — scope it, gather sources with quality gates, and save the artifacts",
@@ -606,7 +716,12 @@
           "agent": null,
           "skill": "research-pipeline"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "map out the architecture of this repo — modules, boundaries, and how data flows between them, no edits",
@@ -620,7 +735,12 @@
           "agent": null,
           "skill": "read-only-ops"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "write a full blog post about the database migration in my own voice, and run the voice validation and joy check before you call it done",
@@ -629,7 +749,12 @@
       "category": "content-creation",
       "bucket": "pipeline-pick",
       "notes": "PIPELINE true-match. Voice content with mandatory validation = voice-writer pipeline.",
-      "expected_pipeline": "voice-writer"
+      "expected_pipeline": "voice-writer",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "research WebGPU adoption end to end — scope, gather, synthesize, validate — and deliver a cited report with saved artifacts",
@@ -644,7 +769,12 @@
           "agent": null,
           "skill": "research-pipeline"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run the full multi-wave review across every package in this repo and give me a prioritized issue backlog",
@@ -659,7 +789,12 @@
           "agent": null,
           "skill": null
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "research how indie game studios fund their first title, then turn the findings into an article in my voice",
@@ -675,7 +810,12 @@
           "skill": "voice-writer"
         }
       ],
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "fix the two typos in my published blog post about Kubernetes",
@@ -684,7 +824,12 @@
       "category": "trivial-operations",
       "bucket": "pipeline-pick",
       "notes": "PIPELINE near-miss. Blog-adjacent but trivial edit; pipeline MUST be null, not voice-writer/publish.",
-      "expected_pipeline": null
+      "expected_pipeline": null,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "what is the difference between server-sent events and websockets? just a quick answer, no report",
@@ -693,7 +838,12 @@
       "category": "trivial-operations",
       "bucket": "pipeline-pick",
       "notes": "PIPELINE near-miss. One-line factual answer; pipeline MUST be null, not research-pipeline.",
-      "expected_pipeline": null
+      "expected_pipeline": null,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review just this one function in utils/parse.py before I merge",
@@ -708,7 +858,12 @@
           "agent": null,
           "skill": "quick"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "summarize yesterday's standup notes into three bullet points",
@@ -723,7 +878,12 @@
           "agent": null,
           "skill": "professional-communication"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "give me a quick sense of what lives in the scripts/ folder",
@@ -738,7 +898,12 @@
           "agent": null,
           "skill": "codebase-overview"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "make the app better",
@@ -747,7 +912,12 @@
       "category": "planning",
       "bucket": "vague-interview",
       "notes": "VAGUE. No target, no criteria. Should land planning/interview mode to resolve ambiguity, not start editing.",
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "I want to add some AI stuff to my site, you pick what makes sense",
@@ -756,7 +926,12 @@
       "category": "planning",
       "bucket": "vague-interview",
       "notes": "VAGUE. Open-ended feature wish; needs scoping questions first = planning.",
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "this project needs a refresh, where do we even start",
@@ -765,7 +940,12 @@
       "category": "planning",
       "bucket": "vague-interview",
       "notes": "VAGUE. 'Refresh' undefined; planning interview before any work.",
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "can you improve things so users stop complaining",
@@ -774,7 +954,12 @@
       "category": "planning",
       "bucket": "vague-interview",
       "notes": "VAGUE. No symptom named; must interview, not guess a fix.",
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "I have an idea for a feature but I am not sure what it should do exactly",
@@ -782,7 +967,12 @@
       "expected_skill": "planning",
       "category": "planning",
       "bucket": "vague-interview",
-      "notes": "VAGUE but clear destination: 'what should this do' is a planning trigger (spec/requirements)."
+      "notes": "VAGUE but clear destination: 'what should this do' is a planning trigger (spec/requirements).",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "do something about the performance, I guess?",
@@ -797,7 +987,12 @@
           "agent": "performance-optimization-engineer",
           "skill": null
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "we should probably clean things up around here",
@@ -812,7 +1007,12 @@
           "agent": null,
           "skill": "code-cleanup"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "make the site look less boring",
@@ -826,7 +1026,12 @@
           "agent": "ui-design-engineer",
           "skill": null
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "the page takes forever to show up on my phone",
@@ -834,7 +1039,12 @@
       "expected_skill": null,
       "category": "frontend-development",
       "bucket": "plain-english",
-      "notes": "PLAIN. Slow page load without 'performance'/'Core Web Vitals' jargon = performance-optimization-engineer."
+      "notes": "PLAIN. Slow page load without 'performance'/'Core Web Vitals' jargon = performance-optimization-engineer.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "before I put this on the internet, check that nobody can log in as somebody else",
@@ -848,7 +1058,12 @@
           "agent": null,
           "skill": "parallel-code-review"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "put my website on the internet so other people can see it",
@@ -856,7 +1071,12 @@
       "expected_skill": "public-web-deploy",
       "category": "infrastructure",
       "bucket": "plain-english",
-      "notes": "SAFETY, PLAIN. Public exposure without 'deploy'/'DNS' jargon = public-web-deploy (FORCE skill)."
+      "notes": "SAFETY, PLAIN. Public exposure without 'deploy'/'DNS' jargon = public-web-deploy (FORCE skill).",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "turn these words into Spanish but leave the computer code alone",
@@ -864,7 +1084,12 @@
       "expected_skill": "translate",
       "category": "content-creation",
       "bucket": "plain-english",
-      "notes": "PLAIN. Translation without 'translate the document' phrasing; code blocks preserved = translate."
+      "notes": "PLAIN. Translation without 'translate the document' phrasing; code blocks preserved = translate.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "my program worked yesterday and today it does not, nothing changed I swear",
@@ -878,7 +1103,12 @@
           "agent": null,
           "skill": "socratic-debugging"
         }
-      ]
+      ],
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "save what I did so it does not get lost if my laptop dies",
@@ -886,7 +1116,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY, PLAIN. Commit/push intent with zero git vocabulary. MUST route pr-workflow."
+      "notes": "SAFETY, PLAIN. Commit/push intent with zero git vocabulary. MUST route pr-workflow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "write down how this thing works so the next person is not lost",
@@ -894,7 +1129,12 @@
       "expected_skill": null,
       "category": "documentation",
       "bucket": "plain-english",
-      "notes": "PLAIN. Documentation ask without 'docs'/'README' tokens = technical-documentation-engineer."
+      "notes": "PLAIN. Documentation ask without 'docs'/'README' tokens = technical-documentation-engineer.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "the computer yells at me with red text when I run the tests, make it stop",
@@ -909,7 +1149,12 @@
           "skill": "test-driven-development"
         }
       ],
-      "uncertain": true
+      "uncertain": true,
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "make my pull request nice so my boss approves it",
@@ -917,7 +1162,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY, PLAIN. PR preparation in casual words. MUST route pr-workflow."
+      "notes": "SAFETY, PLAIN. PR preparation in casual words. MUST route pr-workflow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "stage the modified files and commit them",
@@ -925,7 +1175,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY. Real git stage+commit intent. MUST route pr-workflow so quality gates fire."
+      "notes": "SAFETY. Real git stage+commit intent. MUST route pr-workflow so quality gates fire.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "add my changes to staging and make a commit",
@@ -933,7 +1188,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY. Paraphrase of stage+commit. MUST route pr-workflow."
+      "notes": "SAFETY. Paraphrase of stage+commit. MUST route pr-workflow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "take what I changed and save it as a commit",
@@ -941,7 +1201,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY. Non-technical stage+commit paraphrase. MUST route pr-workflow."
+      "notes": "SAFETY. Non-technical stage+commit paraphrase. MUST route pr-workflow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "audit the auth flow for vulnerabilities",
@@ -949,7 +1214,12 @@
       "expected_skill": "security-review",
       "category": "security",
       "bucket": "sibling-disambiguation",
-      "notes": "SAFETY. Real security audit intent. MUST route security-review, not finance. Bare 'audit' unigram previously misrouted to finance."
+      "notes": "SAFETY. Real security audit intent. MUST route security-review, not finance. Bare 'audit' unigram previously misrouted to finance.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check the authentication code for security holes",
@@ -957,7 +1227,12 @@
       "expected_skill": "security-review",
       "category": "security",
       "bucket": "sibling-disambiguation",
-      "notes": "SAFETY. Auth security review paraphrase. MUST route security-review."
+      "notes": "SAFETY. Auth security review paraphrase. MUST route security-review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "look for vulnerabilities in my login system",
@@ -965,7 +1240,12 @@
       "expected_skill": "security-review",
       "category": "security",
       "bucket": "sibling-disambiguation",
-      "notes": "SAFETY. Login security audit paraphrase. MUST route security-review."
+      "notes": "SAFETY. Login security audit paraphrase. MUST route security-review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run a financial audit of last quarter's journal entries",
@@ -973,7 +1253,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "sibling-disambiguation",
-      "notes": "Financial audit should route to finance, not security-review. Disambiguation: 'financial' qualifier."
+      "notes": "Financial audit should route to finance, not security-review. Disambiguation: 'financial' qualifier.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "commit the staged changes and push to remote",
@@ -981,7 +1266,12 @@
       "expected_skill": "pr-workflow",
       "category": "git-operations",
       "bucket": "plain-english",
-      "notes": "SAFETY. Commit+push intent. MUST route pr-workflow."
+      "notes": "SAFETY. Commit+push intent. MUST route pr-workflow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "I want to challenge this architectural decision before we commit to it",
@@ -989,7 +1279,12 @@
       "expected_skill": "adr-consultation",
       "category": "meta",
       "bucket": "reachability",
-      "notes": "ADR consultation: challenge a design decision with multi-agent critique."
+      "notes": "ADR consultation: challenge a design decision with multi-agent critique.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run a side-by-side quality test of two different agent configurations",
@@ -997,7 +1292,12 @@
       "expected_skill": "agent-comparison",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Agent comparison: A/B test agent variants."
+      "notes": "Agent comparison: A/B test agent variants.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check whether this agent meets our quality standards and conventions",
@@ -1005,7 +1305,12 @@
       "expected_skill": "agent-evaluation",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Agent evaluation: audit agent quality."
+      "notes": "Agent evaluation: audit agent quality.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "consolidate what you have learned recently and clean up stale memories",
@@ -1013,7 +1318,12 @@
       "expected_skill": "auto-dream",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Auto-dream: memory consolidation."
+      "notes": "Auto-dream: memory consolidation.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "verify that the toolkit installation is healthy and diagnose any broken pieces",
@@ -1021,7 +1331,12 @@
       "expected_skill": "install",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Install: toolkit health check. force_route skill."
+      "notes": "Install: toolkit health check. force_route skill.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "record this error pattern and its solution so you remember it next time",
@@ -1029,7 +1344,12 @@
       "expected_skill": "learn",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Learn: manually teach a pattern to the learning database."
+      "notes": "Learn: manually teach a pattern to the learning database.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "show me what the learning system has captured recently and graduate the mature entries",
@@ -1037,7 +1357,12 @@
       "expected_skill": "retro",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Retro: learning system stats and graduation."
+      "notes": "Retro: learning system stats and graduation.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "find gaps in our agent toolkit and propose improvements with critique",
@@ -1045,7 +1370,12 @@
       "expected_skill": "toolkit-evolution",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Toolkit evolution: self-improvement cycle."
+      "notes": "Toolkit evolution: self-improvement cycle.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "show me what agents and skills exist in this system and how routing decides which to use",
@@ -1053,7 +1383,12 @@
       "expected_skill": "workflow-help",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Workflow help: system guide. Avoid 'explain routing' which triggers explanation-traces."
+      "notes": "Workflow help: system guide. Avoid 'explain routing' which triggers explanation-traces.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "chain these three skills together in order with dependency resolution between them",
@@ -1061,7 +1396,12 @@
       "expected_skill": "workflow",
       "category": "meta-tooling",
       "bucket": "reachability",
-      "notes": "Workflow: DAG-based multi-skill orchestration (was skill-composer, demoted)."
+      "notes": "Workflow: DAG-based multi-skill orchestration (was skill-composer, demoted).",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "benchmark this skill's routing accuracy and check whether its triggers actually work",
@@ -1069,7 +1409,12 @@
       "expected_skill": "skill-eval",
       "category": "meta",
       "bucket": "reachability",
-      "notes": "Skill eval: trigger testing and routing benchmarks."
+      "notes": "Skill eval: trigger testing and routing benchmarks.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "turn this data into a rich interactive HTML page instead of plain markdown",
@@ -1077,7 +1422,12 @@
       "expected_skill": "html-artifact",
       "category": "meta",
       "bucket": "reachability",
-      "notes": "HTML artifact: rich interactive output."
+      "notes": "HTML artifact: rich interactive output.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "set up an editorial publishing schedule for our content over the next quarter",
@@ -1085,7 +1435,12 @@
       "expected_skill": "content-calendar",
       "category": "content-creation",
       "bucket": "reachability",
-      "notes": "Content calendar: editorial pipeline stages."
+      "notes": "Content calendar: editorial pipeline stages.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "take this long-form article and adapt it into posts for each social platform",
@@ -1093,7 +1448,12 @@
       "expected_skill": "content-calendar",
       "category": "content",
       "bucket": "reachability",
-      "notes": "Content engine: repurpose assets for social."
+      "notes": "Content engine: repurpose assets for social.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "plan a five-part article series with cross-links and a publishing cadence",
@@ -1101,7 +1461,12 @@
       "expected_skill": "content-calendar",
       "category": "content-creation",
       "bucket": "reachability",
-      "notes": "Series planner: multi-part content structure."
+      "notes": "Series planner: multi-part content structure.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "mine reader problems and content gaps to generate fresh article topic ideas",
@@ -1109,7 +1474,12 @@
       "expected_skill": "content-calendar",
       "category": "content-creation",
       "bucket": "reachability",
-      "notes": "Topic brainstormer: idea generation from problem mining."
+      "notes": "Topic brainstormer: idea generation from problem mining.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "outline a blog post structure with sections transitions and a pre-publish checklist",
@@ -1117,7 +1487,12 @@
       "expected_skill": "publish",
       "category": "content-publishing",
       "bucket": "reachability",
-      "notes": "Publish: blog structure and pre-publish flow."
+      "notes": "Publish: blog structure and pre-publish flow.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "open the published WordPress article in a browser and verify it renders correctly",
@@ -1125,7 +1500,12 @@
       "expected_skill": "wordpress-live-validation",
       "category": "content-publishing",
       "bucket": "reachability",
-      "notes": "WordPress live validation: browser-based post check."
+      "notes": "WordPress live validation: browser-based post check.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "find the shallow parts of our codebase and suggest how to make the architecture more robust",
@@ -1133,7 +1513,12 @@
       "expected_skill": "architecture-deepening",
       "category": "analysis",
       "bucket": "reachability",
-      "notes": "Architecture deepening: find shallow modules."
+      "notes": "Architecture deepening: find shallow modules.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "statistically analyze the patterns in this project and extract the implicit coding conventions",
@@ -1141,7 +1526,12 @@
       "expected_skill": "codebase-overview",
       "category": "analysis",
       "bucket": "reachability",
-      "notes": "Codebase overview: statistical rule discovery (was codebase-analyzer, demoted)."
+      "notes": "Codebase overview: statistical rule discovery (was codebase-analyzer, demoted).",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "analyze this CSV dataset and tell me which variables actually matter for the outcome",
@@ -1149,7 +1539,12 @@
       "expected_skill": "data-analysis",
       "category": "analysis",
       "bucket": "reachability",
-      "notes": "Data analysis: decision-first statistical analysis."
+      "notes": "Data analysis: decision-first statistical analysis.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "analyze this open source repository and tell me what patterns we could adopt",
@@ -1157,7 +1552,12 @@
       "expected_skill": "repo-value-analysis",
       "category": "analysis",
       "bucket": "reachability",
-      "notes": "Repo value analysis: extract adoptable patterns."
+      "notes": "Repo value analysis: extract adoptable patterns.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "pull the latest posts from this person's Bluesky feed",
@@ -1165,7 +1565,12 @@
       "expected_skill": "bluesky-reader",
       "category": "research",
       "bucket": "reachability",
-      "notes": "Bluesky reader: AT Protocol feed access."
+      "notes": "Bluesky reader: AT Protocol feed access.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "convert this PDF document into clean markdown preserving the heading structure",
@@ -1173,7 +1578,12 @@
       "expected_skill": "markdown-converter",
       "category": "research",
       "bucket": "reachability",
-      "notes": "Markdown converter: PDF/Office to markdown."
+      "notes": "Markdown converter: PDF/Office to markdown.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "grab the transcript from this YouTube video and clean it into readable paragraphs",
@@ -1181,7 +1591,12 @@
       "expected_skill": "video-editing",
       "category": "research",
       "bucket": "reachability",
-      "notes": "Video transcript: yt-dlp subtitle extraction."
+      "notes": "Video transcript: yt-dlp subtitle extraction.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "help me plan the flags subcommands and help text for a new command-line tool",
@@ -1189,7 +1604,12 @@
       "expected_skill": "cli-design",
       "category": "engineering",
       "bucket": "reachability",
-      "notes": "CLI design: command-line interface planning."
+      "notes": "CLI design: command-line interface planning.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "tune the relevance scoring on our search index so better results rank higher",
@@ -1197,7 +1617,12 @@
       "expected_skill": "enterprise-search",
       "category": "engineering",
       "bucket": "reachability",
-      "notes": "Enterprise search: relevance tuning."
+      "notes": "Enterprise search: relevance tuning.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "write a SIGMA detection rule for lateral movement and map it to MITRE techniques",
@@ -1205,7 +1630,12 @@
       "expected_skill": "opensearch-detection-engineer",
       "category": "engineering",
       "bucket": "reachability",
-      "notes": "OpenSearch detection: SIGMA/SIEM rules."
+      "notes": "OpenSearch detection: SIGMA/SIEM rules.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run the linters and formatters on this project and show me every violation",
@@ -1213,7 +1643,12 @@
       "expected_skill": "code-linting",
       "category": "code-quality",
       "bucket": "reachability",
-      "notes": "Code linting: ruff/biome linting."
+      "notes": "Code linting: ruff/biome linting.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "scan the comments in this file for stale references like yesterday or next sprint",
@@ -1221,7 +1656,12 @@
       "expected_skill": "comment-quality",
       "category": "code-quality",
       "bucket": "reachability",
-      "notes": "Comment quality: temporal reference cleanup."
+      "notes": "Comment quality: temporal reference cleanup.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "this document is too wordy cut the filler without losing any instructions",
@@ -1229,7 +1669,12 @@
       "expected_skill": "condense",
       "category": "code-quality",
       "bucket": "reachability",
-      "notes": "Condense: maximize information density."
+      "notes": "Condense: maximize information density.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run the TypeScript compiler in check mode and explain each type error",
@@ -1237,7 +1682,12 @@
       "expected_skill": "typescript-check",
       "category": "code-quality",
       "bucket": "reachability",
-      "notes": "TypeScript check: tsc --noEmit with error explanation."
+      "notes": "TypeScript check: tsc --noEmit with error explanation.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run all available linters and quality checks for every language in this project",
@@ -1245,7 +1695,12 @@
       "expected_skill": "universal-quality-gate",
       "category": "code-quality",
       "bucket": "reachability",
-      "notes": "Universal quality gate: multi-language lint."
+      "notes": "Universal quality gate: multi-language lint.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "evaluate whether we should invest in this new market opportunity from a strategic perspective",
@@ -1253,7 +1708,12 @@
       "expected_skill": "business-ops",
       "category": "decision-support",
       "bucket": "reachability",
-      "notes": "C-suite: executive decision support."
+      "notes": "C-suite: executive decision support.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "triage these support tickets and draft responses for the high-priority ones",
@@ -1261,7 +1721,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Customer support: ticket triage and response."
+      "notes": "Customer support: ticket triage and response.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "critique this mockup's layout and suggest accessibility improvements",
@@ -1269,7 +1734,12 @@
       "expected_skill": "design",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Design: UX critique and accessibility."
+      "notes": "Design: UX critique and accessibility.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "outline the hiring process for a senior engineering role with interview stages and a job description",
@@ -1277,7 +1747,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "HR: recruiting pipeline and job postings."
+      "notes": "HR: recruiting pipeline and job postings.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review this contract for red flags and check whether it meets compliance requirements",
@@ -1285,7 +1760,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Legal: contract review and compliance."
+      "notes": "Legal: contract review and compliance.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "plan a launch campaign with landing page copy email sequence and social posts",
@@ -1293,7 +1773,12 @@
       "expected_skill": "marketing",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Marketing: campaign planning."
+      "notes": "Marketing: campaign planning.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review our vendor contracts and create a runbook for the deployment process",
@@ -1301,7 +1786,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Operations: vendor management and runbooks."
+      "notes": "Operations: vendor management and runbooks.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "build a PRD with requirements prioritization and a delivery roadmap",
@@ -1309,7 +1799,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Product management: PRD and roadmap."
+      "notes": "Product management: PRD and roadmap.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "prep me for this sales call and review the deal pipeline for this quarter",
@@ -1317,7 +1812,12 @@
       "expected_skill": "business-ops",
       "category": "business",
       "bucket": "reachability",
-      "notes": "Sales: call prep and pipeline review."
+      "notes": "Sales: call prep and pipeline review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "score these three framework options against our criteria using a weighted matrix",
@@ -1325,7 +1825,12 @@
       "expected_skill": "decision-helper",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Decision helper: weighted scoring matrix."
+      "notes": "Decision helper: weighted scoring matrix.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "set up my Fish shell with the right PATH entries and prompt customization",
@@ -1333,7 +1838,12 @@
       "expected_skill": "shell-config",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Fish shell config: PATH and prompt setup. force_route skill."
+      "notes": "Fish shell config: PATH and prompt setup. force_route skill.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "create a scheduled background job that runs this check every morning",
@@ -1341,7 +1851,12 @@
       "expected_skill": "cron-automation",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Headless cron creator: scheduled agent jobs."
+      "notes": "Headless cron creator: scheduled agent jobs.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "verify that all the components are wired together correctly and data flows end to end",
@@ -1349,7 +1864,12 @@
       "expected_skill": "integration-checker",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Integration checker: cross-component wiring."
+      "notes": "Integration checker: cross-component wiring.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "let us code this together step by step you suggest and I approve each change",
@@ -1357,7 +1877,12 @@
       "expected_skill": "pair-programming",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Pair programming: collaborative micro-step coding."
+      "notes": "Pair programming: collaborative micro-step coding.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "break this plan into tasks and execute each one in a fresh isolated context",
@@ -1365,7 +1890,12 @@
       "expected_skill": "subagent-driven-development",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Subagent-driven dev: fresh-context task execution."
+      "notes": "Subagent-driven dev: fresh-context task execution.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "configure my Zsh with completions plugins and the right PATH setup",
@@ -1373,7 +1903,12 @@
       "expected_skill": "shell-config",
       "category": "process",
       "bucket": "reachability",
-      "notes": "Zsh shell config: completions and PATH. force_route skill."
+      "notes": "Zsh shell config: completions and PATH. force_route skill.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check if our documentation has drifted out of sync with the actual code",
@@ -1381,7 +1916,12 @@
       "expected_skill": "docs-sync-checker",
       "category": "documentation",
       "bucket": "reachability",
-      "notes": "Docs sync checker: detect doc drift."
+      "notes": "Docs sync checker: detect doc drift.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "build a CLAUDE.md from the repo's structure conventions and tooling",
@@ -1389,7 +1929,12 @@
       "expected_skill": "generate-claudemd",
       "category": "documentation",
       "bucket": "reachability",
-      "notes": "Generate CLAUDE.md: project config from repo analysis."
+      "notes": "Generate CLAUDE.md: project config from repo analysis.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check whether our vulnerability monitoring covers all the technologies in our stack",
@@ -1397,7 +1942,12 @@
       "expected_skill": "service-health-check",
       "category": "infrastructure",
       "bucket": "reachability",
-      "notes": "CVE source check: vulnerability feed coverage audit."
+      "notes": "CVE source check: vulnerability feed coverage audit.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "smoke test all our API endpoints and report which ones are returning errors",
@@ -1405,7 +1955,12 @@
       "expected_skill": "service-health-check",
       "category": "infrastructure",
       "bucket": "reachability",
-      "notes": "Endpoint validator: API smoke testing."
+      "notes": "Endpoint validator: API smoke testing.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "check whether all our background services are running and responding normally",
@@ -1413,7 +1968,12 @@
       "expected_skill": "service-health-check",
       "category": "infrastructure",
       "bucket": "reachability",
-      "notes": "Service health check: process/uptime monitoring."
+      "notes": "Service health check: process/uptime monitoring.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "write JUnit 5 tests for this Kotlin data class with coroutine test dispatchers",
@@ -1421,7 +1981,12 @@
       "expected_skill": "kotlin",
       "category": "kotlin",
       "bucket": "reachability",
-      "notes": "Kotlin testing: JUnit 5 with coroutines."
+      "notes": "Kotlin testing: JUnit 5 with coroutines.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "set up RBAC policies and pod security standards for this Kubernetes cluster",
@@ -1429,7 +1994,12 @@
       "expected_skill": "kubernetes",
       "category": "kubernetes",
       "bucket": "reachability",
-      "notes": "Kubernetes security: RBAC and PodSecurity."
+      "notes": "Kubernetes security: RBAC and PodSecurity.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "review this PHP code for PSR compliance and modern PHP 8 best practices",
@@ -1437,7 +2007,12 @@
       "expected_skill": "php",
       "category": "php",
       "bucket": "reachability",
-      "notes": "PHP quality: PSR standards review."
+      "notes": "PHP quality: PSR standards review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "run a full compliance audit of this Go codebase against SAP Commerce Cloud standards",
@@ -1445,7 +2020,12 @@
       "expected_skill": "sapcc-audit",
       "category": "language",
       "bucket": "reachability",
-      "notes": "SAP CC audit: Go compliance audit."
+      "notes": "SAP CC audit: Go compliance audit.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "do a thorough SAP CC code review with domain specialist reviewers",
@@ -1453,7 +2033,12 @@
       "expected_skill": "sapcc-review",
       "category": "language",
       "bucket": "reachability",
-      "notes": "SAP CC review: multi-specialist review."
+      "notes": "SAP CC review: multi-specialist review.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "write XCTest cases for this Swift view model with async test patterns",
@@ -1461,7 +2046,12 @@
       "expected_skill": "swift",
       "category": "swift",
       "bucket": "reachability",
-      "notes": "Swift testing: XCTest with async patterns."
+      "notes": "Swift testing: XCTest with async patterns.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "set up automated tests for our agents by feeding known inputs and checking outputs",
@@ -1469,7 +2059,12 @@
       "expected_skill": "testing-agents-with-subagents",
       "category": "testing",
       "bucket": "reachability",
-      "notes": "Testing agents: input/output verification."
+      "notes": "Testing agents: input/output verification.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "this test suite has a bunch of flaky intermittent failures find the bad patterns",
@@ -1477,7 +2072,12 @@
       "expected_skill": "testing-preferred-patterns",
       "category": "testing",
       "bucket": "reachability",
-      "notes": "Testing patterns: fix flaky/brittle tests."
+      "notes": "Testing patterns: fix flaky/brittle tests.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "add a typewriter reveal effect and slot-machine text transitions to this page",
@@ -1485,7 +2085,12 @@
       "expected_skill": "distinctive-frontend-design",
       "category": "frontend",
       "bucket": "reachability",
-      "notes": "Text animation: kinetic typography effects."
+      "notes": "Text animation: kinetic typography effects.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "build a 3D interactive scene in the browser with Three.js and orbit controls",
@@ -1493,7 +2098,12 @@
       "expected_skill": "threejs-builder",
       "category": "frontend",
       "bucket": "reachability",
-      "notes": "Three.js builder: 3D web scenes."
+      "notes": "Three.js builder: 3D web scenes.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "generate a 16-color tileset with palette-quantized sprites for this retro game",
@@ -1501,7 +2111,12 @@
       "expected_skill": "game-pipeline",
       "category": "game-development",
       "bucket": "reachability",
-      "notes": "Game asset generator: deterministic pixel art."
+      "notes": "Game asset generator: deterministic pixel art.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "scaffold a new browser game project with assets audio and a QA checklist",
@@ -1509,7 +2124,12 @@
       "expected_skill": "game-pipeline",
       "category": "game-development",
       "bucket": "reachability",
-      "notes": "Game pipeline: lifecycle orchestrator."
+      "notes": "Game pipeline: lifecycle orchestrator.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "import these motion capture BVH files and process them for game animation",
@@ -1517,7 +2137,12 @@
       "expected_skill": "game-pipeline",
       "category": "game-animation",
       "bucket": "reachability",
-      "notes": "Motion pipeline: BVH processing for game animation."
+      "notes": "Motion pipeline: BVH processing for game animation.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "use an AI model to create a header image for this article",
@@ -1525,7 +2150,12 @@
       "expected_skill": "image-gen",
       "category": "image-generation",
       "bucket": "reachability",
-      "notes": "Image gen: AI image generation."
+      "notes": "Image gen: AI image generation.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "cut this raw footage into a polished video with transitions and title cards",
@@ -1533,7 +2163,12 @@
       "expected_skill": "video-editing",
       "category": "video-creation",
       "bucket": "reachability",
-      "notes": "Video editing: FFmpeg/Remotion video assembly."
+      "notes": "Video editing: FFmpeg/Remotion video assembly.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "go through my GitHub notifications and sort them by priority",
@@ -1541,7 +2176,12 @@
       "expected_skill": "github-notification-triage",
       "category": "github",
       "bucket": "reachability",
-      "notes": "GitHub notification triage: priority sorting."
+      "notes": "GitHub notification triage: priority sorting.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
     },
     {
       "request": "why did you pick that agent instead of the one I expected",
@@ -1549,7 +2189,1844 @@
       "expected_skill": "explanation-traces",
       "category": "meta",
       "bucket": "reachability",
-      "notes": "Explanation traces: query decision traces. force_route skill."
+      "notes": "Explanation traces: query decision traces. force_route skill.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from skills/INDEX.json and pipeline-index.json semantics; no machine telemetry."
+      }
+    },
+    {
+      "request": "build the tournament CPU closure engine so unfinished brackets resolve without a human booking every match",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L3). Server-side sim logic in a Flask/Peewee/SQLite app — Python feature work. general-purpose has no Python testing or ORM knowledge, so the fallback loses the whole domain.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add contracts and rival poaching to GM mode — AI promotions should be able to sign wrestlers whose deals expire",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L15). GM mode is server-side Python simulation. Single deliverable, so a coordinator is overkill.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add a morale system and promise tracking to GM mode",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L16). Python sim feature. Two nouns, one subsystem — not a multi-deliverable batch.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add injuries and card repair to GM mode so a hurt wrestler forces the card to be rebooked",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L19). Python sim feature.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "make GM mode start in 2026 by default and let existing saves opt in on their own schedule",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L7). Default change plus a save-migration path — Python.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "the MISC promotion roll is handing out the wrong promotion, find the bug and fix it",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "workflow",
+      "category": "debugging",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L35). Bug in Python game logic. Skill slot is the debug lane; agent slot is the load-bearing assertion.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "a Punk walkout during a title match wedges the booking and nothing advances after it, track it down and fix it",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "workflow",
+      "category": "debugging",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L88). State-machine bug in the Python booking engine.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "build ban and auto-detection for the scrapers hammering the site",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L37). Detection and blocking implemented in the Flask app — Python feature work with a security flavour.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "security-review"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "fix the parser bugs and give me a dry run of the repair before it writes anything",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "workflow",
+      "category": "debugging",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L96). Scraper/parser is Python. Dry-run-before-write is a Python implementation detail, not coordination.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "build a detector that flags which shows are WWE PPVs",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L87). Classification logic over scraped Python data.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "skip tokens should grant two plus two and EMLL needs a reroll",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L120). Game-rule change in the Python engine.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add the hidden Brooks Jensen achievement",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L36). Achievement rule in Python.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "scrape SQUASH promotion nr=3365 and import the results",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "workflow",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L112). Playwright scraper and importer are Python in this repo.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "build phase one of House Money",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L113). House Money is Flask server code plus a static JS view; the phase-one work is server-side Python.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "unify the wallet in finance phase two",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L11). Single-subsystem Python refactor. Contrast with the conjunctive finance case in the coordinator bucket.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "implement the first slice of the media feature",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L10). Server-side slice first. Uncertain: a media slice can spill into templates and static JS.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "ui-design-engineer",
+          "skill": "design"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "set origin cache headers on the API responses",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "quick",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L98). Response headers are set in the Flask app, not at the edge.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "the cache collapsed under load, work out why",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "workflow",
+      "category": "debugging",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L39). Caching lives in the Flask layer. Uncertain: could turn out to be edge/CDN behaviour.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "read-only-ops"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "confirm the tournament promotion bug is actually gone",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "verification-before-completion",
+      "category": "testing",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L50). Verifying a Python bug fix needs the code and its tests, not a generic sweep.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "trace how a booked card gets persisted",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L61). Read-only, but single-domain: the persistence path is Peewee models inside one Python app. Read-only does NOT imply general-purpose — that inference is exactly what produced the fallback.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "read-only-ops"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "trace the entry points into the profile page",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L60). Flask routes and Jinja templates — one Python codebase.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "trace the tournament format code paths",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L76). Single-domain Python trace.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "map the awards surface — every route, template and job that touches it",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L78). Routes, templates and jobs are all Python/Jinja in one repo.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "five-star-booker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "find where the end-of-year awards data and the voting code live",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L79). Locating Python models and view code.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "read-only-ops"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check what depends on OAuth and the league code before I touch auth",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L80). Flask-Login/OAuth wiring inside the Python app.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "codebase-overview"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check the nginx allowlist against the routes the app actually exposes",
+      "expected_agent": "python-general-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "exploration",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L77). Needs the Flask route table to be authoritative; the nginx file is the smaller half. Cross-surface enough that a general-purpose sweep is defensible, hence the alternate.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "read-only-ops"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add an is_ppv column to the events table and backfill it for every existing row",
+      "expected_agent": "sqlite-peewee-engineer",
+      "expected_skill": "test-driven-development",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L86). Peewee schema change plus a data backfill — the ORM specialist owns this. Skill slot is best-effort; the agent slot is the assertion.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "quick"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "test-driven-development"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "backfill card_type from the cached pages instead of re-scraping the site",
+      "expected_agent": "sqlite-peewee-engineer",
+      "expected_skill": "workflow",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L89). Offline backfill against SQLite via Peewee.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "test-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "Cincinnati Red has the wrong gender in the database, fix the record and whatever writes it",
+      "expected_agent": "sqlite-peewee-engineer",
+      "expected_skill": "quick",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L102). One-row data correction plus the writer that produced it.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "quick"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "Austin and Ray Evans are one row and should be two, split the identity",
+      "expected_agent": "sqlite-peewee-engineer",
+      "expected_skill": "workflow",
+      "category": "python-development",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L118). Row split with referential fixups — ORM work.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "test-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "the 1984 WWE roster looks wrong in the data, work out what happened",
+      "expected_agent": "sqlite-peewee-engineer",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L119). Read-only investigation of stored rows and the importer that wrote them.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "read-only-ops"
+        },
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "data-analysis"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "add a truthful status line to every ADR so we can tell which ones actually shipped",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": "docs-sync-checker",
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L4). Documentation drift against implementation state.",
+      "acceptable": [
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": null
+        },
+        {
+          "agent": "general-purpose",
+          "skill": "docs-sync-checker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "make the vision and methodology documents the canonical ones in the repo",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": null,
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L18). Pure documentation ownership; no skill needed beyond the agent's own method. Production picked a documentation route and then dropped the agent slot.",
+      "acceptable": [
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": "docs-sync-checker"
+        },
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": "condense"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "revise the hub navigation ADR so it matches what we actually built",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": "docs-sync-checker",
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L12). Rewriting a decision record to match reality.",
+      "acceptable": [
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": null
+        },
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": "adr-consultation"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check the deploy documentation against what the deploy actually does",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": "docs-sync-checker",
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L63). Textbook documentation-drift audit.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "docs-sync-checker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check the nginx and routing documentation against the live configuration",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": "docs-sync-checker",
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L64). Docs-versus-reality audit; the artifact under repair is the document.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "docs-sync-checker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check the runbook against what we actually did during the incident",
+      "expected_agent": "technical-documentation-engineer",
+      "expected_skill": "docs-sync-checker",
+      "category": "documentation",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L82). Runbook accuracy is documentation work.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "docs-sync-checker"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit whether the attendance ADR is genuinely complete or just marked complete",
+      "expected_agent": "reviewer-domain",
+      "expected_skill": "docs-sync-checker",
+      "category": "code-review",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L20). ADR-compliance review — reviewer-domain's stated job. Uncertain: the documentation agent is a defensible alternate when the fix is prose rather than a compliance finding.",
+      "acceptable": [
+        {
+          "agent": "technical-documentation-engineer",
+          "skill": "docs-sync-checker"
+        },
+        {
+          "agent": "reviewer-domain",
+          "skill": "systematic-code-review"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "put the GM mobile harness behind a real gate so it can fail the build",
+      "expected_agent": "testing-automation-engineer",
+      "expected_skill": "e2e-testing",
+      "category": "testing",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L6). Browser harness plus CI gating — the testing-automation domain.",
+      "acceptable": [
+        {
+          "agent": "testing-automation-engineer",
+          "skill": "universal-quality-gate"
+        },
+        {
+          "agent": "testing-automation-engineer",
+          "skill": "verification-before-completion"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "reproduce it in a real browser before we call it fixed",
+      "expected_agent": "testing-automation-engineer",
+      "expected_skill": "e2e-testing",
+      "category": "testing",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L59). Playwright reproduction.",
+      "acceptable": [
+        {
+          "agent": "testing-automation-engineer",
+          "skill": "verification-before-completion"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "capture screenshots of staging",
+      "expected_agent": "testing-automation-engineer",
+      "expected_skill": "e2e-testing",
+      "category": "testing",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L28). Driving a browser to capture pages — trivial in effort, still owned by the browser specialist.",
+      "acceptable": [
+        {
+          "agent": "testing-automation-engineer",
+          "skill": "quick"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "give me a design critique of the House Money screen",
+      "expected_agent": "ui-design-engineer",
+      "expected_skill": "design",
+      "category": "frontend",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L110). Design critique is the design domain; production kept the skill and dropped the agent.",
+      "acceptable": [
+        {
+          "agent": "ui-design-engineer",
+          "skill": null
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "fix UI doctrine violations one through three from the audit",
+      "expected_agent": "ui-design-engineer",
+      "expected_skill": "design",
+      "category": "frontend",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L14). Design-system conformance fixes. Uncertain: the edits land in Jinja/CSS, so the Python agent is a defensible alternate.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "design"
+        },
+        {
+          "agent": "ui-design-engineer",
+          "skill": null
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "design the promotion ranking casino feature",
+      "expected_agent": "ui-design-engineer",
+      "expected_skill": "design",
+      "category": "frontend",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L114). Feature design with a strong UX component. Uncertain: could equally be a feature-lifecycle route owned by the implementing engineer.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "feature-lifecycle"
+        },
+        {
+          "agent": "ui-design-engineer",
+          "skill": "feature-lifecycle"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "the delayed rolls feel janky, make them seamless",
+      "expected_agent": "ui-design-engineer",
+      "expected_skill": "design",
+      "category": "frontend",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L85). Animation feel and timing. Uncertain: the front end here is vanilla JS with no dedicated agent in the catalog.",
+      "acceptable": [
+        {
+          "agent": "ui-design-engineer",
+          "skill": null
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "find out what Cloudflare's challenge screen looks like right now",
+      "expected_agent": "research-coordinator-engineer",
+      "expected_skill": "research-pipeline",
+      "category": "research",
+      "bucket": "prod-fallback-specialist",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L45). External-source research with a citable answer.",
+      "acceptable": [
+        {
+          "agent": "research-coordinator-engineer",
+          "skill": null
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "inventory what is in the gm-mode-2-0 package",
+      "expected_agent": "general-purpose",
+      "expected_skill": "codebase-overview",
+      "category": "exploration",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L22). Breadth-first inventory with no single owning domain — general-purpose is CORRECT here. Labelled explicitly rather than null so an over-aggressive future router that forces a specialist fails this case.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "inventory the platform and main decision records",
+      "expected_agent": "general-purpose",
+      "expected_skill": "codebase-overview",
+      "category": "exploration",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L23). Multi-domain document sweep; correct general-purpose route.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "inventory the GM feature decision records A through L",
+      "expected_agent": "general-purpose",
+      "expected_skill": "codebase-overview",
+      "category": "exploration",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L25). Enumeration across many features; no domain owner. Correct general-purpose route.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "inventory the GM expansion package decision records",
+      "expected_agent": "general-purpose",
+      "expected_skill": "codebase-overview",
+      "category": "exploration",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L26). Correct general-purpose route.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "give me a read-only disk capacity report for this box",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "infrastructure",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L29). Host-level read-only reporting; no infrastructure agent exists in the catalog and none is needed.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit all thirty-three worktrees and tell me which ones still hold value",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L51). Sweep across unrelated repos and branches — genuinely cross-cutting.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "repo-value-analysis"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "summarise the fixes that shipped in the last twenty-four hours",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L52). Reads git history across projects; no domain expertise required.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": null
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit the backlog for stale items",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "process",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L33). Backlog spans every domain; correct general-purpose route.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "rescue the at-risk work and prune the dead worktrees",
+      "expected_agent": "general-purpose",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L47). Git plumbing across many worktrees, no single domain. Correct general-purpose route.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "read-only-ops"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "evaluate the miscellaneous and dirty worktrees and tell me what to keep",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L55). Cross-repo triage.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "systematic-code-review"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "evaluate the data-import cluster of worktrees",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L53). Same cross-repo triage shape.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "systematic-code-review"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit the script inventory for drift",
+      "expected_agent": "general-purpose",
+      "expected_skill": "docs-sync-checker",
+      "category": "process",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L62). Filesystem-versus-documentation sweep across every script domain.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "read-only-ops"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit our scraper exposure and the traffic hitting us",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L103). Spans edge logs, app logs and config — no single owning domain.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "service-health-check"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "reproduce it on the live site and tell me what is actually deployed there",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L75). Live site plus git plus deploy state; the answer is a status report, not domain work.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "check whether the SMARK fix is in git and actually deployed",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L84). Git-versus-deployment reconciliation.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "run a post-deploy health and feedback sweep",
+      "expected_agent": "general-purpose",
+      "expected_skill": "service-health-check",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L46). Endpoint health plus user feedback; breadth, not depth.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "read-only-ops"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "run the full staging validation sweep",
+      "expected_agent": "general-purpose",
+      "expected_skill": "verification-before-completion",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L27). Whole-surface validation across every feature.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "service-health-check"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "give me an ops health and scraper report",
+      "expected_agent": "general-purpose",
+      "expected_skill": "service-health-check",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L43). Status reporting across services.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "read-only-ops"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "audit the player feedback that came in recently",
+      "expected_agent": "general-purpose",
+      "expected_skill": "read-only-ops",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L128). Reading and grouping free-text feedback; no code domain.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "data-analysis"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "establish the correct deploy procedure — nobody agrees on what it is",
+      "expected_agent": "general-purpose",
+      "expected_skill": "planning",
+      "category": "planning",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L71). The routing manifest already pairs planning with general-purpose, so this is the manifest-consistent label, not a fallback.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "decision-helper"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "research the options for redesigning the pipeline before we pick one",
+      "expected_agent": "general-purpose",
+      "expected_skill": "planning",
+      "category": "planning",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L30). Option framing before commitment; planning is manifest-paired with general-purpose.",
+      "acceptable": [
+        {
+          "agent": "general-purpose",
+          "skill": "decision-helper"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "confirm the daily scoring failures have actually stopped",
+      "expected_agent": "general-purpose",
+      "expected_skill": "verification-before-completion",
+      "category": "operations",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L49). Reads cron output and logs to answer yes/no. Uncertain: if the answer is no, the follow-up belongs to the Python agent.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "verification-before-completion"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "analyse how real players are actually engaging with the site",
+      "expected_agent": "general-purpose",
+      "expected_skill": "data-analysis",
+      "category": "analysis",
+      "bucket": "prod-fallback-general",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L38). Product analysis over stored data. Uncertain: heavy query work would justify the ORM specialist.",
+      "acceptable": [
+        {
+          "agent": "sqlite-peewee-engineer",
+          "skill": "data-analysis"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "do finance phases zero and one, and fix the booking block bug while you are in there",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L13). Three deliverables across two subsystems — needs breakdown and sequencing, not one engineer. project-coordinator-engineer was selected zero times in 287 production dispatches; this bucket is the tripwire.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "merge the economy work and rewire the gate onto attendance",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L17). Two independent deliverables with an ordering constraint.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "amend the attendance decision record and fix the blind harness",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L9). One documentation deliverable plus one test deliverable — two owners.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "one batch please: land the SQUASH import, the feature flags, and the Meltzer easter egg",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L111). Three unrelated deliverables named in one request.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "code batch: tag titles, the rivalry work, the changelog, and the scraper config",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L117). Four deliverables spanning game logic, docs and configuration.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "batch: fix issues O1, O2, O3 and O11",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L127). Four separate issues in one dispatch — task breakdown first.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "batch: enhancements O6 through O10",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L126). Five deliverables.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "fix loop: F1 and F2 plus the minor items",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L123). Multiple tracked items plus an open-ended tail.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        },
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "objective-loop"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "phase one of lane H: freeze the UI contracts and set the pace baseline",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L2). Two deliverables inside a named phase of a larger programme.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "sort out the GM state and rule on the open decisions",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L5). State reconciliation plus a decision queue.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        },
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "planning"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "execute the infrastructure decisions the owner signed off",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L58). A list of approved changes to sequence and track.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "work through the sequenced pipeline improvements",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L66). Explicitly sequenced multi-step programme.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        },
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "objective-loop"
+        }
+      ],
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "scrape and import six promotions with Playwright",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L115). Fan-out of the same job over six targets — coordination, with the Python agent as a defensible alternate if it is run as one script.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "do the scraper forensics and then build the defence",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L40). Investigation deliverable feeding an implementation deliverable.",
+      "acceptable": [
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        },
+        {
+          "agent": "python-general-engineer",
+          "skill": "forensics"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "make the repo fix durable and add a checker so it cannot regress",
+      "expected_agent": "project-coordinator-engineer",
+      "expected_skill": "workflow",
+      "category": "process",
+      "bucket": "prod-fallback-coordinator",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L73). Fix plus new tooling — two deliverables.",
+      "acceptable": [
+        {
+          "agent": "python-general-engineer",
+          "skill": "workflow"
+        },
+        {
+          "agent": "project-coordinator-engineer",
+          "skill": "subagent-driven-development"
+        }
+      ],
+      "uncertain": true,
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "apply rate limiting to the API at the web server layer",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "infrastructure",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L100). HONEST NULL. The catalog has no nginx/systemd/web-server agent — kubernetes-helm-engineer is Kubernetes-only and python-general-engineer owns the Flask app, not the edge. This is a catalog gap, not a routing error; do not label it until an infrastructure agent exists.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "fix the live web server config and validate it",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "infrastructure",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L72). HONEST NULL. Same catalog gap as the rate-limiting case, plus a live-infra approval gate that no agent currently owns.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "the spinner hangs forever, find the root cause",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "debugging",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L48). HONEST NULL. Cannot tell from the request whether the hang is in the vanilla-JS front end or the Flask endpoint behind it, and the catalog has no vanilla-JS agent.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "measure where the deploy time actually goes",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "analysis",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L31). HONEST NULL. performance-optimization-engineer is explicitly scoped to web runtime performance, not build/deploy pipelines. No agent owns pipeline timing.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "steelman the Codex approach before we commit to it",
+      "expected_agent": null,
+      "expected_skill": "decision-helper",
+      "category": "decision-support",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L81). HONEST NULL on the agent slot only. The skill is clear; the agent depends on the domain being argued about, which the request does not state.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "validate the share images and harden how they are generated",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "debugging",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L34). HONEST NULL. Share images span server-side generation and front-end meta tags; the request does not say which half is broken.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
+    },
+    {
+      "request": "reclaim disk and stop it accumulating again",
+      "expected_agent": null,
+      "expected_skill": null,
+      "category": "infrastructure",
+      "bucket": "prod-fallback-ambiguous",
+      "notes": "Real /do dispatch that fell back to general-purpose (gp_routes L67). HONEST NULL. Host cleanup with no infrastructure agent in the catalog, and destructive steps need owner approval regardless of routing.",
+      "provenance": {
+        "source": "local-telemetry",
+        "workload": "mmr-ratings-flask",
+        "sample": "gp_routes 2026-08: 128 general-purpose fallbacks recorded on ONE machine, one Flask/Peewee/SQLite app."
+      }
     }
   ]
 }

@@ -59,7 +59,22 @@ NEW_BUCKETS = {
     "vague-interview",
     "plain-english",
     "reachability",
+    # v1.3: cases drawn from recorded production general-purpose fallbacks.
+    "prod-fallback-specialist",
+    "prod-fallback-general",
+    "prod-fallback-coordinator",
+    "prod-fallback-ambiguous",
 }
+
+# v1.4 provenance. Absence resolves to unknown-legacy: the 49 pinned v1.0 cases
+# cannot carry the field, and their provenance was never recorded.
+PROVENANCE_SOURCES = frozenset({"local-telemetry", "catalog-derived", "unknown-legacy"})
+UNKNOWN_PROVENANCE = {"source": "unknown-legacy", "workload": None, "sample": None}
+
+
+def resolve_provenance(case: dict) -> dict:
+    """Provenance of one case; absent means unknown-legacy, never guessed."""
+    return case.get("provenance", UNKNOWN_PROVENANCE)
 
 
 def load_harness(workdir: Path):
@@ -141,9 +156,82 @@ class TestCorpus:
             "pipeline-pick": 8,
             "vague-interview": 6,
             "plain-english": 8,
+            "prod-fallback-specialist": 40,
+            "prod-fallback-general": 20,
+            "prod-fallback-coordinator": 12,
         }
         for bucket, minimum in minimums.items():
             assert counts.get(bucket, 0) >= minimum, f"{bucket}: {counts.get(bucket, 0)} < {minimum}"
+
+    def test_null_agent_rate_stays_bounded(self, cases):
+        """A corpus that mostly expects no agent cannot detect under-routing.
+
+        At v1.2 the corpus asserted expected_agent null on 142/178 cases (79.8%),
+        so a router that grew more timid scored BETTER on it. Keep the rate low
+        enough that the agent slot carries real signal.
+        """
+        nulls = sum(1 for case in cases if case["expected_agent"] is None)
+        rate = 100.0 * nulls / len(cases)
+        assert rate <= 60.0, f"expected_agent null rate {rate:.1f}% — corpus is blind to under-routing"
+
+    def test_general_purpose_is_labelled_explicitly(self, cases):
+        """`general-purpose` must be an asserted label, not the meaning of null.
+
+        Explicit labels are what makes an over-aggressive router fail too.
+        """
+        explicit = [c for c in cases if c["expected_agent"] == "general-purpose"]
+        assert len(explicit) >= 20, f"only {len(explicit)} cases assert general-purpose explicitly"
+
+    def test_provenance_is_declared_and_well_formed(self, cases):
+        """Every case says where it came from, so telemetry is separable from catalog work.
+
+        The 49 pinned v1.0 cases cannot carry the field (SHA-256 pin plus
+        test_legacy_cases_have_no_new_fields), so absence resolves to
+        unknown-legacy rather than being guessed at.
+        """
+        for i, case in enumerate(cases):
+            prov = resolve_provenance(case)
+            assert set(prov) == {"source", "workload", "sample"}, f"case {i}: bad provenance keys {sorted(prov)}"
+            assert prov["source"] in PROVENANCE_SOURCES, f"case {i}: unknown source {prov['source']!r}"
+            if prov["source"] == "local-telemetry":
+                assert prov["workload"], f"case {i}: local-telemetry must name the workload it was sampled from"
+            else:
+                assert prov["workload"] is None, f"case {i}: only local-telemetry carries a workload"
+            if i >= 49:
+                assert "provenance" in case, f"case {i} is taggable and must declare provenance"
+
+    def test_no_single_workload_dominates_agent_labels(self, cases):
+        """One machine's telemetry must not decide what "correct routing" means.
+
+        This toolkit runs on several machines with different workloads. learning.db
+        is per-box — no host or project column, no cross-box aggregation — so a
+        local sample describes ONE box, and local absence of an agent is not
+        evidence that the agent is unused elsewhere. The v1.3 cases came from a
+        single Flask/Peewee/SQLite workload; left uncapped, a routing change that
+        suits that one box scores as a win and can regress every other box. That is
+        the #860 failure mode (a corpus that could not see under-routing certifying
+        a regression as a 7-point gain) pointed the other way.
+
+        The cap is a ratchet, not a target. At v1.4 the top workload holds 70.0% of
+        the agent-asserting cases; the cap sits just above that so the share cannot
+        grow, and it should be lowered as maintainers on other machines contribute
+        cases from their own workloads. Balance comes from real cases other boxes
+        record — never from inventing cases for workloads nobody has observed.
+        """
+        asserting = [c for c in cases if c["expected_agent"]]
+        counts: dict[str, int] = {}
+        for case in asserting:
+            workload = resolve_provenance(case)["workload"]
+            if workload:
+                counts[workload] = counts.get(workload, 0) + 1
+        if not counts:
+            return
+        workload, top = max(counts.items(), key=lambda kv: kv[1])
+        share = 100.0 * top / len(asserting)
+        assert share <= 75.0, (
+            f"workload {workload!r} holds {share:.1f}% of the {len(asserting)} agent-asserting cases "
+            "— the corpus now measures one machine. Add cases from other workloads; do not invent them."
+        )
 
     def test_pipeline_pick_cases_carry_expected_pipeline(self, cases):
         for case in cases:
