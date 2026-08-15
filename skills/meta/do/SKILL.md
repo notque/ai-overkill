@@ -1,6 +1,5 @@
 ---
 name: do
-promoted_to: native-router
 description: "Classify user requests and route to the correct agent + skill. Primary entry point for all delegated work."
 user-invocable: true
 argument-hint: "<request>"
@@ -61,60 +60,108 @@ Parallel FIRST: 2+ failures / 3+ subtasks → multiple Agent tools. Research→r
 
 ### Phase 2: ROUTE
 
-Semantic intent. Prefer FORCE. Keywords hint, never gate. "send my commits to the server" = "git push".
+**Goal**: select the correct agent + skill. The semantic self-route is PRIMARY and runs FIRST — the orchestrator reads the manifest in-session and decides for itself, with no routing sub-dispatch (self-route beat the Haiku hop by +8.1 accuracy points, zero new safety misses: `scripts/routing-ab-results/self-route-v1/VERDICT.md`). `pre-route.py` is a guardrail that runs AFTER the semantic decision and never short-circuits it.
 
-**Pre-route (ONCE, before fast-path)**
+**Contract: read for INTENT.** Route on what the user MEANS. Trigger keywords are hints, never gates. Plain or non-native phrasing routes as well as jargon: "send my commits to the server" routes like "git push". Cost: one manifest read per request — measured and accepted.
+
+**Step 0: Semantic self-route (PRIMARY — runs first)**
+
+Resolve SDIR (this probe also identifies the harness for Phase 4 Model Selection), then read the manifest (hash-gated cache or regenerate):
 
 ```bash
 SDIR="${HOME}/.claude/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.hermes/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.factory/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.codex/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.reasonix/scripts"
-REQUEST_FILE=$(mktemp); printf '%s' "{user_request}" > "$REQUEST_FILE"
-python3 "$SDIR/pre-route.py" --request-file "$REQUEST_FILE" --json-compact
-rm -f "$REQUEST_FILE"
-```
-
-→`PRE_ROUTE_RESULT` (once). Force-route guard only: high-conf force_route match or fallthrough — the semantic route owns the long tail.
-
-**Fast path:** PRE_ROUTE_RESULT high-conf force_route + pr-workflow/security → skip 0/1, dispatch direct. Keep banner+overrides+P3+P4. `[do-route]` `health=-`. Agent: pre-route→domain→general-purpose.
-
-**Step 0: Self-route**
-
-Read the manifest (hash-gated cache or regenerate):
-
-```bash
 bash "$SDIR/get-routing-manifest.sh"
 ```
 
 Use `bash` explicitly so routing does not depend on the script's executable bit.
 
-Internal JSON; `[do-route]` = sole trace.
+Hold the decision internally as JSON. It stays unprinted; the `[do-route]` marker is its sole external trace:
+
+```
+{
+  "agent": "agent-name or null",
+  "skill": "skill-name or null",
+  "pipeline": "pipeline-name or null",
+  "reasoning": "one sentence why",
+  "confidence": "high/medium/low"
+}
+```
 
 **Routing rules (ALL apply):**
 
 ```
-SECTION-INTEGRITY (HARD — never violate):
-agent∈AGENTS|null, skill∈SKILLS|null, pipeline∈PIPELINES|null.
-No fit→null→general-purpose. Never skill→agent. FORCE skills: skill slot only.
+SECTION-INTEGRITY RULE (HARD CONSTRAINT — never violate):
+- `agent` MUST be a name listed in the manifest's AGENTS: section, or null. Never put a skill name in `agent`.
+- `skill` MUST be a name listed in the SKILLS: section, or null. Never put an agent name in `skill`.
+- `pipeline` MUST be a name listed in the PIPELINES: section, or null.
+- If no agent fits, return `"agent": null` — DO NOT promote a skill into the `agent` slot. The router falls back to a default agent (e.g. `general-purpose`) and pairs it with your chosen skill.
+- Skills marked FORCE are still skills, not agents. They fill the `skill` slot only. Example: `shell-config` is a SKILL — on a match set `"skill": "shell-config"` and pick a separate agent (or null) for `agent`.
 
-FORCE-ROUTE — select when domain matches SEMANTICALLY (meaning, not words):
-- "push my changes" → pr-workflow (FORCE) ✓ (git push)
-- "push back on this design" → NOT pr-workflow (resist/argue)
-- "configure my fish shell" → shell-config (FORCE) ✓
-- "fish for bugs" → NOT shell-config (search for bugs)
-- "quick fix to the login page" → quick (FORCE) ✓
-- "quick overview of the architecture" → NOT quick (exploration)
+FORCE-ROUTE RULE: manifest entries marked FORCE MUST be selected when their domain clearly matches the user's intent. FORCE matching is SEMANTIC, not keyword-based — match what the user MEANS, not individual words:
+- "push my changes" → pr-workflow (FORCE) ✓ (user means git push)
+- "push back on this design" → NOT pr-workflow (user means resist/argue)
+- "configure my fish shell" → shell-config (FORCE) ✓ (user means the Fish shell)
+- "fish for bugs" → NOT shell-config (user means search for bugs)
+- "quick fix to the login page" → quick (FORCE) ✓ (user wants a small edit)
+- "quick overview of the architecture" → NOT quick (user wants exploration)
 
-PIPELINE — both: triggers match + multi-phase benefit. Mostly null.
-"vexjoy voice article"→voice-writer ✓ | "research+sources"→research-pipeline ✓ | "fix typo"→null
-Comprehensive-review outranked by right-size-review when real diff exists.
+PIPELINE-SELECTION RULE: `pipeline` is OPTIONAL and most requests return null. Return a pipeline name ONLY when BOTH conditions hold:
+(1) the intent SEMANTICALLY matches a pipeline's triggers or description in the PIPELINES section, AND
+(2) the request genuinely benefits from a multi-phase flow (research + write, scope + gather + synthesize, multi-wave review) — not a single skill task.
+Match on MEANING, not keyword overlap. Examples:
+- "write an article in vexjoy voice about X" → voice-writer ✓ (multi-phase voice content generation)
+- "research X with artifacts and sources" → research-pipeline ✓ (SCOPE → GATHER → SYNTHESIZE → VALIDATE → DELIVER)
+- "comprehensive review of these 8 files" → comprehensive-review ✓ (multi-wave per-package review)
+- "fix the typo on line 42 of foo.py" → null (single trivial edit)
+- "debug this failing test" → null (one agent+skill handles it)
+- "review this 10-line function" → null (no multi-wave review warranted)
+When in doubt, return null. A pipeline pick must be defensible against the manifest's PIPELINES section. Comprehensive-review is outranked by right-size-review when a real diff exists.
 
-GENERAL: most specific. Agent=domain, skill=method. GENUINE git/version-control ops (actually pushing code, committing files, opening/merging a PR) → ALWAYS pr-workflow. Metaphorical uses ("commit to a decision", "merge ideas/branches in your head", "push back on a proposal") → NEVER pr-workflow.
+SPECIFICITY RULES:
+- Pick the most specific match. "Go tests" → golang-general-engineer + go-patterns, not general-purpose.
+- Agent handles the domain. Skill handles the methodology. Pick both when possible.
+- Prefer entries whose description semantically matches the request, not just keyword overlap.
+- A task verb in the request (review, debug, refactor, test) prefers the skill matching that verb.
+- GENUINE git / version-control operations — actually pushing code, committing files, opening or merging a pull request — ALWAYS select pr-workflow. Metaphorical uses ("commit to a decision", "merge ideas in your head", "push back on a proposal") NEVER route to pr-workflow.
+- Return a single skill name as a string, not an array. Multiple candidates → pick the primary one.
 ```
 
 **Step 0b: Apply the routing decision**
 
-Low conf → verify INDEX.
+Use the `agent` and `skill` fields directly. Low confidence → verify against the INDEX files.
 
 **Skill-greediness gate (HARD — non-negotiable for Simple+).** Null skill → pick: review→systematic-code-review, debug→workflow (systematic-debugging), refactor→workflow (systematic-refactoring), audit→systematic-code-review (whole-repo→full-repo-review), explain→codebase-overview, compare→decision-helper (agent A/Bs→agent-comparison), plan→planning, loop→objective-loop. Fallback: `objective-loop`.
+
+**Agent-greediness gate (HARD — non-negotiable for Simple+).** `general-purpose` is the last resort, not the default. Measured share of dispatches: 44.6%. Target band: 10-15%. A null `agent` works this table before `general-purpose` is permitted:
+
+| Domain signal in the request | Agent |
+|---|---|
+| Go | golang-general-engineer |
+| Python | python-general-engineer |
+| TypeScript UI, React, bundling, state | typescript-frontend-engineer |
+| TypeScript runtime bug, async race, type error | typescript-debugging-engineer |
+| Node backend, REST, auth, webhooks | nodejs-api-engineer |
+| Swift, Kotlin, PHP | swift-general-engineer, kotlin-general-engineer, php-general-engineer |
+| SQL schema, query plans, migrations | database-engineer (SQLite + Peewee → sqlite-peewee-engineer) |
+| ETL, warehouse, stream processing | data-engineer |
+| Kubernetes, Helm, Ansible | kubernetes-helm-engineer, ansible-automation-engineer |
+| Metrics and dashboards, search clusters, message queues | prometheus-grafana-engineer, opensearch-elasticsearch-engineer, rabbitmq-messaging-engineer |
+| This toolkit: Python hooks | hook-development-engineer |
+| This toolkit: skills, agents, routing tables, ADRs, INDEX files | toolkit-governance-engineer |
+| Harness or toolkit upgrade sweep | system-upgrade-engineer |
+| Tests, coverage, E2E | testing-automation-engineer |
+| Web performance; design system and accessibility | performance-optimization-engineer, ui-design-engineer |
+| React Native, Expo | react-native-engineer |
+| API docs and runbooks; explainers and articles | technical-documentation-engineer, technical-journalist-writer |
+| Review: quality / system + security / ADR + business logic / perspectives | reviewer-code, reviewer-system, reviewer-domain, reviewer-perspectives |
+| Broad investigation; agent coordination; pipeline scaffolding | research-coordinator-engineer, project-coordinator-engineer, pipeline-orchestrator-engineer |
+| MCP servers | mcp-local-docs-engineer |
+
+No row fits → read the manifest's AGENTS: section again and match on description before falling back.
+
+**Pairing rule (the measured defect).** 82% of `general-purpose` dispatches carried a correct specialist skill: the router read the domain and had no slot to say so. A specific domain skill therefore obliges a matching domain agent — or a stated reason no agent covers it.
+
+**Fallback reason (MANDATORY).** Every `general-purpose` pick carries a written reason, one line, in both places the dispatch records it: the Step 3 banner's `-> Agent:` why field, and `task_spec.constraints` handed to `build-dispatch.py`. Shape: `general-purpose: <why no listed agent covers this domain>`. A pick with no reason is a routing bug — return to the table.
 
 **Section validator (MANDATORY before dispatch):**
 
@@ -129,9 +176,20 @@ route.agent ||= "general-purpose"
 
 No pair→general-purpose+objective-loop. `[cross-repo]`→`.claude/agents/`. Code→domain agents.
 
-**Step 1: Safety-net** (reads PRE_ROUTE_RESULT)
+**Step 1: Deterministic safety-net** (`pre-route.py` — runs AFTER the semantic decision, never short-circuits it)
 
-(a) force_route pr-workflow/security disagrees → override. Git/security MUST hit quality gates. (b) Fallthrough (guards pre-applied in pre-route) → Step 0 decision stands.
+Use its result ONLY as a guardrail. Run once per /do; Phase 3 reads its `stack`:
+
+```bash
+REQUEST_FILE=$(mktemp); printf '%s' "{user_request}" > "$REQUEST_FILE"
+python3 "$SDIR/pre-route.py" --request-file "$REQUEST_FILE" --json-compact
+rm -f "$REQUEST_FILE"
+```
+
+→ `PRE_ROUTE_RESULT`.
+
+- **(a) Safety-critical force-route override — the one case that beats Step 0.** `"confidence": "high"` with a `force_route` match for `pr-workflow` or a security skill overrides a disagreeing semantic pick: genuine push, commit, create-PR, and merge work, and security work, MUST hit the quality gates (lint, tests, CI). Record `match_type`. The agent stays the Step 0 pick, or the Agent-greediness table result when Step 0 returned null.
+- **(b) Every other result keeps the Step 0 decision.** Phrase and unigram guards inside `pre-route.py` already suppress idiom false positives ("fish out", metaphorical commit/merge), so a guarded or non-matching result leaves the semantic pick standing. Matching only force-routes is by design — the semantic route owns the long tail.
 
 **Step 2: Apply skill override** — "review"→systematic-code-review, "debug"→workflow (systematic-debugging pipeline), "refactor"→workflow (systematic-refactoring pipeline), "TDD"→test-driven-development. Full table in INDEX.
 
@@ -221,6 +279,7 @@ python3 "$SDIR/build-dispatch.py" --json '{
   "provider": "<anthropic|openai|other>",
   "manual_model_override": false,
   "health": "-",
+  "fallback_reason": "<REQUIRED when agent=general-purpose; omit otherwise>",
   "stack": ["s1","s2"],
   "task_spec": {"intent": "...", "constraints": "...", "acceptance": "...",
                 "files": "...", "operator_context": "..."},
@@ -229,7 +288,7 @@ python3 "$SDIR/build-dispatch.py" --json '{
 }'
 ```
 
-`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `stack`: Phase 3. `task_spec`: mandatory Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
+`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `fallback_reason`: **required when `agent=general-purpose`** — the one-line reason from the Agent-greediness gate, any prose; `build-dispatch.py` slugifies it and appends `fallback=<slug>` to the marker so every fallback is countable. Dispatch fails without it. `stack`: Phase 3. `task_spec`: mandatory Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
 
 `[do-route]` = SOLE signal for `routing-decision-recorder`. Sub-agents excluded.
 
