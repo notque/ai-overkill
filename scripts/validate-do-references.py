@@ -12,7 +12,9 @@ shared-patterns directory.
 
 Scoped regions (anchor -> end anchor; a missing anchor is an error so file
 restructuring cannot silently drop coverage):
-  1. Step 0b (skill-greediness verb map + fallback clause)
+  1. Combination doctrine + Step 0b (composition rules, skill-greediness verb
+     map, fallback clause). The doctrine names components and sits outside the
+     fenced routing rules, so it needs the same coverage as the verb maps.
   2. Step 2  (Common overrides verb map)
   3. Step 4  (Auto-Pipeline Fallback clause)
   4. Error Handling section
@@ -65,7 +67,7 @@ SKILL_FILE = REPO_ROOT / "skills" / "meta" / "do" / "SKILL.md"
 
 # (region name, start anchor, end anchor). Matched as line prefixes after strip.
 REGIONS = [
-    ("step-0b-verb-map-and-fallback", "**Step 0b: Apply the routing decision**", "**Step 1:"),
+    ("doctrine-and-step-0b-verb-map-and-fallback", "**COMBINATION DOCTRINE.**", "**Step 1:"),
     ("step-2-overrides", "**Step 2: Apply skill override**", "**Step 3:"),
     ("step-4-fallback", "**Step 4: Auto-Pipeline Fallback**", "**Lazy-completion"),
     ("error-handling", "## Error Handling", "## References"),
@@ -89,6 +91,7 @@ PROSE_TERMS = frozenset(
         "built-in",  # "built-in verification gates"
         "cross-repo",  # the [cross-repo] output tag
         "done-criteria",  # "Objective with done-criteria"
+        "fan-out",  # "plus `agents` for fan-out" (combination doctrine)
         "force-route",  # "force-route triggers"
         "near-matches",  # "check INDEX files for near-matches"
         "non-negotiable",  # "HARD — non-negotiable"
