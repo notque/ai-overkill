@@ -21,6 +21,16 @@ Line format (default/full manifest):
       name [pairs_with] — description NOT: excluded t:phrase|phrase
     SKILLS:
       name FORCE agent=x (category) — description NOT: excluded t:phrase|phrase
+    PIPELINES:
+      name FORCE (category) — description NOT: excluded t:phrase|phrase
+
+Pipeline lines share the skill grammar so the router reads one line format
+across all three sections: ``FORCE`` marks a force-route entry the router
+must select, and the curated ``t:`` phrases carry the discriminating signal.
+Pipelines declare no agent pairing, so the skill line's ``agent=`` slot is
+absent. All three sections render in every mode — the /do section validator
+tokenizes the text between the AGENTS:/SKILLS:/PIPELINES: headers, so the
+order and spelling of those headers are load-bearing.
 
 The trailing ``t:`` field carries up to TRIGGER_CAP hand-curated trigger
 phrases from INDEX.json — the discriminating signal the router needs to
@@ -236,6 +246,34 @@ def _stub_line(entry: dict) -> str:
     return f"  {entry['name']}{agent_str} — {desc}{not_for_str}"
 
 
+def _pipeline_line(entry: dict, reserved: set[str] | None, truncate: bool = False) -> str:
+    """Render one PIPELINES line: ``name[ FORCE][ (category)] — desc[ NOT: x][ t:...]``.
+
+    Mirrors the skill line so every section speaks one grammar. Two fields are
+    load-bearing and were previously dropped: ``FORCE`` is what lets the
+    router's "manifest entries marked FORCE MUST be selected" rule fire on a
+    pipeline at all, and the curated triggers are the only signal separating
+    two pipelines whose descriptions read alike. The skill line's ``agent=``
+    slot is absent because pipelines declare no agent pairing.
+
+    `reserved` holds the names owned by the other sections; a trigger equal to
+    one of them is dropped, because the section validator tokenizes between
+    headers and would read that name as a pipeline. Pass None to omit the
+    trigger field entirely — compact mode does, for the same byte budget that
+    keeps triggers off its agent and skill lines.
+    """
+    desc = entry["description"]
+    not_for = entry.get("not_for", "")
+    if truncate:
+        desc = truncate_desc(desc)
+        not_for = truncate_desc(not_for, 40) if not_for else ""
+    force_str = " FORCE" if entry.get("force_route") else ""
+    cat_str = f" ({entry['category']})" if entry.get("category") else ""
+    not_for_str = f" NOT: {not_for}" if not_for else ""
+    trig_str = format_triggers(entry, reserved) if reserved is not None else ""
+    return f"  {entry['name']}{force_str}{cat_str} — {desc}{not_for_str}{trig_str}"
+
+
 def format_tiered(entries: list[dict], working_set: set[str]) -> str:
     """Format entries with FULL lines for the working set, stubs for the rest.
 
@@ -254,7 +292,7 @@ def format_tiered(entries: list[dict], working_set: set[str]) -> str:
         full = name in working_set or e.get("force_route", False)
 
         if e["type"] == "pipeline":
-            pipelines.append(f"  {name} — {e['description']}")
+            pipelines.append(_pipeline_line(e, names["agent"] | names["skill"]))
             continue
         if not full:
             (agents if e["type"] == "agent" else skills).append(_stub_line(e))
@@ -313,7 +351,7 @@ def format_compact(entries: list[dict]) -> str:
             trig_str = format_triggers(e, names["skill"])
             agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}{trig_str}")
         elif e["type"] == "pipeline":
-            pipelines.append(f"  {name} — {desc}")
+            pipelines.append(_pipeline_line(e, names["agent"] | names["skill"]))
         else:
             force_str = " FORCE" if e.get("force_route") else ""
             agent_str = f" agent={e['agent']}" if e.get("agent") else ""
@@ -340,12 +378,18 @@ def truncate_desc(desc: str, max_len: int = 60) -> str:
 
 
 def format_compact_mode(entries: list[dict], request_text: str = "") -> str:
-    """Format entries in compact mode: truncated descriptions, conditional PIPELINES.
+    """Format entries in compact mode: truncated descriptions, all three sections.
 
-    PIPELINES section is omitted unless request_text contains 'pipeline'.
+    Every section renders here, PIPELINES included. The section is keyed to what
+    exists, never to the request wording: a literal-substring gate hid every
+    pipeline from "research X and write me an article", and it also removed the
+    PIPELINES: header the /do section validator tokenizes the SKILLS: block
+    against. `request_text` is accepted and unused, kept so callers passing
+    --request stay valid.
+
+    Triggers stay off these lines, matching the agent and skill lines above —
+    compact mode exists to shrink the manifest.
     """
-    show_pipelines = "pipeline" in request_text.lower()
-
     agents = []
     skills = []
     pipelines = []
@@ -362,8 +406,7 @@ def format_compact_mode(entries: list[dict], request_text: str = "") -> str:
             pairs_str = f" [{pairs}]" if pairs else ""
             agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}")
         elif e["type"] == "pipeline":
-            if show_pipelines:
-                pipelines.append(f"  {name} — {desc}")
+            pipelines.append(_pipeline_line(e, None, truncate=True))
         else:
             force_str = " FORCE" if e.get("force_route") else ""
             agent_str = f" agent={e['agent']}" if e.get("agent") else ""
@@ -387,13 +430,13 @@ def main() -> int:
     parser.add_argument(
         "--compact",
         action="store_true",
-        help="Compact mode: truncated descriptions, omit PIPELINES unless --request mentions pipeline",
+        help="Compact mode: truncated descriptions, no trigger field; all three sections render",
     )
     parser.add_argument(
         "--request",
         type=str,
         default="",
-        help="Request text (used with --compact to decide whether to include PIPELINES)",
+        help="Request text (accepted for compatibility; the manifest no longer varies by request)",
     )
     parser.add_argument(
         "--tiered",
