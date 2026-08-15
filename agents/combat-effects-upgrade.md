@@ -15,6 +15,7 @@ routing:
     - visual effects upgrade
     - effects.ts
     - combat polish
+  not_for: "WebGL or GPU-particle combat rendering (use pixijs-combat-renderer); skeletal or character animation rigs (use rive-skeletal-animator); general design-system, layout, or accessibility work (use ui-design-engineer). This agent does zero-dependency CSS and Framer Motion combat effects."
   pairs_with:
     - typescript-frontend-engineer
     - ui-design-engineer

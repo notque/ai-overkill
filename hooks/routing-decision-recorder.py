@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.2.0
+# hook-version: 1.3.0
 """
 PostToolUse Hook: Routing Decision Recorder (action A, formerly /do Phase 5)
 
@@ -44,7 +44,11 @@ and the subagent's tool_result. From these we:
      (tool_errors, request/description snippet).
   3. (C) Parse a `rightsizing:tier{N}` banner from the subagent output and
      record a separate rightsizing row, parse-only and silent when absent.
-  4. Write a pending-outcome entry to a per-session file so the SubagentStop
+  4. (D, v1.3.0) Parse the `route-fit:` banner from the subagent output and
+     score it ASYMMETRICALLY: a negative verdict decays the route, `ok` is a
+     no-op that boosts nothing. Parse-only and silent when absent. See
+     record_route_fit for why a self-report may only move against the router.
+  5. Write a pending-outcome entry to a per-session file so the SubagentStop
      hook (routing-outcome-recorder.py) can recover the full key + the error
      verdict and apply boost/decay. PostToolUse:Agent fires before
      SubagentStop, so the decision row is committed before the outcome runs —
@@ -138,6 +142,11 @@ _N_RE = re.compile(r"\bn=(\d+)", re.IGNORECASE)
 _FAIL_RE = re.compile(r"\bfail=(\d+)", re.IGNORECASE)
 _ACTION_RE = re.compile(r"\baction=(keep|demote|tiebreak)", re.IGNORECASE)
 _ALTS_RE = re.compile(r"\balts=([a-z0-9:_,-]+)", re.IGNORECASE)
+
+# Fallback justification on the marker line: ` fallback=<slug>` (build-dispatch.py
+# emits it whenever the router picked general-purpose or coerced an unknown agent).
+# Independent \b token, same charset as alts= items. Absent => None.
+_FALLBACK_RE = re.compile(r"\bfallback=([a-z0-9][a-z0-9:_-]*)", re.IGNORECASE)
 
 
 def _line_containing(text: str, pos: int) -> str:
@@ -277,6 +286,17 @@ def parse_model(marker_text: str) -> str | None:
     return raw if raw in _VALID_MODELS else None
 
 
+def parse_fallback_reason(marker_text: str) -> str | None:
+    """Read the optional ` fallback=<slug>` token off the marker LINE, or None.
+
+    Scoped to the marker line (same rationale as parse_health_inputs): task
+    prose mentioning `fallback=` must never be read as the router's reason.
+    """
+    line = _marker_line(marker_text)
+    m = _FALLBACK_RE.search(line)
+    return m.group(1).lower() if m else None
+
+
 def parse_model_effort(marker_text: str) -> str | None:
     """Read a valid ``effort=`` token from the marker line, if present.
 
@@ -302,6 +322,116 @@ _RIGHTSIZING_RE = re.compile(
     r"(?:\s+wall_clock_s=(\d+))?",
     re.IGNORECASE,
 )
+
+
+# Route-fit banner (D). Every dispatched agent is asked (build-dispatch.py
+# INJ_ROUTE_FIT) to close its reply with:
+#   route-fit: ok
+#   route-fit: wrong-agent | wrong-skill | needs-coordinator | underspecified
+# Anchored to a WHOLE line (^...$, MULTILINE) so the banner spec quoted mid-prose
+# is not a verdict; the LAST match wins because the banner is the final line.
+_ROUTE_FIT_NEGATIVE = ("wrong-agent", "wrong-skill", "needs-coordinator", "underspecified")
+_ROUTE_FIT_RE = re.compile(
+    r"^\s*(?:[-*>`\s]*)route-fit:\s*(ok|wrong-agent|wrong-skill|needs-coordinator|underspecified)\s*`?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def parse_route_fit(output: str) -> str | None:
+    """Read the route-fit verdict off the agent's output, or None.
+
+    None means "no verdict": banner absent, or malformed (a value outside the
+    enum, or trailing prose on the line). Parse-only and silent, exactly like
+    the rightsizing banner — a missing or broken banner must never affect a
+    dispatch, and must never be guessed at.
+    """
+    if not output or "route-fit:" not in output.lower():
+        return None
+    verdicts = _ROUTE_FIT_RE.findall(output)
+    return verdicts[-1].lower() if verdicts else None
+
+
+def record_route_fit(output: str, key: str, session_id: str | None = None) -> str | None:
+    """(D) Score one route-fit verdict for ``key``. Returns the verdict, or None.
+
+    ASYMMETRIC BY DESIGN — the whole point of the signal.
+
+      negative verdict => STRONG evidence: apply_outcome(FAILURE) decays the
+        route's confidence, exactly as a tool error or a user rejection does.
+      `ok`             => WEAK evidence: apply_outcome(NEUTRAL) is a no-op on
+        confidence. It records the basis counter (so the verdict is countable)
+        and boosts NOTHING.
+
+    Rationale: the agent grading the fit was handed the wrong domain
+    instructions in precisely the case we care about, and an agent that has
+    just spent a session on a task will rationalize that it was the right one
+    to do it. A self-report is therefore credible when it says "this was not
+    mine" and worthless when it says "this was mine". So the signal is wired to
+    move only AGAINST the router, never to flatter it. Under the old metric —
+    success inferred from the absence of a complaint — a timid general-purpose
+    fallback scored identically to a correct specialist; a signal that could
+    boost on self-declared `ok` would reproduce that exact failure.
+
+    Caller MUST have written the decision row for ``key`` first (apply_outcome
+    is a no-op on a missing row); main() calls this only for a key it just
+    recorded.
+    """
+    verdict = parse_route_fit(output)
+    if verdict is None:
+        return None
+
+    from routing_outcome_score import FAILURE, NEUTRAL, apply_outcome
+
+    negative = verdict in _ROUTE_FIT_NEGATIVE
+    basis = f"route_fit:{verdict}"
+    apply_outcome(key, FAILURE if negative else NEUTRAL, basis=basis)
+
+    if negative:
+        # Surface the verdict on the decision row so `evidence-route-context`
+        # shows WHY a route decayed. NEGATIVES ONLY: this is a second commit
+        # (~3ms) and it buys diagnosis of the cases you actually investigate.
+        # On the common `ok` path it would cost every dispatch for a row that
+        # says nothing happened. Best-effort — the basis counter above is the
+        # durable record, and a later finalizer may overwrite this column.
+        try:
+            from learning_db_v2 import update_evidence_route_outcome
+
+            update_evidence_route_outcome(
+                route_key=key,
+                session_id=session_id or None,
+                outcome="failure",
+                outcome_basis=basis,
+            )
+        except Exception:
+            pass
+    return verdict
+
+
+_FALLBACK_REASON_KEY_PREFIX = "fallback-reason:"
+
+
+def record_fallback_reason(reason: str | None, session_id: str | None = None) -> None:
+    """Bump the aggregate row for one fallback reason. Silent when absent.
+
+    Mirrors record_stack_usage: one `learnings` row per reason slug
+    (topic="routing", category="effectiveness", key "fallback-reason:{slug}"),
+    reusing record_learning's upsert so observation_count = times that reason
+    was used. 128 of 287 dispatches fell back with no recorded reason; this is
+    what makes the reason countable rather than merely printed.
+    """
+    if not reason:
+        return
+    from learning_db_v2 import record_learning
+
+    record_learning(
+        topic="routing",
+        key=f"{_FALLBACK_REASON_KEY_PREFIX}{reason}",
+        value=f"fallback-reason: {reason}",
+        category="effectiveness",
+        tags=["fallback-reason"],
+        source="hook:routing-decision-recorder",
+        session_id=session_id or None,
+    )
 
 
 def parse_do_route_marker(prompt: str) -> tuple[str, str] | None:
@@ -541,7 +671,7 @@ def main() -> None:
             return
 
         has_errors = None  # computed once, on the first claimed marker
-        recorded = False
+        recorded_keys: list[str] = []  # routing keys this event actually recorded
         for agent, skill, sig, marker_text in decisions:
             # Idempotency (atomic, MEDIUM/TOCTOU): claim this dispatch signature.
             # claim_dispatch performs check-and-set under one flock, so N concurrent
@@ -550,7 +680,6 @@ def main() -> None:
             # workflow resubmitting the same script re-claims nothing (no-op).
             if not claim_dispatch(session_id, sig):
                 continue
-            recorded = True
             if has_errors is None:
                 # One Workflow event carries one tool result for ALL inner
                 # agents — per-marker error attribution is not observable here,
@@ -574,6 +703,7 @@ def main() -> None:
                 source="hook:routing-decision-recorder",
                 session_id=session_id or None,
             )
+            recorded_keys.append(key)
 
             # T3: per-dispatch DECISION event (JSONL), append-only + failure-safe.
             # Auxiliary to the aggregate row above — never blocks; route_events
@@ -589,6 +719,11 @@ def main() -> None:
             # the marker's ` stack={...}` token (routing-table utilization audit).
             # No-op when stack is None (token absent) — never blocks the hook.
             record_stack_usage(stack, session_id)
+
+            # Fallback accounting: one aggregate row per ` fallback=<slug>` reason
+            # so every fallback is countable, not just visible in the prompt.
+            # No-op when the token is absent (the non-fallback majority).
+            record_fallback_reason(parse_fallback_reason(marker_text), session_id)
 
             from route_events import record_decision_event
 
@@ -663,7 +798,7 @@ def main() -> None:
             # decision rows exist, written above).
             append_pending_outcome(session_id, key, has_errors)
 
-        if not recorded:
+        if not recorded_keys:
             return  # every marker already claimed (duplicate delivery / resume)
 
         # (C) right-sizing feedback, parse-only. extract_output_text flattens
@@ -677,6 +812,19 @@ def main() -> None:
         output = extract_output_text(get_tool_result(event))
         if output:
             record_rightsizing(output, session_id)
+
+            # (D) route-fit feedback, parse-only. Applied ONLY when this event
+            # recorded exactly ONE decision: a Workflow script carries N worker
+            # markers but ONE tool result, so a single banner cannot be
+            # attributed per worker — and decaying N routes off one verdict
+            # would be worse than recording nothing. Wrapped: a malformed
+            # banner, a DB hiccup, or an unexpected verdict must never affect
+            # the dispatch (fail open, same contract as the evidence row above).
+            if len(recorded_keys) == 1:
+                try:
+                    record_route_fit(output, recorded_keys[0], session_id)
+                except Exception:
+                    pass
 
     except Exception as e:
         hook_error("routing-decision-recorder", e)

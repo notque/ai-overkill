@@ -15,6 +15,7 @@ routing:
   retro-topics:
     - debugging
     - hook-patterns
+  not_for: "auditing hook conventions, registration, or timeouts fleet-wide (use toolkit-governance-engineer); adapting existing hooks to a new Claude Code release (use system-upgrade-engineer); querying or graduating captured learnings (use learn skill); general Python features outside the hook system (use python-general-engineer). This agent writes and debugs Python hook implementations."
   pairs_with:
     - verification-before-completion
     - python-quality-gate

@@ -30,6 +30,7 @@ routing:
     - production
     - ops
     - operational
+  not_for: "naming, dead code, test coverage, and convention review (use reviewer-code); security, concurrency, error handling, observability, and API contracts (use reviewer-system); newcomer, contrarian, pedant, or user-advocate framings (use reviewer-perspectives); full-repo SAP Commerce Cloud compliance audit (use sapcc-audit skill); running a consultation to decide a new architecture decision (use adr-consultation skill). This agent reviews business logic, ADR conformance, and SAP CC structural correctness against domain requirements."
   pairs_with:
     - workflow
     - parallel-code-review

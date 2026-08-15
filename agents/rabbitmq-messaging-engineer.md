@@ -9,6 +9,7 @@ routing:
     - message queue
     - amqp
     - event bus
+  not_for: "Kafka, Spark, or stream-processing data pipelines (use data-engineer); application webhook and REST endpoint code (use nodejs-api-engineer); running a broker on Kubernetes via manifests or Helm (use kubernetes-helm-engineer); broker metrics dashboards and alert rules (use prometheus-grafana-engineer). This agent designs RabbitMQ topology, clustering, and high availability."
   pairs_with:
     - verification-before-completion
   complexity: Medium-Complex

@@ -13,7 +13,7 @@ routing:
     - "migration safety review"
     - "dependency audit"
     - "API doc accuracy review"
-  not_for: "standalone security scan of git changes (use security-review skill) or parallel multi-reviewer code review (use parallel-code-review skill) — this agent provides system-level review: concurrency, error handling, observability, API contracts"
+  not_for: "standalone security scan of git changes (use security-review skill); parallel multi-reviewer code review (use parallel-code-review skill); business-logic correctness, ADR conformance, or SAP CC structural review (use reviewer-domain) — this agent provides system-level review: concurrency, error handling, observability, API contracts"
   pairs_with:
     - workflow
     - systematic-code-review

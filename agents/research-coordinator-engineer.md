@@ -12,7 +12,7 @@ routing:
     - comprehensive analysis
     - study
     - examine
-  not_for: "reading/exploring local code (use codebase-overview/read-only-ops) or a single delegated subtask (use research-subagent-executor)"
+  not_for: "reading/exploring local code (use codebase-overview/read-only-ops); a single delegated research subtask (use research-subagent-executor); running the formal multi-phase research pipeline (use research-pipeline skill)"
   pairs_with:
     - workflow
     - subagent-driven-development

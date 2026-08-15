@@ -15,6 +15,7 @@ routing:
   retro-topics:
     - database-patterns
     - debugging
+  not_for: "embedded SQLite or Peewee ORM work (use sqlite-peewee-engineer) — this agent's foreign-key and zero-downtime migration mandates assume a server database and misfire on embedded SQLite; analytics warehouses, ETL/ELT, dimensional models, or stream processing (use data-engineer); OpenSearch or Elasticsearch cluster tuning (use opensearch-elasticsearch-engineer). This agent designs and tunes server databases such as Postgres and MySQL."
   pairs_with:
     - nodejs-api-engineer
     - sqlite-peewee-engineer

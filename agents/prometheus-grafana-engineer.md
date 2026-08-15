@@ -11,7 +11,7 @@ routing:
     - dashboards
     - metrics
     - observability
-  not_for: "analyzing business or product metrics data (use data-analysis). This agent is Prometheus and Grafana operations, not data analytics."
+  not_for: "analyzing business or product metrics data (use data-analysis); Perses dashboards, plugins, operator, or core development (use perses-engineer); deploying the monitoring stack via Kubernetes manifests or Helm charts (use kubernetes-helm-engineer). This agent is Prometheus and Grafana operations, not data analytics."
   pairs_with:
     - verification-before-completion
     - kubernetes-helm-engineer

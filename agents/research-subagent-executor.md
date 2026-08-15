@@ -7,6 +7,7 @@ routing:
   triggers:
     - research subtask
     - delegated research
+  not_for: "decomposing a question or synthesizing across many sources (use research-coordinator-engineer); running the full multi-phase research pipeline (use research-pipeline skill); exploring local code (use codebase-overview skill). This agent executes one delegated research subtask via OODA loops."
   pairs_with:
     - research-coordinator-engineer
   complexity: Medium

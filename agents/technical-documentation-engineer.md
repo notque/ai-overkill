@@ -8,6 +8,7 @@ routing:
     - technical docs
     - documentation validation
     - integration guide
+  not_for: "explainers, opinion pieces, or long-form articles for a public audience (use technical-journalist-writer); detecting drift between existing docs and code (use docs-sync-checker skill); building a local documentation MCP server (use mcp-local-docs-engineer). This agent writes API references, architecture docs, runbooks, and integration guides."
   pairs_with:
     - verification-before-completion
   complexity: Complex

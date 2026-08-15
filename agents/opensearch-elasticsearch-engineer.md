@@ -10,7 +10,7 @@ routing:
     - logstash
     - kibana
     - search performance
-  not_for: "search-relevance UX or query-DSL authoring inside an app (use enterprise-search). This agent runs and tunes the cluster itself."
+  not_for: "search-relevance UX or query-DSL authoring inside an app (use enterprise-search); relational database indexing and query tuning (use database-engineer). This agent runs and tunes the OpenSearch or Elasticsearch cluster itself."
   pairs_with:
     - verification-before-completion
     - enterprise-search

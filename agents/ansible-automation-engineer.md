@@ -10,6 +10,7 @@ routing:
     - molecule
     - ansible-tower
     - AWX
+  not_for: "Kubernetes manifests, Helm charts, or cluster deploys (use kubernetes-helm-engineer); Claude Code hook or toolkit automation (use hook-development-engineer); application test automation (use testing-automation-engineer). This agent writes Ansible playbooks, roles, collections, and Molecule tests."
   pairs_with:
     - verification-before-completion
     - kubernetes-helm-engineer

@@ -13,10 +13,11 @@ Usage:
     python3 scripts/adr-query.py list
     python3 scripts/adr-query.py register --adr PATH
     python3 scripts/adr-query.py active
+    python3 scripts/adr-query.py close [--adr PATH] [--force]
 
 Exit codes:
     0 = success
-    1 = hash mismatch / file not found / session not registered
+    1 = hash mismatch / file not found / session not registered / close refused
     2 = usage error (invalid role, missing arguments)
 """
 
@@ -29,7 +30,7 @@ import os
 import re
 import stat
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -40,6 +41,16 @@ from repository_artifact import atomic_write_text, validate_relative_path
 # ---------------------------------------------------------------------------
 
 SESSION_FILE = ".adr-session.json"
+
+# A session older than this is stale: far more likely stranded than live.
+# An ADR consultation is scoped to one working session, so a registration that
+# survives a full day of wall-clock without being closed is a lifecycle leak.
+# Staleness only changes what tools *say*; it never expires a session by itself.
+SESSION_STALE_AFTER_HOURS = 24
+
+# Markdown checklist item: "- [ ] text" or "- [x] text". Mirrors the parser in
+# scripts/plan-manager.py so both tools agree on what a checklist item is.
+CHECKLIST_ITEM_RE = re.compile(r"^\s*-\s+\[([ xX])\]\s+\S", re.MULTILINE)
 
 # Role → list of adr-section names to include.
 # None means "all sections" (full file).
@@ -160,6 +171,72 @@ def _session_read(repo_root: Path) -> dict:
     if not isinstance(session, dict):
         raise ValueError("ADR session registry must contain a JSON object")
     return session
+
+
+def _session_delete(repo_root: Path) -> Path:
+    """Remove the session registry, refusing to follow symlinks.
+
+    Uses the same openat + O_NOFOLLOW discipline as _session_read so a symlinked
+    registry cannot redirect the unlink outside the repository root.
+    """
+    directory_flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        directory_flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        directory_flags |= os.O_NOFOLLOW
+    root_fd = os.open(repo_root, directory_flags)
+    try:
+        try:
+            os.unlink(SESSION_FILE, dir_fd=root_fd)
+        except FileNotFoundError as exc:
+            raise ValueError(f"no active ADR session — {SESSION_FILE} not found in {repo_root}") from exc
+    finally:
+        os.close(root_fd)
+    return repo_root / SESSION_FILE
+
+
+def _session_age(session: dict) -> Optional[timedelta]:
+    """Return how long ago the session was registered, or None if unreadable."""
+    raw = session.get("registered_at")
+    if not isinstance(raw, str):
+        return None
+    try:
+        registered = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if registered.tzinfo is None:
+        registered = registered.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - registered
+
+
+def _format_age(age: timedelta) -> str:
+    """Render a session age as a short human string, e.g. '3d 4h' or '20m'."""
+    total_minutes = max(int(age.total_seconds()) // 60, 0)
+    days, remainder = divmod(total_minutes, 60 * 24)
+    hours, minutes = divmod(remainder, 60)
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
+def _is_stale(session: dict) -> bool:
+    """Return True when the session is older than SESSION_STALE_AFTER_HOURS.
+
+    An unparseable registered_at is treated as NOT stale: staleness must never
+    be inferred from missing data.
+    """
+    age = _session_age(session)
+    return age is not None and age >= timedelta(hours=SESSION_STALE_AFTER_HOURS)
+
+
+def _checklist_counts(adr_path: Path) -> tuple[int, int]:
+    """Return (unchecked, total) markdown checklist items in an ADR file."""
+    content = adr_path.read_text(encoding="utf-8")
+    marks = [m.group(1).lower() for m in CHECKLIST_ITEM_RE.finditer(content)]
+    unchecked = sum(1 for mark in marks if mark != "x")
+    return unchecked, len(marks)
 
 
 def _validate_registration(repo_root: Path, adr_path: Path, expected_hash: str) -> None:
@@ -514,6 +591,83 @@ def cmd_active(args: argparse.Namespace) -> int:
     print(f"hash:          {adr_hash}")
     print(f"domain:        {domain}")
     print(f"registered_at: {registered_at}")
+
+    age = _session_age(session)
+    print(f"age:           {_format_age(age) if age is not None else '<unknown>'}")
+    if _is_stale(session):
+        print(
+            f"stale:         YES — older than {SESSION_STALE_AFTER_HOURS}h and still blocking writes under agents/ and skills/"
+        )
+        print("               close it with: python3 scripts/adr-query.py close")
+    else:
+        print("stale:         no")
+    return 0
+
+
+def cmd_close(args: argparse.Namespace) -> int:
+    """End the active ADR session by removing .adr-session.json.
+
+    Refuses when the registered ADR still has unchecked checklist items — that
+    is the case where consultation is genuinely live. --force overrides.
+    """
+    repo_root = _repo_root(args)
+    session = _session_read(repo_root)
+
+    session_path = session.get("adr_path")
+    session_hash = session.get("adr_hash")
+    if not isinstance(session_path, str) or not isinstance(session_hash, str):
+        raise ValueError("ADR session registry must contain string adr_path and adr_hash fields")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", session_hash):
+        raise ValueError("registered ADR hash must use sha256:<64 lowercase hex digits>")
+
+    # Same containment/symlink verification register and validate-registration use.
+    try:
+        registered = _resolve_adr(session_path, repo_root)
+    except ValueError as exc:
+        if not args.force:
+            raise ValueError(
+                f"cannot verify the registered ADR ({exc}). "
+                f"The session points at {session_path}, which is missing, moved, or outside adr/. "
+                f"Re-run with --force to close the session anyway."
+            ) from exc
+        registered = None
+
+    # Confirm we are closing the session the caller means to close.
+    if args.adr is not None:
+        requested = _resolve_adr(args.adr, repo_root)
+        if registered is None or requested != registered:
+            raise ValueError(
+                f"--adr does not match the active session: requested {args.adr}, registered {session_path}"
+            )
+
+    checklist_note = "unknown (registered ADR could not be read)"
+    if registered is not None:
+        unchecked, total = _checklist_counts(registered)
+        checklist_note = (
+            f"complete ({total}/{total} checked)" if unchecked == 0 else f"{unchecked} of {total} unchecked"
+        )
+        if unchecked and not args.force:
+            raise ValueError(
+                f"refusing to close: {session_path} still has {unchecked} unchecked checklist item(s), "
+                f"so this session looks live. Finish the work, or re-run with --force to close it anyway."
+            )
+        current_hash = _compute_hash(registered)
+        if current_hash != session_hash:
+            print(
+                f"warning: {session_path} changed since registration "
+                f"(registered {session_hash}, current {current_hash})",
+                file=sys.stderr,
+            )
+
+    age = _session_age(session)
+    removed = _session_delete(repo_root)
+
+    print(f"Closed ADR session: {session_path}")
+    print(f"  domain:        {session.get('domain', '<unknown>')}")
+    print(f"  registered_at: {session.get('registered_at', '<unknown>')}")
+    print(f"  age:           {_format_age(age) if age is not None else '<unknown>'}")
+    print(f"  checklist:     {checklist_note}")
+    print(f"  removed:       {removed}")
     return 0
 
 
@@ -611,6 +765,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     add_repo_root(p_active)
 
+    # --- close ---
+    p_close = subparsers.add_parser(
+        "close",
+        help="End the active ADR session (removes .adr-session.json).",
+    )
+    add_repo_root(p_close)
+    p_close.add_argument(
+        "--adr",
+        metavar="PATH",
+        help="Optional: assert which ADR the active session registered",
+    )
+    p_close.add_argument(
+        "--force",
+        action="store_true",
+        help="Close even when the ADR has unchecked checklist items or cannot be verified",
+    )
+
     p_validate_registration = subparsers.add_parser(
         "validate-registration",
         help="Validate ADR containment, hash, and active session registration.",
@@ -640,6 +811,7 @@ def main() -> int:
         "list": cmd_list,
         "register": cmd_register,
         "active": cmd_active,
+        "close": cmd_close,
         "validate-registration": cmd_validate_registration,
     }
 

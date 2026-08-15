@@ -13,7 +13,7 @@ routing:
     - "type design review"
     - "test coverage review"
     - "config safety review"
-  not_for: "Codex second-opinion review or PR lifecycle (use pr-workflow skill) — this agent reviews code quality: conventions, naming, dead code, test coverage"
+  not_for: "Codex second-opinion review or PR lifecycle (use pr-workflow skill); business-logic correctness, ADR conformance, or SAP CC structural review (use reviewer-domain) — this agent reviews code quality: conventions, naming, dead code, test coverage"
   pairs_with:
     - workflow
     - parallel-code-review

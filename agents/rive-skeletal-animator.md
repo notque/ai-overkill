@@ -14,6 +14,7 @@ routing:
     - hit reaction animation
     - "@rive-app/react-canvas"
     - .riv files
+  not_for: "GPU particle and WebGL combat rendering (use pixijs-combat-renderer); CSS or Framer Motion effects (use combat-effects-upgrade); 2D sprite-sheet generation pipelines (use game-sprite-pipeline skill); 3D scene animation (use threejs-builder skill). This agent integrates Rive skeletal animation, state machines, and character pipelines."
   pairs_with:
     - typescript-frontend-engineer
     - ui-design-engineer

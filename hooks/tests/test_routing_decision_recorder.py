@@ -481,6 +481,169 @@ class TestDecisionRecorder:
         assert _query_telemetry(db_env) == []
 
 
+def _basis_counts(db_env) -> dict[str, int]:
+    """Every routing_outcome_basis row as {basis: count}."""
+    sys.path.insert(0, str(LIB_DIR))
+    import learning_db_v2 as ldb
+
+    with ldb.get_connection() as conn:
+        rows = conn.execute("SELECT basis, SUM(count) AS n FROM routing_outcome_basis GROUP BY basis").fetchall()
+    return {r["basis"]: int(r["n"]) for r in rows}
+
+
+def _routing_row(db_env, key: str) -> dict:
+    return next(r for r in _query_routing(db_env) if r["key"] == key)
+
+
+class TestRouteFitBanner:
+    """(D) The route-fit banner: the router's only signal that a pick was WRONG.
+
+    Weighting is asymmetric on purpose and every test here pins that asymmetry:
+    a negative verdict decays the route, `ok` moves confidence by exactly
+    nothing. An `ok` that could boost would rebuild the metric this replaces —
+    success inferred from the absence of a complaint.
+    """
+
+    KEY: ClassVar[str] = "python-general-engineer:go-patterns"
+
+    def _run(self, name, db_env, monkeypatch, output):
+        a = _load(A_PATH, name)
+        monkeypatch.setattr(a, "append_pending_outcome", lambda *_a, **_k: None)
+        monkeypatch.setattr(a, "claim_dispatch", lambda *_a, **_k: True)
+        event = _agent_event(skill="go-patterns", output=output)
+        with patch("sys.exit"), patch("sys.stdin.read", return_value=json.dumps(event)):
+            a.main()
+        return _routing_row(db_env, self.KEY)
+
+    @pytest.mark.parametrize("verdict", ["wrong-agent", "wrong-skill", "needs-coordinator", "underspecified"])
+    def test_negative_verdict_decays_the_route(self, verdict, db_env, monkeypatch):
+        baseline = self._run(f"rf_base_{verdict}", db_env, monkeypatch, "no banner here")["confidence"]
+        row = self._run(f"rf_neg_{verdict}", db_env, monkeypatch, f"work done.\nroute-fit: {verdict}")
+        assert row["confidence"] < baseline
+        assert row["failure_count"] == 1
+        assert _basis_counts(db_env)[f"route_fit:{verdict}"] == 1
+
+    def test_ok_never_boosts(self, db_env, monkeypatch):
+        """WEAK evidence: recorded, counted, and worth zero confidence."""
+        before = self._run("rf_ok_base", db_env, monkeypatch, "no banner here")
+        after = self._run("rf_ok", db_env, monkeypatch, "all done.\nroute-fit: ok")
+        assert after["confidence"] == before["confidence"]
+        assert after["success_count"] == 0
+        assert after["failure_count"] == 0
+        assert _basis_counts(db_env)["route_fit:ok"] == 1
+
+    def test_banner_absent_is_silent(self, db_env, monkeypatch):
+        self._run("rf_absent", db_env, monkeypatch, "plain output, no banner")
+        assert not any(b.startswith("route_fit:") for b in _basis_counts(db_env))
+
+    @pytest.mark.parametrize(
+        "output",
+        [
+            "route-fit: maybe",  # value outside the enum
+            "route-fit: wrong-agent, but I fixed it anyway",  # trailing prose
+            "route-fit:",  # no value
+            "the banner format is route-fit: <ok|wrong-agent> mid-sentence",  # quoted spec
+            "route-fit wrong-agent",  # missing colon
+        ],
+    )
+    def test_malformed_banner_is_ignored_not_guessed(self, output, db_env, monkeypatch):
+        assert self._run(f"rf_bad_{abs(hash(output))}", db_env, monkeypatch, output)["failure_count"] == 0
+        assert not any(b.startswith("route_fit:") for b in _basis_counts(db_env))
+
+    def test_last_banner_wins(self, db_env, monkeypatch):
+        """The banner is the FINAL line; an earlier mention must not outrank it."""
+        a = _load(A_PATH, "rf_last")
+        assert a.parse_route_fit("route-fit: ok\nmore work happened\nroute-fit: wrong-skill") == "wrong-skill"
+
+    def test_malformed_banner_never_blocks_the_dispatch(self, db_env):
+        """Fail open: the hook still exits 0 and still records the decision."""
+        event = _agent_event(skill="go-patterns", output="route-fit: \x00\x00 garbage")
+        assert _run_hook(A_PATH, event).returncode == 0
+
+    def test_scoring_failure_never_blocks_the_dispatch(self, db_env, monkeypatch):
+        """Even if apply_outcome explodes, the hook exits 0 and keeps its rows."""
+        a = _load(A_PATH, "rf_raises")
+        monkeypatch.setattr(a, "append_pending_outcome", lambda *_a, **_k: None)
+        monkeypatch.setattr(a, "claim_dispatch", lambda *_a, **_k: True)
+
+        def _boom(*_a, **_k):
+            raise RuntimeError("db on fire")
+
+        monkeypatch.setattr(a, "record_route_fit", _boom)
+        event = _agent_event(skill="go-patterns", output="done.\nroute-fit: wrong-agent")
+        with patch("sys.exit"), patch("sys.stdin.read", return_value=json.dumps(event)):
+            a.main()  # must not raise
+        assert _routing_row(db_env, self.KEY)["failure_count"] == 0
+
+    def test_workflow_multi_marker_event_is_not_scored(self, db_env, tmp_path, monkeypatch):
+        """One output cannot be attributed across N workers — score nothing."""
+        sys.path.insert(0, str(LIB_DIR))
+        import telemetry_capture as tc
+
+        monkeypatch.setattr(tc, "_STATE_DIR", tmp_path / "telstate")
+        a = _load(A_PATH, "rf_wf")
+        event = _workflow_event(_TWO_MARKER_SCRIPT, session="rf-wf", output="done.\nroute-fit: wrong-agent")
+        with patch("sys.exit"), patch("sys.stdin.read", return_value=json.dumps(event)):
+            a.main()
+        assert not any(b.startswith("route_fit:") for b in _basis_counts(db_env))
+
+    def test_verdict_lands_on_the_evidence_decision_row(self, db_env, monkeypatch):
+        self._run("rf_evidence", db_env, monkeypatch, "done.\nroute-fit: wrong-skill")
+        sys.path.insert(0, str(LIB_DIR))
+        import learning_db_v2 as ldb
+
+        with ldb.get_connection() as conn:
+            row = conn.execute(
+                "SELECT outcome, outcome_basis FROM evidence_route_decisions WHERE route_key = ? ORDER BY id DESC",
+                (self.KEY,),
+            ).fetchone()
+        assert (row["outcome"], row["outcome_basis"]) == ("failure", "route_fit:wrong-skill")
+
+
+class TestFallbackReasonRecording:
+    """`fallback=<slug>` on the marker becomes a countable row (Task 2)."""
+
+    def _run(self, name, db_env, monkeypatch, marker_line):
+        a = _load(A_PATH, name)
+        monkeypatch.setattr(a, "append_pending_outcome", lambda *_a, **_k: None)
+        monkeypatch.setattr(a, "claim_dispatch", lambda *_a, **_k: True)
+        event = _agent_event(skill="quick")
+        event["tool_input"]["prompt"] = f"{marker_line}\nDo the thing."
+        with patch("sys.exit"), patch("sys.stdin.read", return_value=json.dumps(event)):
+            a.main()
+        return {r["key"] for r in _query_routing(db_env)}
+
+    def test_reason_recorded_as_its_own_row(self, db_env, monkeypatch):
+        keys = self._run(
+            "fb_reason",
+            db_env,
+            monkeypatch,
+            "[do-route] agent=general-purpose skill=quick complexity=medium model=opus "
+            "health=- fallback=no-specialist-match",
+        )
+        assert "fallback-reason:no-specialist-match" in keys
+        assert "general-purpose:quick" in keys
+
+    def test_no_reason_row_without_the_token(self, db_env, monkeypatch):
+        keys = self._run(
+            "fb_none",
+            db_env,
+            monkeypatch,
+            "[do-route] agent=python-general-engineer skill=quick complexity=medium model=opus health=-",
+        )
+        assert not any(k.startswith("fallback-reason:") for k in keys)
+
+    def test_reason_is_read_from_the_marker_line_only(self, db_env, monkeypatch):
+        """Task prose saying `fallback=...` must never be read as the router's reason."""
+        a = _load(A_PATH, "fb_scope")
+        assert (
+            a.parse_fallback_reason(
+                "[do-route] agent=python-general-engineer skill=quick complexity=medium\nuse fallback=whatever in the body"
+            )
+            is None
+        )
+
+
 class TestWorkflowDecisionRecorder:
     """A also sees Workflow dispatches (/do Complex): one decision per
     line-start [do-route] marker in tool_input.script, idempotent per marker

@@ -32,6 +32,7 @@ routing:
     - perses plugin development
     - perses cue schema
     - plugin schema
+  not_for: "Grafana or Prometheus dashboards, alerting, and PromQL (use prometheus-grafana-engineer); Kubernetes manifests and Helm charts unrelated to Perses (use kubernetes-helm-engineer); TypeScript frontend work outside the Perses codebase (use typescript-frontend-engineer). This agent develops the Perses platform itself: dashboards, plugins, operator, and core."
   pairs_with:
     - golang-general-engineer
     - typescript-frontend-engineer

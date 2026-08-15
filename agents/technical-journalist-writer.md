@@ -9,6 +9,7 @@ routing:
     - journalist voice
     - technical writer
     - technical journalism
+  not_for: "API references, runbooks, or architecture documentation (use technical-documentation-engineer); drafting through a stored voice profile (use voice-writer skill); building or validating a voice profile (use create-voice or voice-validator skills); SEO, campaign, and launch copy (use marketing skill). This agent writes technical journalism: explainers, opinion, and analysis."
   pairs_with:
     - voice-writer
   complexity: Comprehensive

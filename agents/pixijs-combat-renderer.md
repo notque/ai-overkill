@@ -14,6 +14,7 @@ routing:
     - normal map 2D
     - pixi filters
     - sprite rendering GPU
+  not_for: "CSS or Framer Motion effects that need no WebGL (use combat-effects-upgrade); skeletal character animation and state machines (use rive-skeletal-animator); 3D or Three.js scenes (use threejs-builder skill); general React component architecture (use typescript-frontend-engineer). This agent renders 2D WebGL combat with PixiJS v8."
   pairs_with:
     - typescript-frontend-engineer
     - ui-design-engineer

@@ -131,7 +131,7 @@ from `feat/outcome-routing-loop:scripts/route-value-eval.py`.
 
 ## Adding corpus cases or buckets
 
-Corpus: `scripts/routing-ab-corpus.json` (v1.1, 99 cases). Rules:
+Corpus: `scripts/routing-ab-corpus.json` (v1.3, 269 cases). Rules:
 
 - **Append only.** The 49 legacy v1.0 cases are pinned by SHA-256 in
   `scripts/tests/test_routing_ab_harness.py`; editing them breaks CI.
@@ -147,8 +147,64 @@ Corpus: `scripts/routing-ab-corpus.json` (v1.1, 99 cases). Rules:
   tiered-manifest tripwire), `sibling-disambiguation`, `pipeline-pick`
   (`expected_pipeline`; near-misses must yield pipeline null), `vague-interview`,
   `plain-english`.
+- Buckets v1.3 added, from 128 recorded production dispatches that fell back to
+  `general-purpose`: `prod-fallback-specialist` (a domain agent is correct),
+  `prod-fallback-general` (`general-purpose` is correct — labelled EXPLICITLY,
+  never as null, so an over-aggressive router fails too),
+  `prod-fallback-coordinator` (multi-deliverable conjunctive requests;
+  `project-coordinator-engineer` was chosen 0 times in 287 dispatches), and
+  `prod-fallback-ambiguous` (`expected_agent: null` WITH the reason in `notes`).
+- **Keep the `expected_agent` null rate low.** At v1.2 it was 142/178 (79.8%):
+  a router that routed LESS scored BETTER, so under-routing was undetectable and
+  a blind A/B promoted a regression as a 7-point gain. `test_null_agent_rate_stays_bounded`
+  caps it at 60%. Null means "genuinely ambiguous, reason stated", not
+  "no agent needed" — write `general-purpose` when that is the right answer.
+- `expected_agent` may be a built-in agent name (`general-purpose`) that has no
+  `agents/*.md` file; `routing-benchmark.py` accepts the `BUILTIN_AGENTS` set.
 - Add cases on a branch and run the corpus tests:
   `python3 -m pytest scripts/tests/test_routing_ab_harness.py -q`.
+
+## Provenance and the multi-box rule (v1.4)
+
+This toolkit runs on several machines with different workloads. `learning.db` is
+**per-box**: no host, machine, or project column, and nothing aggregates across
+boxes. A local sample is therefore evidence about ONE machine. **Local absence of
+an agent or skill is not evidence that it is unused** — do not reason from it.
+
+Every taggable case carries `provenance: {source, workload, sample}`:
+
+| `source` | Meaning | `workload` |
+|---|---|---|
+| `local-telemetry` | Sampled from recorded dispatches on one machine | names that workload |
+| `catalog-derived` | Written from INDEX semantics; no telemetry | `null` |
+| `unknown-legacy` | Not recorded at the time | `null` |
+
+The 49 pinned v1.0 cases cannot carry the field (SHA-256 pin plus
+`test_legacy_cases_have_no_new_fields`), so **absence resolves to
+`unknown-legacy`**. They are believed to be paraphrases of
+`routing-benchmark.json`, but that was never recorded, so it is not asserted.
+
+`test_no_single_workload_dominates_agent_labels` caps any one workload at 75% of
+the agent-asserting cases. At v1.4 the top workload (`mmr-ratings-flask`) holds
+70.0% — the cap is a ratchet against growth, not an endorsement of that share.
+
+**Contributing from another machine.** Balance comes from real cases, never from
+inventing cases for a workload nobody has observed. To contribute:
+
+1. Export your own general-purpose fallbacks (agent, skill, complexity, request).
+2. Label them the way v1.3 did: specialist / general / coordinator /
+   ambiguous-with-a-reason, `general-purpose` written explicitly when it is right.
+3. Tag `provenance.source: "local-telemetry"` with **your** `workload` name.
+4. Lower the cap in the guard test as real coverage arrives.
+
+Prefer agents that currently hold zero agent-asserting cases — as of v1.4 that is
+26 of 44, including every Node/React/Next agent, the observability agents
+(`prometheus-grafana-engineer`, `perses-engineer`), the messaging and search
+agents (`rabbitmq-messaging-engineer`, `opensearch-elasticsearch-engineer`),
+`ansible-automation-engineer`, `database-engineer`, `data-engineer`,
+`nodejs-api-engineer`, `typescript-debugging-engineer`, `reviewer-code`, and
+`reviewer-perspectives`. A box doing Node API or Kubernetes work can cover those
+in a way this box never will.
 
 ## Cost: 100-case, 2-arm run
 
