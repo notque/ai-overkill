@@ -34,22 +34,57 @@ own fail-open path.
 Run with: python3 -m pytest hooks/tests/test_undefined_name_gate.py -v
 """
 
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 — tomllib arrived in 3.11
+    tomllib = None  # type: ignore[assignment]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 
+# Matches a quoted rule code inside an array entry, ignoring trailing comments.
+_RULE_RE = re.compile(r"""["']([A-Z]+[0-9]*)["']""")
+
+
+def _lint_array(key: str) -> list[str]:
+    """Read `key` out of [tool.ruff.lint] as a list of rule codes.
+
+    Uses tomllib on 3.11+. On 3.10 it falls back to a textual scan rather than
+    depending on tomli: the CI matrix covers 3.10, and this guard is
+    deliberately runnable with no third-party package and no ruff binary, so it
+    cannot be skipped away in a stripped environment.
+    """
+    text = PYPROJECT.read_text(encoding="utf-8")
+    if tomllib is not None:
+        return tomllib.loads(text)["tool"]["ruff"]["lint"].get(key, [])
+
+    # 3.10 fallback. Slice out the [tool.ruff.lint] table, stopping at the next
+    # table header so [tool.ruff.lint.per-file-ignores] is not swept in.
+    body = text.split("[tool.ruff.lint]", 1)
+    if len(body) < 2:
+        raise AssertionError("pyproject.toml has no [tool.ruff.lint] table")
+    table = re.split(r"^\[", body[1], maxsplit=1, flags=re.MULTILINE)[0]
+
+    m = re.search(rf"^{key}\s*=\s*\[(.*?)^\]", table, re.MULTILINE | re.DOTALL)
+    if m is None:
+        return []
+    # Drop comments first. pyproject parks disabled rules as `# "PTH",`, and
+    # scanning them would report a rule as enabled when it is not — a fallback
+    # that disagrees with the real parser is worse than no fallback.
+    uncommented = "\n".join(line.split("#", 1)[0] for line in m.group(1).splitlines())
+    return _RULE_RE.findall(uncommented)
+
 
 def _lint_ignore_list() -> list[str]:
-    with open(PYPROJECT, "rb") as f:
-        config = tomllib.load(f)
-    return config["tool"]["ruff"]["lint"].get("ignore", [])
+    return _lint_array("ignore")
 
 
 def test_f821_is_not_globally_ignored() -> None:
@@ -74,9 +109,7 @@ def test_f821_is_enabled_in_the_selected_rule_set() -> None:
     Guards the other way the rule could be lost: narrowing `select` so the
     pyflakes "F" family no longer applies.
     """
-    with open(PYPROJECT, "rb") as f:
-        config = tomllib.load(f)
-    selected = config["tool"]["ruff"]["lint"].get("select", [])
+    selected = _lint_array("select")
     assert any(rule == "F" or rule.startswith("F8") for rule in selected), (
         f"ruff lint.select={selected!r} no longer covers the pyflakes F family, "
         "so F821 (undefined-name) is not enforced."
