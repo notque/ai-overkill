@@ -27,6 +27,10 @@ jobs:
       - run: python scripts/validate-references.py --check-placeholders
       - run: python scripts/validate-skill-frontmatter.py
       - run: python scripts/validate-index-integrity.py
+      # promoted_to is the toolkit's delete switch: one frontmatter line drops a
+      # skill from INDEX.json and from routing. Gate it — a phantom successor
+      # retires a skill into nothing (it removed /do from the skill catalogue).
+      - run: python scripts/validate-promoted-successors.py
       # Advisory (always exit 0): merged tracked+local index — phantom files, dead
       # agent refs, missing category/description, "NOT: " doubling, category
       # registry. Gate later with --strict (ADR router-improvement-program, C2).

@@ -15,6 +15,20 @@ scripts/routing-ab-results/tiered-v1|v2/VERDICT.md on PR #771's branch).
 The flag stays for experimentation only; the /do router uses the full
 manifest (no flag).
 
+Line format (default/full manifest):
+
+    AGENTS:
+      name [pairs_with] — description NOT: excluded t:phrase|phrase
+    SKILLS:
+      name FORCE agent=x (category) — description NOT: excluded t:phrase|phrase
+
+The trailing ``t:`` field carries up to TRIGGER_CAP hand-curated trigger
+phrases from INDEX.json — the discriminating signal the router needs to
+tell two same-domain skills apart. Every FULL line carries it, in the
+default manifest and on --tiered's FULL lines alike. --tiered stubs and
+--compact skip it: both exist to shrink the manifest, so neither pays for
+the field.
+
 Exit codes:
     0 — Always (advisory)
 """
@@ -47,6 +61,14 @@ from learning_db_v2 import get_db_dir
 # working set, and how many description words a stub line keeps.
 WORKING_SET_WINDOW_SECONDS = 30 * 86400
 STUB_DESC_WORDS = 6
+
+# Trigger phrases rendered per AGENTS/SKILLS line. The manifest is injected on
+# every routing decision, so this is a byte budget, not a preference: measured
+# against the 37,367-byte no-trigger manifest, top-3 costs +19%, top-5 +29%,
+# and all 1,791 curated phrases +80%. Top-5 is the chosen trade. Tune here.
+TRIGGER_CAP = 5
+TRIGGER_PREFIX = " t:"
+TRIGGER_SEP = "|"
 
 
 INDEX_PATHS = {
@@ -157,6 +179,47 @@ def load_working_set(now: float | None = None) -> set[str]:
     return names
 
 
+def section_names(entries: list[dict]) -> dict[str, set[str]]:
+    """Names owned by each section, keyed by entry type."""
+    names: dict[str, set[str]] = {"agent": set(), "skill": set(), "pipeline": set()}
+    for e in entries:
+        names.setdefault(e["type"], set()).add(e["name"])
+    return names
+
+
+def select_triggers(entry: dict, reserved: set[str], cap: int | None = None) -> list[str]:
+    """Pick up to `cap` trigger phrases that add routing signal to this line.
+
+    Two classes of phrase are dropped before the cap applies:
+
+    - A phrase equal to a component name in the OTHER section. The /do section
+      validator decides `route.agent in agents` by tokenizing the text between
+      the AGENTS: and SKILLS: headers, so a skill name printed inside an agent
+      line would validate that skill as an agent. Five real cases exist today
+      (agent kotlin-general-engineer carries trigger "kotlin", which is also a
+      skill). Dropping them keeps SECTION-INTEGRITY true by construction.
+    - A phrase already present verbatim in the description, which spends bytes
+      to repeat a token the router can already read on the same line.
+    """
+    cap = TRIGGER_CAP if cap is None else cap
+    desc = str(entry.get("description") or "").lower()
+    picked: list[str] = []
+    for raw in entry.get("triggers") or []:
+        if len(picked) >= cap:
+            break
+        phrase = str(raw).strip()
+        if not phrase or phrase in reserved or phrase.lower() in desc:
+            continue
+        picked.append(phrase)
+    return picked
+
+
+def format_triggers(entry: dict, reserved: set[str]) -> str:
+    """Render the trailing ` t:a|b|c` field, or "" when nothing survives selection."""
+    picked = select_triggers(entry, reserved)
+    return TRIGGER_PREFIX + TRIGGER_SEP.join(picked) if picked else ""
+
+
 def _stub_line(entry: dict) -> str:
     """One-line stub: name + router-critical metadata + first STUB_DESC_WORDS description words.
 
@@ -177,12 +240,14 @@ def format_tiered(entries: list[dict], working_set: set[str]) -> str:
     """Format entries with FULL lines for the working set, stubs for the rest.
 
     FULL: working-set names (recorded routes) and every force-route entry —
-    force-route entries are never stubbed. Stub: name + 6-word description.
-    Pipelines are few; they always render FULL.
+    force-route entries are never stubbed, and a FULL line here is the same
+    line format_compact renders, triggers included. Stub: name + 6-word
+    description, no triggers. Pipelines are few; they always render FULL.
     """
     agents = []
     skills = []
     pipelines = []
+    names = section_names(entries)
 
     for e in entries:
         name = e["name"]
@@ -202,12 +267,14 @@ def format_tiered(entries: list[dict], working_set: set[str]) -> str:
 
         if e["type"] == "agent":
             pairs_str = f" [{pairs}]" if pairs else ""
-            agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}")
+            trig_str = format_triggers(e, names["skill"])
+            agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}{trig_str}")
         else:
             force_str = " FORCE" if e.get("force_route") else ""
             agent_str = f" agent={e['agent']}" if e.get("agent") else ""
             cat_str = f" ({e['category']})" if e.get("category") else ""
-            skills.append(f"  {name}{force_str}{agent_str}{cat_str} — {desc}{not_for_str}")
+            trig_str = format_triggers(e, names["agent"])
+            skills.append(f"  {name}{force_str}{agent_str}{cat_str} — {desc}{not_for_str}{trig_str}")
 
     sections = []
     if agents:
@@ -223,12 +290,15 @@ def format_tiered(entries: list[dict], working_set: set[str]) -> str:
 def format_compact(entries: list[dict]) -> str:
     """Format entries as a compact text manifest for LLM consumption.
 
-    Two sections: agents (with paired skills) and skills (with triggers).
-    Optimized for token efficiency — one line per entry.
+    Two sections: agents (with paired skills) and skills. Both carry a trailing
+    ``t:`` trigger field — the curated phrases are what let the router tell two
+    same-domain entries apart, so they render here even though they cost bytes.
+    One line per entry.
     """
     agents = []
     skills = []
     pipelines = []
+    names = section_names(entries)
 
     for e in entries:
         name = e["name"]
@@ -240,14 +310,16 @@ def format_compact(entries: list[dict]) -> str:
 
         if e["type"] == "agent":
             pairs_str = f" [{pairs}]" if pairs else ""
-            agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}")
+            trig_str = format_triggers(e, names["skill"])
+            agents.append(f"  {name}{pairs_str} — {desc}{not_for_str}{trig_str}")
         elif e["type"] == "pipeline":
             pipelines.append(f"  {name} — {desc}")
         else:
             force_str = " FORCE" if e.get("force_route") else ""
             agent_str = f" agent={e['agent']}" if e.get("agent") else ""
             cat_str = f" ({e['category']})" if e.get("category") else ""
-            skills.append(f"  {name}{force_str}{agent_str}{cat_str} — {desc}{not_for_str}")
+            trig_str = format_triggers(e, names["agent"])
+            skills.append(f"  {name}{force_str}{agent_str}{cat_str} — {desc}{not_for_str}{trig_str}")
 
     sections = []
     if agents:
