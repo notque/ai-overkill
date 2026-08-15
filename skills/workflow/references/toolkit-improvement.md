@@ -11,7 +11,6 @@ allowed-tools:
   - Grep
   - Edit
 routing:
-  force_route: true
   triggers:
     # Direct intent
     - improve the toolkit

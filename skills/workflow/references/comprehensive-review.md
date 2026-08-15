@@ -16,7 +16,6 @@ allowed-tools:
   - TaskList
   - EnterWorktree
 routing:
-  force_route: true
   triggers:
     - comprehensive review
     - full code review

@@ -11,7 +11,6 @@ allowed-tools:
   - Agent
   - Write
 routing:
-  force_route: true
   triggers:
     - research pipeline
     - formal research

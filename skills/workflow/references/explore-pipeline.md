@@ -11,7 +11,6 @@ allowed-tools:
 context: fork
 command: /explore
 routing:
-  force_route: true
   triggers:
     - understand codebase
     - explore repo

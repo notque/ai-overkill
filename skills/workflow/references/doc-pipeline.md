@@ -13,7 +13,6 @@ allowed-tools:
 context: fork
 command: /doc
 routing:
-  force_route: true
   triggers:
     - document this
     - create readme
