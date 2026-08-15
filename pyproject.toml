@@ -30,6 +30,16 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+# Declare the file types this project formats and lints. Without it the set is
+# whatever the installed ruff defaults to, which drifts between versions: 0.16
+# began formatting python blocks inside markdown, so a newer local ruff wanted
+# to rewrite 62 reference .md files that the CI pin (0.15.12) never looks at,
+# and one of those rewrites pushed a reference file past its 500-line ceiling.
+# Reference docs are prose written for humans; agent-facing snippets are
+# illustrative, sometimes deliberately partial, and are not compiled. Pinning
+# the scope to python sources keeps the local gate and CI enforcing the same
+# thing on every ruff version.
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
 # Local-only backup virtualenv (untracked; absent in CI). Exclude its vendored
 # third-party scripts from lint/format so local gate runs stay clean.
 extend-exclude = ["venv.312.bak"]
