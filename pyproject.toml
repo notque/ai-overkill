@@ -78,8 +78,20 @@ ignore = [
     "E501",
     # f-string without placeholders (used intentionally in many places)
     "F541",
-    # Undefined names (false positives in conditional imports and dynamic code)
-    "F821",
+    # NOTE: F821 (undefined-name) was previously ignored here as "false
+    # positives in conditional imports and dynamic code". It was re-enabled
+    # after that claim was tested: with F821 on, the whole repo produced TWO
+    # findings and BOTH were real latent NameErrors (a missing `import re` in
+    # update_routing.py, and a test registry naming a function that does not
+    # exist). Zero false positives.
+    #
+    # The cost of the ignore was concrete: adr-enforcement.py shipped with
+    # `__EVENT_NAME = ...` defined but `_EVENT_NAME` referenced, so every
+    # invocation raised NameError in its own fail-open path. F821 flags that
+    # typo on sight; with the rule off it survived from the initial release
+    # until an unrelated refactor renamed the constant by accident, logging
+    # 1,795 crashes in between. Keep this rule ON — a hook that crashes in its
+    # skip path enforces nothing, and silently.
     # Unused function arguments (hooks have required signatures)
     "ARG001",
     # Collapsible if statements (readability preference)

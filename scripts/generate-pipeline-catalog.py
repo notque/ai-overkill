@@ -31,6 +31,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib.frontmatter import extract_frontmatter_block
 
+# auto-pipeline consumes this catalog in its Phase 0 DEDUP CHECK to decide
+# whether an existing pipeline already covers the request. Its own doc lives in
+# the scanned directory, so a plain glob lists it as a candidate match for
+# itself: a request that reaches auto-pipeline matches auto-pipeline, and the
+# HARD BLOCK routes it straight back. Exclude it at the source.
+SELF_EXCLUDED = frozenset({"auto-pipeline"})
+
 
 def extract_frontmatter(content: str) -> dict | None:
     """Extract YAML frontmatter from markdown content.
@@ -275,6 +282,9 @@ def scan_pipelines(references_dir: Path) -> tuple[list[dict], list[str]]:
             continue
 
         name = frontmatter.get("name", skill_file.stem)
+        if name in SELF_EXCLUDED:
+            continue
+
         description = frontmatter.get("description", "")
         description_line = extract_description_first_line(description)
 

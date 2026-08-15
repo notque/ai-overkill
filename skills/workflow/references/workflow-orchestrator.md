@@ -15,7 +15,6 @@ allowed-tools:
   - Glob
   - Task
 routing:
-  force_route: true
   triggers:
     - orchestrate
     - complex task

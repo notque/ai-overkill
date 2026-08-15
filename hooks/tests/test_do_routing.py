@@ -339,7 +339,7 @@ def main():
         # Skill routing
         test_routes_debug_to_debugging_skill,
         test_routes_tdd_to_tdd_skill,
-        test_routes_go_test_to_go_testing_skill,
+        test_routes_go_test_to_go_patterns_skill,
         # Trivial detection
         test_trivial_detection_fact_lookups,
         test_trivial_detection_git_status,

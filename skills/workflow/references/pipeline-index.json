@@ -110,7 +110,6 @@
       "description": "Unified 4-wave code review: Wave 0 auto-discovers packages/modules and dispatches one language-specialist agent per package for deep per-package analysis.",
       "triggers": [
         "comprehensive review",
-        "full code review",
         "review everything",
         "review and fix",
         "thorough review",
@@ -126,14 +125,28 @@
         "review all packages"
       ],
       "category": "review",
-      "force_route": true,
       "user_invocable": false,
       "version": "4.0.0",
       "pairs_with": [
         "systematic-code-review",
         "parallel-code-review"
       ],
-      "model": "opus"
+      "model": "opus",
+      "phases": [
+        "STATIC ANALYSIS",
+        "SCOPE",
+        "WAVE 0 DISPATCH",
+        "WAVE 0 AGGREGATE",
+        "LIBRARY CONTRACT VERIFICATION",
+        "WAVE 1 DISPATCH",
+        "WAVE 0+1 AGGREGATE",
+        "WAVE 2 DISPATCH",
+        "WAVE 0+1+2 AGGREGATE",
+        "WAVE 3 DISPATCH",
+        "FULL AGGREGATE",
+        "FIX",
+        "REPORT"
+      ]
     },
     "de-ai-pipeline": {
       "file": "skills/workflow/references/de-ai-pipeline.md",
@@ -197,8 +210,8 @@
         "generate README",
         "document the API"
       ],
+      "not_for": "a docstring, an inline comment, or a one-line README tweak \u2014 that is a direct edit or comment-quality. Pick this when the deliverable is a standalone document produced from a codebase survey (RESEARCH-to-OUTPUT).",
       "category": "documentation",
-      "force_route": true,
       "user_invocable": false,
       "version": "2.0.0",
       "phases": [
@@ -258,7 +271,6 @@
         "what is in this repo"
       ],
       "category": "meta",
-      "force_route": true,
       "user_invocable": false,
       "version": "2.0.0",
       "phases": [
@@ -272,7 +284,6 @@
         "REPORT"
       ],
       "pairs_with": [
-        "codebase-overview",
         "codebase-overview",
         "technical-documentation-engineer"
       ]
@@ -379,59 +390,6 @@
         "systematic-debugging"
       ],
       "agent": "mcp-local-docs-engineer"
-    },
-    "perses-dac-pipeline": {
-      "file": "skills/workflow/references/perses-dac-pipeline.md",
-      "description": "Dashboard-as-Code pipeline: initialize CUE or Go module with percli dac setup, write dashboard definitions, build with percli dac build, validate, ...",
-      "triggers": [
-        "dashboard as code",
-        "perses dac",
-        "perses cue",
-        "perses gitops",
-        "perses ci/cd"
-      ],
-      "category": "devops",
-      "user_invocable": false,
-      "version": "2.0.0",
-      "phases": [
-        "INITIALIZE",
-        "DEFINE",
-        "BUILD",
-        "VALIDATE",
-        "DEPLOY",
-        "CI/CD INTEGRATION"
-      ],
-      "pairs_with": [
-        "perses",
-        "perses-plugin-pipeline"
-      ],
-      "agent": "perses-engineer"
-    },
-    "perses-plugin-pipeline": {
-      "file": "skills/workflow/references/perses-plugin-pipeline.md",
-      "description": "End-to-end Perses plugin development pipeline: SCAFFOLD, SCHEMA, IMPLEMENT, TEST, BUILD, DEPLOY.",
-      "triggers": [
-        "perses plugin pipeline",
-        "full plugin development",
-        "perses plugin create and deploy",
-        "plugin end to end"
-      ],
-      "category": "devops",
-      "user_invocable": false,
-      "version": "2.0.0",
-      "phases": [
-        "SCAFFOLD",
-        "SCHEMA",
-        "IMPLEMENT",
-        "TEST",
-        "BUILD",
-        "DEPLOY"
-      ],
-      "pairs_with": [
-        "perses",
-        "perses-dac-pipeline"
-      ],
-      "agent": "perses-engineer"
     },
     "pipeline-retro": {
       "file": "skills/workflow/references/pipeline-retro.md",
@@ -548,7 +506,7 @@
       ]
     },
     "quality-loop": {
-      "name": "quality-loop",
+      "file": "skills/meta/do/references/quality-loop.md",
       "description": "Canonical 14-phase pipeline for all Medium+ code modifications: ADR through cleanup",
       "phases": [
         "ADR",
@@ -574,7 +532,6 @@
         "add feature"
       ],
       "skill": "do",
-      "reference": "skills/meta/do/references/quality-loop.md",
       "category": "process",
       "user_invocable": false,
       "version": "1.0.0"
@@ -594,8 +551,8 @@
         "systematic research",
         "multi-source research"
       ],
+      "not_for": "a quick one-off web search or chat-style lookup. Pick this when the user wants a sourced report saved as an artifact (SCOPE-to-DELIVER), even when phrased as 'dig into X and give me a sourced report'.",
       "category": "meta",
-      "force_route": true,
       "user_invocable": true,
       "version": "1.0.0",
       "phases": [
@@ -617,7 +574,6 @@
       "triggers": [
         "research then write",
         "article with research",
-        "write about",
         "research and article",
         "full article pipeline",
         "comprehensive article"
@@ -676,8 +632,8 @@
         "adapt workflow",
         "system health"
       ],
+      "not_for": "upgrading one named agent or skill \u2014 that is agent-upgrade. Pick this only when an external change (a Claude Code release, a stated goal shift, or graduated learnings) requires adapting many components at once.",
       "category": "meta",
-      "force_route": true,
       "user_invocable": false,
       "version": "1.0.0",
       "phases": [
@@ -803,7 +759,6 @@
         "dispatch evaluation agents"
       ],
       "category": "meta",
-      "force_route": true,
       "user_invocable": false,
       "version": "1.0.0",
       "pairs_with": [
@@ -811,10 +766,22 @@
         "skill-eval",
         "agent-evaluation"
       ],
-      "model": "opus"
+      "model": "opus",
+      "phases": [
+        "EVALUATE",
+        "RESEARCH",
+        "SYNTHESIZE",
+        "CRITIQUE",
+        "REPORT",
+        "ADR",
+        "IMPLEMENT",
+        "VALIDATE",
+        "REMEDIATE",
+        "RECORD"
+      ]
     },
     "voice-writer": {
-      "file": "skills/workflow/references/voice-writer.md",
+      "file": "skills/content/voice-writer/SKILL.md",
       "description": "Unified voice content generation pipeline with mandatory validation and joy-check. 13-phase pipeline with per-phase agent dispatch.",
       "triggers": [
         "write article",
@@ -849,6 +816,7 @@
         "use voice pipeline",
         "write for blog"
       ],
+      "not_for": "scheduling or calendaring a content series (use content-calendar); drafting interpersonal emails, memos, meeting summaries, or professional pushback messages (use professional-communication). This skill generates articles and blog posts from a voice profile.",
       "category": "content",
       "force_route": true,
       "user_invocable": true,
@@ -886,7 +854,6 @@
         "multi-step implementation"
       ],
       "category": "meta",
-      "force_route": true,
       "user_invocable": false,
       "version": "3.0.0",
       "phases": [

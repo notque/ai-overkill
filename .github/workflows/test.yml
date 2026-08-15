@@ -31,6 +31,10 @@ jobs:
       # skill from INDEX.json and from routing. Gate it — a phantom successor
       # retires a skill into nothing (it removed /do from the skill catalogue).
       - run: python scripts/validate-promoted-successors.py
+      # pipeline-index.json is hand-maintained and validate-do-references.py only
+      # resolves component NAMES, so an entry pointing at a deleted doc passed CI.
+      # Two did: the perses pipelines outlived the commit that deleted their docs.
+      - run: python scripts/validate-pipeline-index.py
       # Advisory (always exit 0): merged tracked+local index — phantom files, dead
       # agent refs, missing category/description, "NOT: " doubling, category
       # registry. Gate later with --strict (ADR router-improvement-program, C2).
