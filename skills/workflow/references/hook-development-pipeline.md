@@ -123,6 +123,7 @@ if __name__ == "__main__":
 ```python
 def _get_db():
     from hooks.lib import learning_db_v2  # lazy import
+
     return learning_db_v2.open()
 ```
 

@@ -37,8 +37,8 @@ Every sub-agent dispatch must include all four fields:
 
 ```python
 Agent(
-  description="Create {N} skills for {domain}",
-  prompt=f"""
+    description="Create {N} skills for {domain}",
+    prompt=f"""
   ## Context Package
 
   ### Components to Create
@@ -56,7 +56,7 @@ Agent(
   ### Architecture Rules
   See skills/workflow/references/architecture-rules.md.
   Critical: Rule 12 (parallel research), Rule 18 (ADR hash), ADR-063 (tool restrictions).
-  """
+  """,
 )
 ```
 

@@ -243,7 +243,7 @@ components = [
 
 total_pert = 0
 for name, lo, ml, hi in components:
-    pert = (lo + 4*ml + hi) / 6
+    pert = (lo + 4 * ml + hi) / 6
     total_pert += pert
     print(f"{name}: {pert:.1f} hours")
 

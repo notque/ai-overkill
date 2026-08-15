@@ -67,8 +67,8 @@ WHERE created_at > (SELECT MAX(order_created_at) FROM fact_orders)
 ```python
 # Airflow: pass watermark between tasks
 def extract_incremental(ds, **kwargs):
-    ti = kwargs['ti']
-    last_processed = ti.xcom_pull(task_ids='get_watermark', key='last_processed')
+    ti = kwargs["ti"]
+    last_processed = ti.xcom_pull(task_ids="get_watermark", key="last_processed")
     # Extract records newer than last_processed
 ```
 
@@ -245,10 +245,10 @@ refresh_mv = PostgresOperator(
 **Fix**:
 ```python
 # Schedule during off-peak hours
-schedule_interval="0 4 * * *"  # 4 AM
+schedule_interval = "0 4 * * *"  # 4 AM
 
 # Or use CONCURRENTLY to avoid locking (requires unique index)
-sql="REFRESH MATERIALIZED VIEW CONCURRENTLY daily_revenue_by_segment;"
+sql = "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_revenue_by_segment;"
 ```
 
 ---

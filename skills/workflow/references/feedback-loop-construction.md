@@ -120,16 +120,18 @@ Generate random inputs and check invariants. Use when you know what properties s
 ```python
 from hypothesis import given, strategies as st
 
+
 @given(st.lists(st.integers(), min_size=1))
 def test_sort_preserves_length(xs):
     result = custom_sort(xs)
     assert len(result) == len(xs), f"Sort dropped elements: {len(xs)} -> {len(result)}"
 
+
 @given(st.lists(st.integers(), min_size=2))
 def test_sort_is_ordered(xs):
     result = custom_sort(xs)
     for i in range(len(result) - 1):
-        assert result[i] <= result[i+1], f"Out of order at index {i}: {result[i]} > {result[i+1]}"
+        assert result[i] <= result[i + 1], f"Out of order at index {i}: {result[i]} > {result[i + 1]}"
 ```
 
 **When to use**: Data processing bugs, serialization round-trip failures, parser edge cases, any function where you can state an invariant but cannot guess the failing input.

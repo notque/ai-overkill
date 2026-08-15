@@ -95,6 +95,7 @@ pytest -p randomly
 ```python
 import pytest
 
+
 # Expensive setup shared across session
 @pytest.fixture(scope="session")
 def database():
@@ -102,6 +103,7 @@ def database():
     db.run_migrations()
     yield db
     db.cleanup()
+
 
 # Per-test isolation via transaction rollback
 @pytest.fixture
@@ -115,6 +117,7 @@ def db_session(database):
 ```python
 from unittest.mock import patch
 from freezegun import freeze_time
+
 
 # Deterministic time in tests
 @freeze_time("2024-01-15 10:30:00")

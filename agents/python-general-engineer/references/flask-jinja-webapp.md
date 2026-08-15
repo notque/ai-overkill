@@ -24,7 +24,7 @@ Bind app servers to `127.0.0.1` and let nginx own the public ports. Pattern: `gu
 # Register blueprints once, at app creation. Verify registration in a smoke test:
 def test_critical_routes_registered(self):
     rules = {r.rule for r in app.url_map.iter_rules()}
-    self.assertIn('/api/rankings', rules)
+    self.assertIn("/api/rankings", rules)
 ```
 
 - Blueprint route changes require service restart (see above).
@@ -37,7 +37,7 @@ With Flask-WTF `CSRFProtect(app)`, every POST without a token returns 400. JSON 
 
 ```python
 csrf = CSRFProtect(app)
-csrf.exempt(mmr_blueprint)   # JSON API, token-less fetch() clients
+csrf.exempt(mmr_blueprint)  # JSON API, token-less fetch() clients
 ```
 
 - Exempt at blueprint granularity; keep global protection enabled.
@@ -64,9 +64,9 @@ When nginx serves statics directly (`alias /srv/app/current/static/;`), file per
 
 ```python
 app.config.update(
-    SESSION_COOKIE_SECURE=True,    # cookie only over HTTPS — login breaks on plain-HTTP staging
+    SESSION_COOKIE_SECURE=True,  # cookie only over HTTPS — login breaks on plain-HTTP staging
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SAMESITE="Lax",
 )
 ```
 

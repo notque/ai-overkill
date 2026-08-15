@@ -49,21 +49,29 @@ echo "To rollback: docker tag $PREVIOUS_VERSION myapp:latest && docker-compose r
 ```python
 def process_payment(user_id, amount):
     correlation_id = generate_correlation_id()
-    logging.info("payment_attempt", extra={
-        'correlation_id': correlation_id, 'user_id': user_id, 'amount': amount
-    })
+    logging.info("payment_attempt", extra={"correlation_id": correlation_id, "user_id": user_id, "amount": amount})
     try:
         result = external_payment_api.charge(user_id, amount)
-        logging.info("payment_result", extra={
-            'correlation_id': correlation_id, 'success': result.success,
-            'transaction_id': result.transaction_id
-        })
+        logging.info(
+            "payment_result",
+            extra={
+                "correlation_id": correlation_id,
+                "success": result.success,
+                "transaction_id": result.transaction_id,
+            },
+        )
         return result
     except Exception as e:
-        logging.error("payment_failed", extra={
-            'correlation_id': correlation_id, 'user_id': user_id,
-            'error': str(e), 'error_type': type(e).__name__
-        }, exc_info=True)
+        logging.error(
+            "payment_failed",
+            extra={
+                "correlation_id": correlation_id,
+                "user_id": user_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
         raise
 ```
 
@@ -85,6 +93,7 @@ def calculate_discount(cart_total, discount_percent):
     if discount_percent < 0 or discount_percent > 100:
         raise ValueError("Discount must be between 0 and 100")
     return cart_total * (discount_percent / 100)
+
 
 def test_calculate_discount_edge_cases():
     assert calculate_discount(100, 10) == 10.0
@@ -113,9 +122,11 @@ from pybreaker import CircuitBreaker
 
 recommendation_breaker = CircuitBreaker(fail_max=5, timeout_duration=60)
 
+
 @recommendation_breaker
 def fetch_recommendations(user_id):
     return recommendation_service.get(user_id)
+
 
 def get_user_recommendations(user_id):
     try:
@@ -140,17 +151,16 @@ def get_user_recommendations(user_id):
 
 **Preferred action**:
 ```python
-@app.route('/search')
+@app.route("/search")
 def search():
-    query = request.args.get('q', '')
+    query = request.args.get("q", "")
     if not query:
-        return jsonify({'error': 'Query required'}), 400
+        return jsonify({"error": "Query required"}), 400
     if len(query) > 100:
-        return jsonify({'error': 'Query too long'}), 400
+        return jsonify({"error": "Query too long"}), 400
 
     results = db.execute(
-        text("SELECT * FROM products WHERE name LIKE :pattern LIMIT 100"),
-        {'pattern': f'%{query}%'}
+        text("SELECT * FROM products WHERE name LIKE :pattern LIMIT 100"), {"pattern": f"%{query}%"}
     ).fetchall()
     return jsonify([dict(r) for r in results])
 ```
@@ -173,10 +183,11 @@ def process_video_async(video_id):
     processed = transcode_video(video)
     upload_result(processed)
 
-@app.route('/process-video', methods=['POST'])
+
+@app.route("/process-video", methods=["POST"])
 def process_video():
-    task = process_video_async.delay(request.json['video_id'])
-    return jsonify({'status': 'processing', 'task_id': task.id}), 202
+    task = process_video_async.delay(request.json["video_id"])
+    return jsonify({"status": "processing", "task_id": task.id}), 202
 ```
 
 **When to use**: Operations > 5 seconds, video/image processing, data exports, bulk ops.
@@ -193,8 +204,8 @@ def process_video():
 ```python
 from prometheus_client import Counter, Histogram
 
-requests_total = Counter('api_requests_total', 'Total requests', ['endpoint', 'method', 'status'])
-request_duration = Histogram('api_request_duration_seconds', 'Duration', ['endpoint'])
+requests_total = Counter("api_requests_total", "Total requests", ["endpoint", "method", "status"])
+request_duration = Histogram("api_request_duration_seconds", "Duration", ["endpoint"])
 ```
 
 Set up metrics, logs, traces, alerts during development. Establish baseline before launch.
@@ -210,9 +221,9 @@ Set up metrics, logs, traces, alerts during development. Establish baseline befo
 **Preferred action**:
 ```python
 class Config:
-    MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))
-    CACHE_TTL_SECONDS = int(os.getenv('CACHE_TTL', '300'))  # 5 min for user profiles
-    DB_MAX_CONNECTIONS = int(os.getenv('DB_MAX_CONNECTIONS', '50'))
+    MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+    CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL", "300"))  # 5 min for user profiles
+    DB_MAX_CONNECTIONS = int(os.getenv("DB_MAX_CONNECTIONS", "50"))
 ```
 
 **When to use**: All timeouts, retries, limits, thresholds. Document why each value is chosen.
@@ -228,17 +239,18 @@ class Config:
 **Preferred action**:
 ```python
 engine = create_engine(
-    'postgresql://user:password@localhost/mydb',
-    pool_size=20, max_overflow=10, pool_timeout=30,
-    pool_recycle=3600, pool_pre_ping=True
+    "postgresql://user:password@localhost/mydb",
+    pool_size=20,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=3600,
+    pool_pre_ping=True,
 )
+
 
 def get_user(user_id):
     with engine.connect() as conn:
-        return conn.execute(
-            text("SELECT * FROM users WHERE id = :user_id"),
-            {'user_id': user_id}
-        ).fetchone()
+        return conn.execute(text("SELECT * FROM users WHERE id = :user_id"), {"user_id": user_id}).fetchone()
 ```
 
 **When to use**: All database, Redis, and HTTP client connections.

@@ -186,16 +186,14 @@ Only when source audio has unacceptable gaps and user explicitly authorizes API 
 ```python
 import requests, os
 
+
 def generate_voiceover(text: str, voice_id: str, output_path: str) -> None:
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    headers = {
-        "xi-api-key": os.environ["ELEVENLABS_API_KEY"],
-        "Content-Type": "application/json"
-    }
+    headers = {"xi-api-key": os.environ["ELEVENLABS_API_KEY"], "Content-Type": "application/json"}
     payload = {
         "text": text,
         "model_id": "eleven_monolingual_v1",
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
     }
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()

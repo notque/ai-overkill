@@ -25,25 +25,31 @@ Deploy all independent subagents in a single message. Sequential dispatch wastes
 
 ```python
 # Deploy all 3 in one message
-Task(subject="Research GPU availability 2025-2030",
+Task(
+    subject="Research GPU availability 2025-2030",
     content="""Focus on GPU/TPU availability from major cloud providers.
     Include chip production forecasts from TSMC, Samsung, Intel.
     SCOPE: Only compute chips. NOT general semiconductor market.
     DELIVERABLE: 350-500 word summary with 3+ statistics.
-    SOURCES: Cloud provider reports, semiconductor analysts (2024-2025).""")
+    SOURCES: Cloud provider reports, semiconductor analysts (2024-2025).""",
+)
 
-Task(subject="Research energy requirements for AI data centers",
+Task(
+    subject="Research energy requirements for AI data centers",
     content="""Power consumption per GPU cluster, grid capacity constraints,
     cooling technology advances.
     SCOPE: Energy for AI compute only. NOT general data center trends.
     DELIVERABLE: 350-500 word summary with 3+ statistics.
-    SOURCES: IEA reports, data center operators, academic papers (2024-2025).""")
+    SOURCES: IEA reports, data center operators, academic papers (2024-2025).""",
+)
 
-Task(subject="Research regulatory environment for AI infrastructure",
+Task(
+    subject="Research regulatory environment for AI infrastructure",
     content="""Permitting timelines, environmental review, export controls.
     SCOPE: Regulations affecting infrastructure build. NOT AI product regulation.
     DELIVERABLE: 350-500 word summary with specific jurisdictions/timelines.
-    SOURCES: Federal Register, EU legislation, news coverage (2024-2025).""")
+    SOURCES: Federal Register, EU legislation, news coverage (2024-2025).""",
+)
 ```
 
 ---

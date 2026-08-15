@@ -237,8 +237,8 @@ grep -rn 'except:$' --include="*.py"
 ```python
 try:
     result = fetch_data()
-except:          # catches KeyboardInterrupt, SystemExit, everything
-    pass         # silently continues
+except:  # catches KeyboardInterrupt, SystemExit, everything
+    pass  # silently continues
 ```
 
 **Why wrong**: Catches `KeyboardInterrupt` and `SystemExit` — Ctrl-C won't stop the process.

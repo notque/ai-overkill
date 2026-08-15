@@ -85,10 +85,10 @@ To add a new domain to the scanner's false positive list, edit:
 # When implemented, false positives would be configured as:
 
 FALSE_POSITIVE_DOMAINS = {
-    'linkedin.com': 'Returns 403/999 for bots',
-    'twitter.com': 'Returns 400 for bots',
+    "linkedin.com": "Returns 403/999 for bots",
+    "twitter.com": "Returns 400 for bots",
     # Add new entries here:
-    'example.com': 'Blocks automated requests',
+    "example.com": "Blocks automated requests",
 }
 ```
 

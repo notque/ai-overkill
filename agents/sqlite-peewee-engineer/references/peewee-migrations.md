@@ -37,14 +37,15 @@ Add a nullable column first, then backfill, then add constraints in a separate m
 from playhouse.migrate import SqliteMigrator, migrate
 from peewee import TextField, IntegerField
 
+
 def run_migration(db):
     migrator = SqliteMigrator(db)
 
     with db.atomic():
         migrate(
             # NULL required — existing rows cannot satisfy NOT NULL without backfill
-            migrator.add_column('user', 'bio', TextField(null=True)),
-            migrator.add_column('post', 'view_count', IntegerField(default=0)),
+            migrator.add_column("user", "bio", TextField(null=True)),
+            migrator.add_column("post", "view_count", IntegerField(default=0)),
         )
 
     # Backfill after schema change, within same transaction if small dataset
@@ -65,32 +66,32 @@ def rebuild_table_with_new_schema(db):
     """Manual table rebuild when ALTER TABLE can't handle the change."""
     with db.atomic():
         # Step 1: Create new table with desired schema
-        db.execute_sql('''
+        db.execute_sql("""
             CREATE TABLE user_new (
                 id INTEGER PRIMARY KEY,
                 username TEXT NOT NULL UNIQUE,
                 email TEXT NOT NULL,          -- Changed from nullable
                 created_at REAL NOT NULL       -- Changed from INTEGER
             )
-        ''')
+        """)
 
         # Step 2: Copy data with any needed transforms
-        db.execute_sql('''
+        db.execute_sql("""
             INSERT INTO user_new (id, username, email, created_at)
             SELECT id, username,
                    COALESCE(email, 'unknown@example.com'),  -- Backfill nulls
                    CAST(created_at AS REAL)
             FROM user
-        ''')
+        """)
 
         # Step 3: Drop old table
-        db.execute_sql('DROP TABLE user')
+        db.execute_sql("DROP TABLE user")
 
         # Step 4: Rename new table
-        db.execute_sql('ALTER TABLE user_new RENAME TO user')
+        db.execute_sql("ALTER TABLE user_new RENAME TO user")
 
         # Step 5: Recreate indexes (dropped with old table)
-        db.execute_sql('CREATE INDEX idx_user_email ON user(email)')
+        db.execute_sql("CREATE INDEX idx_user_email ON user(email)")
 ```
 
 **Why**: SQLite ALTER TABLE cannot change types, remove NOT NULL, or add FK constraints. Rebuild copies data with transforms, atomically swaps. All steps in one `db.atomic()` block.
@@ -105,6 +106,7 @@ Simple version table prevents re-running migrations:
 from peewee import Model, CharField, DateTimeField
 from datetime import datetime
 
+
 class Migration(Model):
     name = CharField(unique=True)
     applied_at = DateTimeField(default=datetime.utcnow)
@@ -112,26 +114,29 @@ class Migration(Model):
     class Meta:
         database = db
 
+
 def has_run(name: str) -> bool:
     return Migration.select().where(Migration.name == name).exists()
+
 
 def mark_run(name: str):
     Migration.create(name=name)
 
+
 def run_migrations(db):
     Migration.create_table(safe=True)
 
-    if not has_run('001_add_email_to_user'):
+    if not has_run("001_add_email_to_user"):
         migrator = SqliteMigrator(db)
         with db.atomic():
-            migrate(migrator.add_column('user', 'email', TextField(null=True)))
-            mark_run('001_add_email_to_user')
+            migrate(migrator.add_column("user", "email", TextField(null=True)))
+            mark_run("001_add_email_to_user")
 
-    if not has_run('002_add_post_index'):
+    if not has_run("002_add_post_index"):
         migrator = SqliteMigrator(db)
         with db.atomic():
-            migrate(migrator.add_index('post', ('user_id', 'created_at'), False))
-            mark_run('002_add_post_index')
+            migrate(migrator.add_index("post", ("user_id", "created_at"), False))
+            mark_run("002_add_post_index")
 ```
 
 ---
@@ -144,24 +149,23 @@ Batch updates avoid long write locks:
 def backfill_in_batches(db, batch_size=1000):
     """Backfill with batches to avoid long-running write locks."""
     offset = 0
-    total = db.execute_sql('SELECT COUNT(*) FROM post WHERE slug IS NULL').fetchone()[0]
+    total = db.execute_sql("SELECT COUNT(*) FROM post WHERE slug IS NULL").fetchone()[0]
 
     while offset < total:
         with db.atomic():
             rows = db.execute_sql(
-                'SELECT id, title FROM post WHERE slug IS NULL LIMIT ? OFFSET ?',
-                (batch_size, offset)
+                "SELECT id, title FROM post WHERE slug IS NULL LIMIT ? OFFSET ?", (batch_size, offset)
             ).fetchall()
 
             if not rows:
                 break
 
             for row_id, title in rows:
-                slug = title.lower().replace(' ', '-')
-                db.execute_sql('UPDATE post SET slug = ? WHERE id = ?', (slug, row_id))
+                slug = title.lower().replace(" ", "-")
+                db.execute_sql("UPDATE post SET slug = ? WHERE id = ?", (slug, row_id))
 
         offset += batch_size
-        print(f'Backfilled {min(offset, total)}/{total} rows')
+        print(f"Backfilled {min(offset, total)}/{total} rows")
 ```
 
 **Why**: Long write transactions block other writes (WAL) or all reads AND writes (default journal). Batching limits each lock window.
@@ -199,7 +203,7 @@ from peewee import TextField
 
 migrator = SqliteMigrator(db)
 with db.atomic():
-    migrate(migrator.add_column('user', 'phone', TextField(null=True)))
+    migrate(migrator.add_column("user", "phone", TextField(null=True)))
 ```
 
 ---
@@ -217,7 +221,7 @@ rg 'add_column\([^)]*\)' --type py | grep -v 'null=True|default='
 **Signal**:
 ```python
 # FAILS on any non-empty table — existing rows have no value for 'status'
-migrate(migrator.add_column('post', 'status', CharField()))
+migrate(migrator.add_column("post", "status", CharField()))
 ```
 
 **Why this matters**: Non-null column with no default fails with `OperationalError: Cannot add a NOT NULL column with default value NULL`.
@@ -226,7 +230,7 @@ migrate(migrator.add_column('post', 'status', CharField()))
 
 ```python
 # Step 1: Add as nullable
-migrate(migrator.add_column('post', 'status', CharField(null=True)))
+migrate(migrator.add_column("post", "status", CharField(null=True)))
 
 # Step 2: Backfill
 db.execute_sql("UPDATE post SET status = 'draft' WHERE status IS NULL")
@@ -250,7 +254,7 @@ rg 'migrator\.drop_column\(' --type py
 **Signal**:
 ```python
 # Fails silently or errors on SQLite < 3.35
-migrate(migrator.drop_column('user', 'legacy_field'))
+migrate(migrator.drop_column("user", "legacy_field"))
 ```
 
 **Why this matters**: `DROP COLUMN` unsupported before SQLite 3.35 (2021-03-12). Many distros ship older versions. `drop_column()` either errors or silently does nothing.
@@ -260,19 +264,20 @@ migrate(migrator.drop_column('user', 'legacy_field'))
 ```python
 import sqlite3
 
+
 def sqlite_version(db):
-    return db.execute_sql('SELECT sqlite_version()').fetchone()[0]
+    return db.execute_sql("SELECT sqlite_version()").fetchone()[0]
+
 
 def drop_column_safe(db, table, column):
-    version = tuple(int(x) for x in sqlite_version(db).split('.'))
+    version = tuple(int(x) for x in sqlite_version(db).split("."))
     if version >= (3, 35, 0):
         migrator = SqliteMigrator(db)
         migrate(migrator.drop_column(table, column))
     else:
         # Must do table rebuild — log warning and implement manually
         raise RuntimeError(
-            f'SQLite {sqlite_version(db)} does not support DROP COLUMN. '
-            'Implement table rebuild or upgrade SQLite.'
+            f"SQLite {sqlite_version(db)} does not support DROP COLUMN. Implement table rebuild or upgrade SQLite."
         )
 ```
 
@@ -294,8 +299,8 @@ rg 'migrate\(' --type py -B 3 | grep -v 'atomic'
 **Signal**:
 ```python
 migrator = SqliteMigrator(db)
-migrate(migrator.add_column('user', 'email', TextField(null=True)))  # No atomic()!
-migrate(migrator.add_index('user', ('email',), False))               # Separate call
+migrate(migrator.add_column("user", "email", TextField(null=True)))  # No atomic()!
+migrate(migrator.add_index("user", ("email",), False))  # Separate call
 # If second migrate() fails, first is committed — schema partially updated
 ```
 
@@ -306,8 +311,8 @@ migrate(migrator.add_index('user', ('email',), False))               # Separate 
 ```python
 with db.atomic():
     migrate(
-        migrator.add_column('user', 'email', TextField(null=True)),
-        migrator.add_index('user', ('email',), False),
+        migrator.add_column("user", "email", TextField(null=True)),
+        migrator.add_index("user", ("email",), False),
     )
 # All operations committed together or all rolled back
 ```

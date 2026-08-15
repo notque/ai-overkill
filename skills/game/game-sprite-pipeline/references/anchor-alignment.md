@@ -69,10 +69,12 @@ After Phase D, each frame is cropped to its own bounding box. Bounding-box heigh
 ```python
 import statistics
 
+
 def shared_scale(frames: list[Image.Image], target_percentile: float = 95) -> int:
     heights = [f.height for f in frames]
     target_height = int(statistics.quantiles(heights, n=100)[int(target_percentile) - 1])
     return target_height
+
 
 def rescale_to_height(frame: Image.Image, target_height: int) -> Image.Image:
     aspect = frame.width / frame.height
@@ -151,6 +153,7 @@ def find_bottom_anchor(frame: Image.Image) -> int:
     if len(nonzero_rows) == 0:
         return frame.height
     return int(nonzero_rows.max())
+
 
 def anchor_to_canvas(frame, canvas_w, canvas_h, bottom_margin=8):
     canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))

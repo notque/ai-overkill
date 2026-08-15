@@ -100,9 +100,11 @@ All hooks must exit 0. Non-zero exit codes block Claude from proceeding.
 
 import sys
 
+
 def main():
     # ... hook logic ...
     pass
+
 
 if __name__ == "__main__":
     try:
@@ -124,6 +126,7 @@ Hooks receive the triggering event as JSON on stdin.
 import json
 import sys
 
+
 def read_event() -> dict:
     """Read hook event from stdin. Returns empty dict on parse failure."""
     try:
@@ -133,6 +136,7 @@ def read_event() -> dict:
         return json.loads(raw)
     except (json.JSONDecodeError, OSError):
         return {}
+
 
 event = read_event()
 tool_name = event.get("tool_name", "")
@@ -287,6 +291,7 @@ Detect session type using environment variables: check `SSH_CONNECTION` or `SSH_
 **Preferred action**: Detect session type via environment variables instead.
 ```python
 import os
+
 is_ssh = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
 is_tmux = bool(os.environ.get("TMUX"))
 is_afk = is_ssh or is_tmux

@@ -68,7 +68,7 @@ This catches solid-magenta backgrounds. It does NOT catch:
 def chroma_pass2_edge_flood_despill(
     img: Image.Image,
     chroma: tuple[int, int, int] = (255, 0, 255),
-    threshold: int = 90,                  # looser than pass 1
+    threshold: int = 90,  # looser than pass 1
     despill_strength: float = 0.5,
 ) -> Image.Image:
     """Flood-fill from canvas edges; preserve off-color pixels (despill)."""
@@ -182,8 +182,11 @@ def neutralize_interior_magenta_spill(arr):
     # quantizer would dither into pink). B <= R*1.05 distinguishes pink
     # (B≈R) from purple (B>R*1.1) so manager-suit costume is preserved.
     tier_b = (
-        (r >= 150) & (g <= 80) & (b >= 90)
-        & ((r - g) > 90) & ((b - g) > 50)
+        (r >= 150)
+        & (g <= 80)
+        & (b >= 90)
+        & ((r - g) > 90)
+        & ((b - g) > 50)
         & (b * 100 <= r * 105)  # pink hue, NOT purple
         & (alpha == 255)
     )
@@ -272,8 +275,11 @@ silhouette stays clean. Modern browsers (Chrome 32+, Firefox 65+, Safari
 # After Phase H assembly, emit BOTH:
 frames[0].save(
     output_dir / f"{name}.webp",
-    save_all=True, append_images=frames[1:],
-    duration=duration_ms, loop=0, format="WebP",
+    save_all=True,
+    append_images=frames[1:],
+    duration=duration_ms,
+    loop=0,
+    format="WebP",
 )
 # (Then write the matte-composited GIF as a compatibility fallback.)
 ```
@@ -345,16 +351,18 @@ Adapted from `~/road-to-aew/scripts/generate_enemy_sprite.py` lines 1048-1128 (`
 ### The two-step algorithm
 
 ```python
-BG_COLOR = (58, 58, 58)        # #3a3a3a — Gemini Nano Banana default bg
-BG_TOLERANCE = 30              # per-channel abs-diff
-WATERMARK_MARGIN = 40          # corner box size in pixels
-WATERMARK_BRIGHTNESS = 180     # mean(R,G,B) > this = "bright" pixel
+BG_COLOR = (58, 58, 58)  # #3a3a3a — Gemini Nano Banana default bg
+BG_TOLERANCE = 30  # per-channel abs-diff
+WATERMARK_MARGIN = 40  # corner box size in pixels
+WATERMARK_BRIGHTNESS = 180  # mean(R,G,B) > this = "bright" pixel
+
 
 def remove_watermark_corners(img, bg_color, margin, brightness=180):
     """Step 1: paint bright corner pixels back to bg_color."""
     # The four corner boxes (margin x margin each) get scanned.
     # Any pixel with mean(R,G,B) > brightness gets repainted to bg_color.
     # This kills Gemini's "made by..." watermark BEFORE step 2 sees it.
+
 
 def gray_tolerance_to_alpha(img, bg_color, tolerance):
     """Step 2: any pixel within ±tolerance of bg_color (per-channel) gets alpha=0."""
@@ -432,7 +440,7 @@ After bg removal, the dominant corner color should be transparent:
 def validate_alpha(img: Image.Image) -> None:
     arr = np.array(img.convert("RGBA"))
     h, w = arr.shape[:2]
-    corners = [arr[0, 0], arr[0, w-1], arr[h-1, 0], arr[h-1, w-1]]
+    corners = [arr[0, 0], arr[0, w - 1], arr[h - 1, 0], arr[h - 1, w - 1]]
     for color in corners:
         if color[3] != 0:
             warn(f"corner not transparent: alpha={color[3]}")

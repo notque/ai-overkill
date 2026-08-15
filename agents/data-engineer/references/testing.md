@@ -132,30 +132,25 @@ Stale data = silent errors. Freshness checks fail loudly before transforms run.
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
+
 def reconcile_row_counts(source_table, target_table, ds, **kwargs):
     """Verify row count in source matches target after load."""
-    hook = PostgresHook(postgres_conn_id='warehouse')
+    hook = PostgresHook(postgres_conn_id="warehouse")
 
-    source_count = hook.get_first(
-        f"SELECT COUNT(*) FROM {source_table} WHERE DATE(created_at) = %s",
-        parameters=(ds,)
-    )[0]
+    source_count = hook.get_first(f"SELECT COUNT(*) FROM {source_table} WHERE DATE(created_at) = %s", parameters=(ds,))[
+        0
+    ]
 
-    target_count = hook.get_first(
-        f"SELECT COUNT(*) FROM {target_table} WHERE order_date = %s",
-        parameters=(ds,)
-    )[0]
+    target_count = hook.get_first(f"SELECT COUNT(*) FROM {target_table} WHERE order_date = %s", parameters=(ds,))[0]
 
     if source_count != target_count:
-        raise ValueError(
-            f"Row count mismatch: {source_table}={source_count}, "
-            f"{target_table}={target_count} for {ds}"
-        )
+        raise ValueError(f"Row count mismatch: {source_table}={source_count}, {target_table}={target_count} for {ds}")
+
 
 reconcile_task = PythonOperator(
-    task_id='reconcile_counts',
+    task_id="reconcile_counts",
     python_callable=reconcile_row_counts,
-    op_kwargs={'source_table': 'raw.orders', 'target_table': 'dw.fact_orders'},
+    op_kwargs={"source_table": "raw.orders", "target_table": "dw.fact_orders"},
 )
 ```
 

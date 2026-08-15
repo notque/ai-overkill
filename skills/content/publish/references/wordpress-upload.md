@@ -196,7 +196,9 @@ if __name__ == "__main__":
 
     keyword = sys.argv[1] if len(sys.argv) > 1 else "<KEYWORD>"
     for item in search_media(keyword):
-        title = item.get("title", {}).get("rendered", "") if isinstance(item.get("title"), dict) else item.get("title", "")
+        title = (
+            item.get("title", {}).get("rendered", "") if isinstance(item.get("title"), dict) else item.get("title", "")
+        )
         print(f"{item['id']}\t{title}\t{item['source_url']}")
 ```
 

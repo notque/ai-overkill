@@ -25,20 +25,20 @@
 ```python
 import pika
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+connection = pika.BlockingConnection(pika.ConnectionParameters("localhost"))
 channel = connection.channel()
 
 channel.confirm_delivery()
 
 try:
     channel.basic_publish(
-        exchange='orders',
-        routing_key='order.created',
+        exchange="orders",
+        routing_key="order.created",
         body=json.dumps(order).encode(),
         properties=pika.BasicProperties(
-            delivery_mode=2,       # persistent
-            content_type='application/json',
-            message_id=str(order['id']),
+            delivery_mode=2,  # persistent
+            content_type="application/json",
+            message_id=str(order["id"]),
         ),
         mandatory=True,
     )
@@ -68,8 +68,9 @@ def handle_message(channel, method, properties, body):
         log.error("poison message, rejecting: %s", e)
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
+
 channel.basic_qos(prefetch_count=10)
-channel.basic_consume(queue='orders', on_message_callback=handle_message)
+channel.basic_consume(queue="orders", on_message_callback=handle_message)
 ```
 
 `auto_ack=True` deletes message on delivery. Consumer crash during `process()` = message gone.
@@ -81,30 +82,30 @@ channel.basic_consume(queue='orders', on_message_callback=handle_message)
 ```python
 # 1. Declare the dead letter exchange
 channel.exchange_declare(
-    exchange='dlx.orders',
-    exchange_type='direct',
+    exchange="dlx.orders",
+    exchange_type="direct",
     durable=True,
 )
 
 # 2. Declare the dead letter queue
 channel.queue_declare(
-    queue='orders.dead',
+    queue="orders.dead",
     durable=True,
     arguments={
-        'x-message-ttl': 604_800_000,  # 7 days retention
-    }
+        "x-message-ttl": 604_800_000,  # 7 days retention
+    },
 )
-channel.queue_bind(queue='orders.dead', exchange='dlx.orders', routing_key='order.created')
+channel.queue_bind(queue="orders.dead", exchange="dlx.orders", routing_key="order.created")
 
 # 3. Declare the main queue with DLX pointer
 channel.queue_declare(
-    queue='orders',
+    queue="orders",
     durable=True,
     arguments={
-        'x-dead-letter-exchange': 'dlx.orders',
-        'x-dead-letter-routing-key': 'order.created',
-        'x-message-ttl': 3_600_000,
-    }
+        "x-dead-letter-exchange": "dlx.orders",
+        "x-dead-letter-routing-key": "order.created",
+        "x-message-ttl": 3_600_000,
+    },
 )
 ```
 
@@ -117,17 +118,18 @@ Without DLX, rejected/expired messages are silently discarded. DLX creates an au
 ```python
 # Retry queue: messages expire back to main queue
 channel.queue_declare(
-    queue='orders.retry',
+    queue="orders.retry",
     durable=True,
     arguments={
-        'x-message-ttl': 30_000,                  # 30s retry delay
-        'x-dead-letter-exchange': '',              # default exchange
-        'x-dead-letter-routing-key': 'orders',
-    }
+        "x-message-ttl": 30_000,  # 30s retry delay
+        "x-dead-letter-exchange": "",  # default exchange
+        "x-dead-letter-routing-key": "orders",
+    },
 )
 
+
 def handle_message(channel, method, properties, body):
-    retry_count = int(properties.headers.get('x-retry-count', 0)) if properties.headers else 0
+    retry_count = int(properties.headers.get("x-retry-count", 0)) if properties.headers else 0
 
     try:
         process(body)
@@ -139,12 +141,12 @@ def handle_message(channel, method, properties, body):
 
         channel.basic_ack(delivery_tag=method.delivery_tag)
         channel.basic_publish(
-            exchange='',
-            routing_key='orders.retry',
+            exchange="",
+            routing_key="orders.retry",
             body=body,
             properties=pika.BasicProperties(
                 delivery_mode=2,
-                headers={'x-retry-count': retry_count + 1},
+                headers={"x-retry-count": retry_count + 1},
             ),
         )
 ```
@@ -167,7 +169,7 @@ rg '\.Consume\(' --type go -A 3 | grep 'autoAck.*true'
 
 **Signal**:
 ```python
-channel.basic_consume(queue='orders', on_message_callback=handle_order, auto_ack=True)
+channel.basic_consume(queue="orders", on_message_callback=handle_order, auto_ack=True)
 ```
 
 Message deleted on delivery before `handle_order` starts. Consumer crash = permanent loss.
@@ -208,7 +210,7 @@ rabbitmqctl list_queues name dead_letter_exchange | grep -v '\S\s\S'
 
 **Signal**:
 ```python
-channel.queue_declare(queue='payments', durable=True)
+channel.queue_declare(queue="payments", durable=True)
 # No DLX — rejected/expired messages vanish
 ```
 

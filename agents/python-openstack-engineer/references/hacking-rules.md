@@ -34,14 +34,14 @@ try:
 except nova_exceptions.NotFound:
     raise exception.ServerNotFound(server_id=server_id)
 except nova_exceptions.ClientException as exc:
-    LOG.error('Nova API error: %s', exc)
+    LOG.error("Nova API error: %s", exc)
     raise
 
 # Exception acceptable when re-raising
 try:
     do_risky_thing()
 except Exception:
-    LOG.exception('Unexpected error')
+    LOG.exception("Unexpected error")
     raise
 ```
 
@@ -68,9 +68,8 @@ from myservice import utils
 ### H501 — No locals()/self.__dict__ in % formatting
 
 ```python
-LOG.error('Server %(server_id)s not found in zone %(zone)s',
-          {'server_id': server_id, 'zone': zone})
-LOG.info('Created resource %s', resource.id)
+LOG.error("Server %(server_id)s not found in zone %(zone)s", {"server_id": server_id, "zone": zone})
+LOG.info("Created resource %s", resource.id)
 ```
 
 ---
@@ -79,7 +78,8 @@ LOG.info('Created resource %s', resource.id)
 
 ```python
 from myservice.i18n import _
-raise exception.ResourceNotFound(msg=_('Resource %s not found') % res_id)
+
+raise exception.ResourceNotFound(msg=_("Resource %s not found") % res_id)
 ```
 
 ---
@@ -99,7 +99,7 @@ rg 'except:\s*$' --type py
 try:
     result = db.get_resource(context, resource_id)
 except exception.ResourceNotFound:
-    LOG.warning('Resource %s not found', resource_id)
+    LOG.warning("Resource %s not found", resource_id)
     return None
 ```
 
@@ -140,7 +140,7 @@ grep -rn 'locals()\|self\.__dict__' --include="*.py" | grep '%'
 
 **Preferred action**:
 ```python
-LOG.debug('State: %s timeout: %s', self.state, self.timeout)
+LOG.debug("State: %s timeout: %s", self.state, self.timeout)
 ```
 
 ---

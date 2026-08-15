@@ -495,19 +495,15 @@ Execute multiple approaches in priority order:
 from hook_utils import cascading_fallback, with_fallback
 
 # Single fallback
-result = with_fallback(
-    try_primary,
-    try_fallback,
-    error_message="Primary failed"
-)
+result = with_fallback(try_primary, try_fallback, error_message="Primary failed")
 
 # Multiple fallbacks (cascading pattern)
 result = cascading_fallback(
-    try_with_yaml,      # Priority 1
-    try_with_regex,     # Priority 2
-    try_with_basic,     # Priority 3
-    default="",         # If all fail
-    error_prefix="Parse"
+    try_with_yaml,  # Priority 1
+    try_with_regex,  # Priority 2
+    try_with_basic,  # Priority 3
+    default="",  # If all fail
+    error_prefix="Parse",
 )
 ```
 
@@ -517,7 +513,7 @@ result = cascading_fallback(
 from hook_utils import get_project_dir, get_session_id, get_state_file
 
 project_dir = get_project_dir()  # Path from CLAUDE_PROJECT_DIR
-session_id = get_session_id()    # From CLAUDE_SESSION_ID or PPID
+session_id = get_session_id()  # From CLAUDE_SESSION_ID or PPID
 state_file = get_state_file("my-hook")  # /tmp/claude-my-hook-{session}.state
 ```
 

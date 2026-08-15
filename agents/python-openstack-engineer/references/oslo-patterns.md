@@ -28,13 +28,13 @@ Register before `CONF()` is called. Group by service component.
 from oslo_config import cfg
 
 _opts = [
-    cfg.StrOpt('transport_url', default='rabbit://guest:guest@localhost:5672/', help='Oslo messaging transport URL.'),
-    cfg.IntOpt('workers', default=1, min=1, help='API worker processes.'),
-    cfg.BoolOpt('debug', default=False, help='Enable debug logging.'),
+    cfg.StrOpt("transport_url", default="rabbit://guest:guest@localhost:5672/", help="Oslo messaging transport URL."),
+    cfg.IntOpt("workers", default=1, min=1, help="API worker processes."),
+    cfg.BoolOpt("debug", default=False, help="Enable debug logging."),
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(_opts, group='myservice')
+CONF.register_opts(_opts, group="myservice")
 workers = CONF.myservice.workers
 ```
 
@@ -51,12 +51,15 @@ from oslo_config import cfg
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+
 def setup_logging(project_name: str) -> None:
     logging.setup(CONF, project_name)
     logging.set_defaults(default_log_levels=logging.get_default_log_levels())
 
-LOG.info('Processing request %(req_id)s for user %(user_id)s',
-         {'req_id': context.request_id, 'user_id': context.user_id})
+
+LOG.info(
+    "Processing request %(req_id)s for user %(user_id)s", {"req_id": context.request_id, "user_id": context.user_id}
+)
 ```
 
 `logging.setup()` wires oslo.log into oslo.config, enabling `log_file`, `log_dir`, `debug` flags.
@@ -69,21 +72,22 @@ LOG.info('Processing request %(req_id)s for user %(user_id)s',
 import oslo_messaging as messaging
 from oslo_config import cfg
 
+
 class MyServiceAPI:
-    RPC_API_VERSION = '1.3'
+    RPC_API_VERSION = "1.3"
 
     def __init__(self):
         transport = messaging.get_rpc_transport(CONF)
-        target = messaging.Target(topic='myservice', version=self.RPC_API_VERSION)
+        target = messaging.Target(topic="myservice", version=self.RPC_API_VERSION)
         self._client = messaging.get_rpc_client(transport, target)
 
     def create_resource(self, context, name: str, properties: dict):
-        cctxt = self._client.prepare(version='1.1')
-        return cctxt.call(context, 'create_resource', name=name, properties=properties)
+        cctxt = self._client.prepare(version="1.1")
+        return cctxt.call(context, "create_resource", name=name, properties=properties)
 
     def notify_resource_deleted(self, context, resource_id: str):
-        cctxt = self._client.prepare(version='1.0')
-        cctxt.cast(context, 'resource_deleted', resource_id=resource_id)
+        cctxt = self._client.prepare(version="1.0")
+        cctxt.cast(context, "resource_deleted", resource_id=resource_id)
 ```
 
 `prepare(version='1.1')` enables version negotiation during rolling upgrades.
@@ -98,6 +102,7 @@ from oslo_db.sqlalchemy import enginefacade
 context_manager = enginefacade.transaction_context()
 context_manager.configure(connection=CONF.database.connection)
 
+
 @enginefacade.writer
 def create_resource(context, values: dict):
     ref = models.Resource()
@@ -105,10 +110,10 @@ def create_resource(context, values: dict):
     context.session.add(ref)
     return ref
 
+
 @enginefacade.reader
 def get_resource(context, resource_id: str):
-    return (context.session.query(models.Resource)
-            .filter_by(id=resource_id, deleted=False).first())
+    return context.session.query(models.Resource).filter_by(id=resource_id, deleted=False).first()
 ```
 
 `enginefacade.writer`/`reader` manage transaction lifecycles and enable read/write splitting.
@@ -170,11 +175,17 @@ Missing enforcement silently bypasses RBAC.
 ```python
 ENFORCER = policy.Enforcer(CONF)
 
+
 def delete_resource(self, context, resource_id):
-    target = {'project_id': context.project_id}
-    ENFORCER.enforce(context, 'myservice:resource:delete', target,
-                     do_raise=True, exc=exception.PolicyNotAuthorized,
-                     action='myservice:resource:delete')
+    target = {"project_id": context.project_id}
+    ENFORCER.enforce(
+        context,
+        "myservice:resource:delete",
+        target,
+        do_raise=True,
+        exc=exception.PolicyNotAuthorized,
+        action="myservice:resource:delete",
+    )
     return db.resource_delete(context, resource_id)
 ```
 

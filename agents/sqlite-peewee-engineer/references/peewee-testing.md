@@ -37,23 +37,26 @@ from myapp.models import User, Post, Comment
 
 ALL_MODELS = [User, Post, Comment]
 
+
 @pytest.fixture
 def db():
     """Fresh in-memory database for each test."""
-    test_db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
+    test_db = SqliteDatabase(":memory:", pragmas={"foreign_keys": 1})
     with test_db.bind_ctx(ALL_MODELS):
         test_db.create_tables(ALL_MODELS)
         yield test_db
         # Tables auto-dropped when in-memory db is garbage collected
 
+
 def test_user_creation(db):
-    user = User.create(username='alice', email='alice@example.com')
+    user = User.create(username="alice", email="alice@example.com")
     assert User.select().count() == 1
     assert user.id is not None
 
+
 def test_post_belongs_to_user(db):
-    user = User.create(username='bob', email='bob@example.com')
-    post = Post.create(user=user, title='Hello')
+    user = User.create(username="bob", email="bob@example.com")
+    post = Post.create(user=user, title="Hello")
     # FK constraint enforced because foreign_keys=1 pragma is set
     assert post.user_id == user.id
 ```
@@ -70,29 +73,35 @@ Factory functions avoid repetitive setup:
 @pytest.fixture
 def make_user(db):
     """Factory for creating users with defaults."""
-    def factory(username='testuser', email=None, **kwargs):
-        email = email or f'{username}@example.com'
+
+    def factory(username="testuser", email=None, **kwargs):
+        email = email or f"{username}@example.com"
         return User.create(username=username, email=email, **kwargs)
+
     return factory
+
 
 @pytest.fixture
 def make_post(db, make_user):
     """Factory for creating posts, creates user if not provided."""
-    def factory(title='Test Post', user=None, **kwargs):
+
+    def factory(title="Test Post", user=None, **kwargs):
         if user is None:
             user = make_user()
         return Post.create(title=title, user=user, **kwargs)
+
     return factory
 
+
 def test_post_count_per_user(db, make_user, make_post):
-    alice = make_user('alice')
+    alice = make_user("alice")
     make_post(user=alice)
     make_post(user=alice)
     make_post(user=alice)
 
     # Verify the prefetch path works correctly
     users = User.select().prefetch(Post)
-    user = [u for u in users if u.username == 'alice'][0]
+    user = [u for u in users if u.username == "alice"][0]
     assert len(list(user.posts)) == 3
 ```
 
@@ -103,33 +112,34 @@ def test_post_count_per_user(db, make_user, make_post):
 ```python
 def test_atomic_rollback_on_error(db):
     """Verify atomic() rolls back all changes when exception raised."""
-    user = User.create(username='alice', email='alice@example.com')
+    user = User.create(username="alice", email="alice@example.com")
 
     with pytest.raises(ValueError):
         with db.atomic():
-            Post.create(user=user, title='First post')
-            Post.create(user=user, title='Second post')
-            raise ValueError('intentional rollback')
+            Post.create(user=user, title="First post")
+            Post.create(user=user, title="Second post")
+            raise ValueError("intentional rollback")
 
     # Both posts should be rolled back
     assert Post.select().count() == 0
 
+
 def test_savepoint_partial_rollback(db):
     """Verify nested atomic() uses savepoints for partial rollback."""
-    user = User.create(username='alice', email='alice@example.com')
+    user = User.create(username="alice", email="alice@example.com")
 
     with db.atomic():
-        Post.create(user=user, title='Outer post')
+        Post.create(user=user, title="Outer post")
         try:
             with db.atomic():  # Creates savepoint
-                Post.create(user=user, title='Inner post')
-                raise ValueError('rollback inner only')
+                Post.create(user=user, title="Inner post")
+                raise ValueError("rollback inner only")
         except ValueError:
             pass  # Inner savepoint rolled back, outer continues
 
     # Only the outer post committed
     assert Post.select().count() == 1
-    assert Post.get().title == 'Outer post'
+    assert Post.get().title == "Outer post"
 ```
 
 ---
@@ -141,30 +151,31 @@ import pytest
 from peewee import SqliteDatabase, Model, CharField, TextField
 from playhouse.migrate import SqliteMigrator, migrate
 
+
 @pytest.fixture
 def pre_migration_db():
     """Database in the state before a migration runs."""
-    db = SqliteDatabase(':memory:')
+    db = SqliteDatabase(":memory:")
 
     class OldUser(Model):
         username = CharField()
+
         # No 'email' column yet — simulates pre-migration state
         class Meta:
             database = db
-            table_name = 'user'
+            table_name = "user"
 
     db.create_tables([OldUser])
-    OldUser.create(username='alice')
+    OldUser.create(username="alice")
     yield db
+
 
 def test_add_email_column_migration(pre_migration_db):
     migrator = SqliteMigrator(pre_migration_db)
-    migrate(
-        migrator.add_column('user', 'email', TextField(null=True))
-    )
+    migrate(migrator.add_column("user", "email", TextField(null=True)))
 
     # Verify column exists and existing rows have NULL
-    cursor = pre_migration_db.execute_sql('SELECT email FROM user')
+    cursor = pre_migration_db.execute_sql("SELECT email FROM user")
     rows = cursor.fetchall()
     assert len(rows) == 1
     assert rows[0][0] is None  # NULL for pre-existing rows
@@ -190,12 +201,14 @@ rg 'SqliteDatabase.*test' --type py | grep -v 'fixture\|conftest'
 **Signal**:
 ```python
 # conftest.py — WRONG: shared database across all tests
-db = SqliteDatabase(':memory:')
+db = SqliteDatabase(":memory:")
 db.bind([User, Post])
 db.create_tables([User, Post])
 
+
 def test_create_user():
-    User.create(username='alice')
+    User.create(username="alice")
+
 
 def test_user_count():
     # FAILS if test_create_user ran first — count is 1, not 0
@@ -210,7 +223,7 @@ def test_user_count():
 # conftest.py — CORRECT: fresh database per test
 @pytest.fixture(autouse=True)
 def db():
-    test_db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
+    test_db = SqliteDatabase(":memory:", pragmas={"foreign_keys": 1})
     with test_db.bind_ctx([User, Post]):
         test_db.create_tables([User, Post])
         yield test_db
@@ -232,10 +245,11 @@ rg 'SqliteDatabase\([^:)]' --type py --glob 'test_*'
 **Signal**:
 ```python
 # Uses real app.db in tests — modifies production data
-db = SqliteDatabase('app.db')
+db = SqliteDatabase("app.db")
+
 
 def test_delete_user():
-    User.delete().where(User.username == 'test').execute()
+    User.delete().where(User.username == "test").execute()
     # Deletes from real database!
 ```
 
@@ -247,9 +261,10 @@ def test_delete_user():
 import tempfile
 import os
 
+
 @pytest.fixture
 def file_db():
-    fd, path = tempfile.mkstemp(suffix='.db')
+    fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     db = SqliteDatabase(path)
     with db.bind_ctx([User, Post]):
@@ -273,11 +288,12 @@ grep -rn "SqliteDatabase(':memory:')" --include="*.py" -A 3 | grep -v 'foreign_k
 **Signal**:
 ```python
 # SQLite disables FK checks by default — tests pass but prod fails
-db = SqliteDatabase(':memory:')  # No foreign_keys pragma
+db = SqliteDatabase(":memory:")  # No foreign_keys pragma
+
 
 def test_post_without_user():
     # This succeeds in test — SQLite allows orphaned FK
-    Post.create(user_id=99999, title='Orphan')
+    Post.create(user_id=99999, title="Orphan")
     # In production with foreign_keys=1 this raises IntegrityError
 ```
 
@@ -286,7 +302,7 @@ def test_post_without_user():
 **Preferred action:**
 
 ```python
-db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
+db = SqliteDatabase(":memory:", pragmas={"foreign_keys": 1})
 ```
 
 ---

@@ -84,6 +84,7 @@ One request vs N+1 recursive directory calls. 500-file repo saves 30+ requests.
 ```python
 import base64
 
+
 def get_file_content(owner: str, repo: str, path: str) -> str:
     """Fetch and decode file content from GitHub API."""
     resp = github_get(f"/repos/{owner}/{repo}/contents/{path}")
@@ -188,11 +189,9 @@ headers = {"Accept": "application/vnd.github.v3+json"}
 **Fix**: Accept `--token` flag; check `GITHUB_TOKEN` env var:
 ```python
 import os
+
 token = args.token or os.environ.get("GITHUB_TOKEN")
-headers = {
-    "Accept": "application/vnd.github.v3+json",
-    **({"Authorization": f"token {token}"} if token else {})
-}
+headers = {"Accept": "application/vnd.github.v3+json", **({"Authorization": f"token {token}"} if token else {})}
 ```
 
 ---

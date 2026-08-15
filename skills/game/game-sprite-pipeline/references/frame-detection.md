@@ -39,6 +39,7 @@ Connected components find the actual character in pixel space, regardless of its
 import numpy as np
 from PIL import Image
 
+
 def extract_frames(
     sheet_path: Path,
     grid_cols: int,
@@ -71,16 +72,16 @@ def extract_frames(
         components.append(crop)
 
     # Sort top-to-bottom, left-to-right by bounding-box top-left
-    components.sort(key=lambda c: (
-        c.getbbox()[1] if c.getbbox() else 0,
-        c.getbbox()[0] if c.getbbox() else 0,
-    ))
+    components.sort(
+        key=lambda c: (
+            c.getbbox()[1] if c.getbbox() else 0,
+            c.getbbox()[0] if c.getbbox() else 0,
+        )
+    )
 
     expected = grid_cols * grid_rows
     if len(components) != expected:
-        raise FrameCountMismatchError(
-            f"detected {len(components)} components, grid expected {expected}"
-        )
+        raise FrameCountMismatchError(f"detected {len(components)} components, grid expected {expected}")
 
     return components
 ```
@@ -219,7 +220,7 @@ A metadata sidecar is written: `<output-dir>/frame_metadata.json`:
 ```python
 for r in range(rows):
     for c in range(cols):
-        frame = sheet.crop((c * cell, r * cell, (c+1) * cell, (r+1) * cell))
+        frame = sheet.crop((c * cell, r * cell, (c + 1) * cell, (r + 1) * cell))
 ```
 
 **Why wrong:** Generated frames drift ±5-15% of cell size. Naive crops capture neighbor pixels and truncate the current sprite. Output frames look ragged at the edges and contain ghosted neighbor silhouettes.
@@ -258,9 +259,11 @@ def slice_grid_cells(sheet, cols, rows, cell_size):
 
     # Case 1 — exact match: direct slice, no resample (zero-waste happy path).
     if raw_w == canonical_w and raw_h == canonical_h:
-        return [sheet.crop((c * cell_size, r * cell_size,
-                            (c + 1) * cell_size, (r + 1) * cell_size))
-                for r in range(rows) for c in range(cols)]
+        return [
+            sheet.crop((c * cell_size, r * cell_size, (c + 1) * cell_size, (r + 1) * cell_size))
+            for r in range(rows)
+            for c in range(cols)
+        ]
 
     # Case 2 & 3 — derive pitch from raw size, slice at natural pitch,
     # resample each cell to cell_size. Float pitch + rounded boundaries

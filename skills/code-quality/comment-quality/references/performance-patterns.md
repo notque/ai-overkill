@@ -92,6 +92,7 @@ rg '//\s*(faster|more efficient|quicker|better) than' -i
 # Faster than sequential processing
 results = await asyncio.gather(*[process(item) for item in items])
 
+
 # More efficient than loading all records at once
 def get_users_paginated(page_size=100):
     offset = 0
@@ -203,7 +204,8 @@ size, indexed column — is what matters.
 **Preferred action**:
 ```python
 # Eager-loads orders in a single query to prevent one query per user in downstream loops.
-users = User.objects.prefetch_related('orders').filter(active=True)
+users = User.objects.prefetch_related("orders").filter(active=True)
+
 
 # Inserts in batches of 500 to stay within DB parameter limits and reduce roundtrips.
 def bulk_insert(records):

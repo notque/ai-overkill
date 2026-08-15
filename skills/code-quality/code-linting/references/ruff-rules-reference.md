@@ -69,7 +69,7 @@ ruff format . --config pyproject.toml
 ```python
 # Correct: specific rule code on the line that needs it
 result = some_func()  # noqa: F841
-import os, sys        # noqa: E401, F401
+import os, sys  # noqa: E401, F401
 
 # Wrong: blanket noqa with no code
 result = some_func()  # noqa
@@ -123,9 +123,10 @@ grep -rn 'def .*=\s*\[\|def .*=\s*{' --include="*.py"
 
 **Signal**:
 ```python
-def append_item(item, container=[]):   # B006
+def append_item(item, container=[]):  # B006
     container.append(item)
     return container
+
 
 def merge_config(opts={}):  # B006
     opts.update({"debug": False})
@@ -157,8 +158,8 @@ rg 'typing\.(List|Dict|Optional|Tuple|Set|FrozenSet)\[' --type py
 ```python
 from typing import List, Dict, Optional, Tuple
 
-def process(items: List[str], config: Dict[str, int]) -> Optional[Tuple[int, str]]:
-    ...
+
+def process(items: List[str], config: Dict[str, int]) -> Optional[Tuple[int, str]]: ...
 ```
 
 **Why this matters**: Python 3.9+ supports `list[str]`, `dict[str, int]` directly. Python 3.10+ supports `str | None` instead of `Optional[str]`. Using old forms in 3.9+ codebases triggers UP006/UP007 and signals pre-3.9 vintage code.
@@ -166,8 +167,7 @@ def process(items: List[str], config: Dict[str, int]) -> Optional[Tuple[int, str
 **Preferred action**:
 ```python
 # Python 3.9+
-def process(items: list[str], config: dict[str, int]) -> tuple[int, str] | None:
-    ...
+def process(items: list[str], config: dict[str, int]) -> tuple[int, str] | None: ...
 ```
 
 **Version note**: UP006 requires `target-version = "py39"` in pyproject.toml. UP007 requires `target-version = "py310"`. Set `target-version` to match the project's minimum Python version.
@@ -190,7 +190,7 @@ grep -rn 'lambda' --include="*.py"
 
 **Signal**:
 ```python
-handlers = [lambda x: x + i for i in range(5)]   # all lambdas use i=4
+handlers = [lambda x: x + i for i in range(5)]  # all lambdas use i=4
 callbacks = []
 for name in names:
     callbacks.append(lambda: process(name))  # all use final name
@@ -218,8 +218,8 @@ rg '^import |^from .* import' --type py
 
 **Signal**:
 ```python
-import os       # never used below
-import sys      # never used below
+import os  # never used below
+import sys  # never used below
 from pathlib import Path  # used
 ```
 
