@@ -2,6 +2,16 @@
 .claude/*
 !.claude/settings.json
 
+# Claude Code local project config (machine-specific, may hold paths/history)
+.claude.json
+
+# Harness mirrors written by install.sh / the session sync hook. Same class of
+# artifact as .claude/ — generated copies of the toolkit, never source.
+.codex/
+.factory/
+.hermes/
+.reasonix/
+
 # Local overlay directory (private/org-specific customizations)
 .local/
 !.local/.gitkeep
