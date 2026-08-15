@@ -38,7 +38,7 @@ routing:
     - fastapi
     - django
     - flask
-  not_for: "PHP development (use php-general-engineer) — this agent handles Python development"
+  not_for: "PHP development (use php-general-engineer); OpenStack services and Oslo libraries (use python-openstack-engineer); SQLite and Peewee ORM work (use sqlite-peewee-engineer) — this agent handles general Python development"
   retro-topics:
     - python-patterns
     - debugging

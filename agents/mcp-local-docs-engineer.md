@@ -8,7 +8,7 @@ routing:
     - docs server
     - documentation server
     - hugo
-  not_for: "using existing MCP tools/servers (only building local-docs MCP servers); web performance or LCP optimization (use performance-optimization-engineer)"
+  not_for: "using existing MCP tools/servers (only building local-docs MCP servers); web performance or LCP optimization (use performance-optimization-engineer); writing the documentation content itself, API references, or runbooks (use technical-documentation-engineer)"
   pairs_with:
     - verification-before-completion
   complexity: Medium

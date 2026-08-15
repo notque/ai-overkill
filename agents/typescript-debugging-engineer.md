@@ -14,6 +14,7 @@ routing:
   retro-topics:
     - typescript-patterns
     - debugging
+  not_for: "building components, state management, or build configuration (use typescript-frontend-engineer); running tsc and clearing reported type errors mechanically (use typescript-check skill); React Native runtime issues (use react-native-engineer); Core Web Vitals and bundle performance (use performance-optimization-engineer). This agent diagnoses TypeScript race conditions, async bugs, type failures, and production runtime exceptions."
   pairs_with:
     - workflow
     - typescript-frontend-engineer

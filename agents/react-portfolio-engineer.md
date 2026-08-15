@@ -10,6 +10,7 @@ routing:
     - art website
     - image gallery
     - lightbox
+  not_for: "commerce features such as carts, Stripe, or checkout (use nextjs-ecommerce-engineer); general React or Next.js application architecture (use typescript-frontend-engineer); React Native mobile apps (use react-native-engineer); generating the artwork itself (use image-gen skill). This agent builds portfolio and gallery sites for creatives."
   pairs_with:
     - ui-design-engineer
     - typescript-frontend-engineer

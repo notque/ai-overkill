@@ -9,6 +9,7 @@ routing:
     - coding style extraction
     - github conventions
     - programming rules
+  not_for: "deriving conventions from a local repository (use codebase-overview skill); generating a project CLAUDE.md from repo analysis (use generate-claudemd skill); building a writing-voice profile from author samples (use create-voice skill); reviewing code against conventions already adopted (use reviewer-code). This agent extracts coding rules from GitHub user profiles via the API."
   pairs_with:
     - codebase-overview
     - generate-claudemd

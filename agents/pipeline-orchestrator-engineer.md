@@ -9,6 +9,7 @@ routing:
     - scaffold pipeline
     - build pipeline
     - pipeline creator
+  not_for: "coordinating agents and dependencies across an in-flight project (use project-coordinator-engineer); authoring one new skill end to end (use skill-creator skill); running an existing workflow or DAG (use workflow skill); routing-table and INDEX consistency (use toolkit-governance-engineer). This agent scaffolds new multi-component pipelines with fan-out/fan-in structure."
   pairs_with:
     - workflow
     - codebase-overview

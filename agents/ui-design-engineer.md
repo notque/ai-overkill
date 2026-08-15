@@ -11,7 +11,7 @@ routing:
     - responsive
     - animations
     - design system
-  not_for: "non-visual design: API, schema, or system design (use the matching engineer); writing design docs (use a planning skill); design methodology, user-research analysis, or accessibility audit documentation (use design skill). This agent is visual UI/UX implementation only."
+  not_for: "non-visual design: API, schema, or system design (use the matching engineer); writing design docs (use a planning skill); design methodology, user-research analysis, or accessibility audit documentation (use design skill); combat visual effects and animation juice (use combat-effects-upgrade). This agent is visual UI/UX implementation only."
   pairs_with:
     - distinctive-frontend-design
     - typescript-frontend-engineer

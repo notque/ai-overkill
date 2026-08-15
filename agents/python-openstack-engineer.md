@@ -16,6 +16,7 @@ routing:
   retro-topics:
     - python-patterns
     - debugging
+  not_for: "general Python features, debugging, or web frameworks outside OpenStack (use python-general-engineer); running Python lint, format, and test gates (use python-quality-gate skill); SQLite and Peewee ORM work (use sqlite-peewee-engineer). This agent develops OpenStack services and Oslo libraries."
   pairs_with:
     - python-quality-gate
     - python-general-engineer

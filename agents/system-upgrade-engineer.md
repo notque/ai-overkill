@@ -15,6 +15,7 @@ routing:
     - update system
     - new claude version
     - apply retro
+  not_for: "editing one skill, routing entry, or ADR (use toolkit-governance-engineer); regenerating routing INDEX files (use routing-table-updater skill); writing a new Python hook implementation (use hook-development-engineer); explaining which agent or workflow to run (use workflow-help skill). This agent adapts agents, skills, and hooks across the fleet when Claude Code ships a release."
   pairs_with:
     - toolkit-evolution
     - agent-evaluation
