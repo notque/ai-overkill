@@ -18,7 +18,7 @@ fixture = {
     "email": "user@example.com",
     "org_slug": "org-slug",
     "name": "Jane Doe",
-    "ip": "198.51.100.23",  # RFC 5737
+    "ip": "198.51.100.23",       # RFC 5737
     "arr_usd": 120000,
     "renewal_date": "2026-01-01",
 }
@@ -73,10 +73,8 @@ Log internal ID, salted hash, or correlation ID — never raw email, IP, phone, 
 ```python
 import hashlib
 
-
 def hash_email(email: str) -> str:
     return hashlib.sha256(f"salt:{email}".encode()).hexdigest()[:12]
-
 
 logger.warning(
     "identity lookup failed",
@@ -152,7 +150,7 @@ Declare explicit field lists excluding PII not required by the caller.
 class UserPublicSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "display_name", "avatar_url"]
+        fields = ['id', 'display_name', 'avatar_url']
 ```
 
 **TypeScript (Prisma):**
@@ -197,13 +195,11 @@ Error responses: generic message + correlation ID. Stack traces, SQL, request bo
 ```python
 import uuid
 
-
 @app.errorhandler(Exception)
 def handle_error(error):
     correlation_id = str(uuid.uuid4())
-    app.logger.error(
-        "unhandled exception", extra={"correlation_id": correlation_id, "error": str(error)}, exc_info=True
-    )
+    app.logger.error("unhandled exception",
+        extra={"correlation_id": correlation_id, "error": str(error)}, exc_info=True)
     return {"error": "internal server error", "reference": correlation_id}, 500
 ```
 

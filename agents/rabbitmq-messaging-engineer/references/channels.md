@@ -24,16 +24,13 @@
 Channels are not thread-safe. Each thread must own its own.
 
 ```python
-connection = pika.BlockingConnection(pika.ConnectionParameters("localhost"))
-
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 
 def producer_thread(routing_key: str, body: bytes) -> None:
     channel = connection.channel()
     channel.confirm_delivery()
     channel.basic_publish(
-        exchange="events",
-        routing_key=routing_key,
-        body=body,
+        exchange='events', routing_key=routing_key, body=body,
         properties=pika.BasicProperties(delivery_mode=2),
     )
     channel.close()
@@ -47,8 +44,8 @@ def producer_thread(routing_key: str, body: bytes) -> None:
 publish_channel = connection.channel()
 consume_channel = connection.channel()
 
-consume_channel.basic_consume(queue="tasks", on_message_callback=handle_message, auto_ack=False)
-publish_channel.basic_publish(exchange="results", routing_key="done", body=result)
+consume_channel.basic_consume(queue='tasks', on_message_callback=handle_message, auto_ack=False)
+publish_channel.basic_publish(exchange='results', routing_key='done', body=result)
 ```
 
 Mixing on same channel causes head-of-line blocking — slow publish with confirms holds up ack delivery.
@@ -108,9 +105,7 @@ class Publisher:
 
     def publish(self, body: bytes) -> None:
         self._channel.basic_publish(
-            exchange="events",
-            routing_key="task",
-            body=body,
+            exchange='events', routing_key='task', body=body,
             properties=pika.BasicProperties(delivery_mode=2),
         )
 ```

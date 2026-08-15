@@ -91,7 +91,6 @@ sqlite3 "${DREAM_LEARNING_DB}" \
 # In Python (hooks/lib/learning_db_v2.py style)
 import sqlite3
 
-
 def get_connection(db_path):
     conn = sqlite3.connect(db_path, timeout=5.0)
     conn.execute("PRAGMA journal_mode=WAL")
@@ -190,7 +189,6 @@ if os.path.exists("memory/MEMORY.md.tmp"):
 ```python
 # If .tmp exists, complete the rename rather than skipping
 import os
-
 tmp = "memory/MEMORY.md.tmp"
 final = "memory/MEMORY.md"
 if os.path.exists(tmp):

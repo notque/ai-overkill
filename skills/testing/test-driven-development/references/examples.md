@@ -202,7 +202,6 @@ ok      strings    0.002s
 import pytest
 from validator import EmailValidator
 
-
 def test_validate_email_valid_format_returns_true():
     # Arrange
     validator = EmailValidator()
@@ -236,10 +235,9 @@ E   ModuleNotFoundError: No module named 'validator'
 ```python
 import re
 
-
 class EmailValidator:
     def __init__(self):
-        self.pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        self.pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
     def validate(self, email: str) -> bool:
         return bool(re.match(self.pattern, email))
@@ -298,24 +296,21 @@ tests/test_validator.py::test_validate_email_invalid_format_returns_false PASSED
 import pytest
 from validator import EmailValidator
 
+@pytest.mark.parametrize("email,expected", [
+    # Valid emails
+    ("user@example.com", True),
+    ("test.user@example.co.uk", True),
+    ("user+tag@example.com", True),
+    ("user_name@example-domain.com", True),
 
-@pytest.mark.parametrize(
-    "email,expected",
-    [
-        # Valid emails
-        ("user@example.com", True),
-        ("test.user@example.co.uk", True),
-        ("user+tag@example.com", True),
-        ("user_name@example-domain.com", True),
-        # Invalid emails
-        ("invalid-email", False),
-        ("@example.com", False),
-        ("user@", False),
-        ("user@.com", False),
-        ("user name@example.com", False),
-        ("user@example", False),
-    ],
-)
+    # Invalid emails
+    ("invalid-email", False),
+    ("@example.com", False),
+    ("user@", False),
+    ("user@.com", False),
+    ("user name@example.com", False),
+    ("user@example", False),
+])
 def test_validate_email(email, expected):
     # Arrange
     validator = EmailValidator()
@@ -356,9 +351,8 @@ tests/test_validator.py::test_validate_email[user@example-False] PASSED       [1
 import re
 from typing import ClassVar
 
-
 class EmailValidator:
-    EMAIL_PATTERN: ClassVar[str] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    EMAIL_PATTERN: ClassVar[str] = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
     def __init__(self):
         self._compiled_pattern = re.compile(self.EMAIL_PATTERN)
@@ -710,7 +704,6 @@ import pytest
 import tempfile
 import os
 
-
 @pytest.fixture
 def temp_database():
     """Create temporary database for testing."""
@@ -725,9 +718,8 @@ def temp_database():
     os.close(db_fd)
     os.unlink(db_path)
 
-
 def test_database_insert(temp_database):
-    temp_database.insert({"id": 1, "name": "test"})
+    temp_database.insert({'id': 1, 'name': 'test'})
     assert temp_database.count() == 1
 ```
 

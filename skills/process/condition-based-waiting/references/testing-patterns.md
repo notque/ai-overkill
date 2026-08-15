@@ -35,7 +35,6 @@ from unittest.mock import patch, MagicMock
 import pytest
 from mymodule import wait_for
 
-
 def test_wait_for_success(mocker):
     condition = mocker.MagicMock(side_effect=[False, False, True])
     mocker.patch("time.sleep")
@@ -44,7 +43,6 @@ def test_wait_for_success(mocker):
 
     assert result is True
     assert condition.call_count == 3
-
 
 def test_wait_for_timeout(mocker):
     condition = mocker.MagicMock(return_value=False)
@@ -68,7 +66,6 @@ from unittest.mock import patch, call
 import pytest
 from mymodule import retry_with_backoff
 
-
 def test_backoff_delay_progression(mocker):
     operation = mocker.MagicMock(side_effect=[ValueError("fail")] * 3 + [42])
     sleep_mock = mocker.patch("time.sleep")
@@ -89,7 +86,6 @@ def test_backoff_delay_progression(mocker):
     assert operation.call_count == 4
     delays = [c.args[0] for c in sleep_mock.call_args_list]
     assert delays == [1.0, 2.0, 4.0]  # 1 → 2 → 4, capped before 10
-
 
 def test_backoff_raises_after_max_retries(mocker):
     operation = mocker.MagicMock(side_effect=ValueError("always fails"))
@@ -131,7 +127,6 @@ def test_non_retryable_error_not_retried(mocker):
 import requests
 from unittest.mock import MagicMock, patch
 
-
 def test_rate_limit_uses_retry_after_header(mocker):
     rate_limited = MagicMock()
     rate_limited.status_code = 429
@@ -145,12 +140,10 @@ def test_rate_limit_uses_retry_after_header(mocker):
     sleep_mock = mocker.patch("time.sleep")
 
     from mymodule import RateLimitedClient
-
     client = RateLimitedClient("https://api.example.com")
     client.get("/data")
 
     sleep_mock.assert_called_once_with(3.0)
-
 
 def test_rate_limit_uses_default_when_header_missing(mocker):
     rate_limited = MagicMock(status_code=429, headers={})
@@ -160,7 +153,6 @@ def test_rate_limit_uses_default_when_header_missing(mocker):
     sleep_mock = mocker.patch("time.sleep")
 
     from mymodule import RateLimitedClient
-
     client = RateLimitedClient("https://api.example.com", default_retry_after=60.0)
     client.get("/data")
 
@@ -178,13 +170,12 @@ def test_health_check_passes_when_all_ready(mocker):
     mocker.patch("time.sleep")
 
     from mymodule import wait_for_healthy, HealthCheck
-
     result = wait_for_healthy(
-        [HealthCheck("db", "tcp", "localhost:5432"), HealthCheck("api", "http", "http://localhost:8080/health")],
+        [HealthCheck("db", "tcp", "localhost:5432"),
+         HealthCheck("api", "http", "http://localhost:8080/health")],
         timeout_seconds=10,
     )
     assert result is True
-
 
 def test_health_check_times_out_when_service_down(mocker):
     mocker.patch("mymodule.check_tcp", return_value=False)
@@ -203,7 +194,6 @@ def test_health_check_times_out_when_service_down(mocker):
 import time
 from mymodule import CircuitBreaker, CircuitOpenError
 
-
 def test_circuit_opens_after_failure_threshold():
     cb = CircuitBreaker("test", failure_threshold=3, recovery_timeout_seconds=30)
     failing_op = lambda: (_ for _ in ()).throw(RuntimeError("fail"))
@@ -214,7 +204,6 @@ def test_circuit_opens_after_failure_threshold():
 
     with pytest.raises(CircuitOpenError):
         cb.call(lambda: "should not run")
-
 
 def test_circuit_recovers_after_timeout(mocker):
     cb = CircuitBreaker("test", failure_threshold=1, recovery_timeout_seconds=30, half_open_max_calls=2)
@@ -231,7 +220,6 @@ def test_circuit_recovers_after_timeout(mocker):
     cb.call(lambda: "ok")  # Second success closes the circuit
 
     from mymodule import CircuitState
-
     assert cb.state == CircuitState.CLOSED
 ```
 

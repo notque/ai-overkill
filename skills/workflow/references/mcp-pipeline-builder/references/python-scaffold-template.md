@@ -76,7 +76,10 @@ from .client import ServiceClient
 # Validate required env vars at startup
 _API_KEY = os.environ.get("SERVICE_API_KEY")
 if not _API_KEY:
-    raise ValueError("SERVICE_API_KEY environment variable is required. Set it before starting the server.")
+    raise ValueError(
+        "SERVICE_API_KEY environment variable is required. "
+        "Set it before starting the server."
+    )
 
 # Initialize FastMCP
 mcp = FastMCP("{service}-mcp-server")
@@ -86,12 +89,10 @@ _client = ServiceClient(api_key=_API_KEY)
 
 # --- Tool parameter models (Pydantic v2) ---
 
-
 class GetIssueParams(BaseModel):
     owner: str = Field(description="Repository owner or organization name")
     repo: str = Field(description="Repository name")
     issue_number: int = Field(description="Issue number", gt=0)
-
 
 class ListIssuesParams(BaseModel):
     owner: str = Field(description="Repository owner or organization name")
@@ -99,11 +100,11 @@ class ListIssuesParams(BaseModel):
     state: str = Field(default="open", description="Filter by state: open, closed, all")
     limit: int = Field(default=20, ge=1, le=100, description="Maximum results. Default: 20")
 
-
 # --- Tools ---
 
-
-@mcp.tool(description="Get a single issue by number. Returns title, description, state, labels, and assignees.")
+@mcp.tool(
+    description="Get a single issue by number. Returns title, description, state, labels, and assignees."
+)
 def service_get_issue(params: GetIssueParams) -> str:
     """Get a single issue with full context."""
     try:
@@ -113,8 +114,9 @@ def service_get_issue(params: GetIssueParams) -> str:
         # Raise with a clear message — FastMCP converts this to an MCP error response
         raise ValueError(f"Error fetching issue {params.issue_number}: {e}") from e
 
-
-@mcp.tool(description="List issues with optional state filter. Returns a JSON array of matching issues.")
+@mcp.tool(
+    description="List issues with optional state filter. Returns a JSON array of matching issues."
+)
 def service_list_issues(params: ListIssuesParams) -> str:
     """List issues with filters."""
     try:
@@ -122,7 +124,6 @@ def service_list_issues(params: ListIssuesParams) -> str:
         return json.dumps(issues, indent=2)
     except Exception as e:
         raise ValueError(f"Error listing issues: {e}") from e
-
 
 # --- Entry point ---
 
@@ -143,7 +144,6 @@ The shared client class. Adapt to the target service's protocol.
 
 import httpx
 from typing import Any
-
 
 class ServiceClient:
     def __init__(self, api_key: str, base_url: str = "https://api.example.com"):
@@ -184,7 +184,6 @@ import subprocess
 import json
 import os
 
-
 class CliClient:
     def __init__(self, executable: str, env: dict[str, str] | None = None):
         self._executable = executable
@@ -200,7 +199,9 @@ class CliClient:
             timeout=30,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"Command failed (exit {result.returncode}): {result.stderr}")
+            raise RuntimeError(
+                f"Command failed (exit {result.returncode}): {result.stderr}"
+            )
         return result.stdout
 
     def run_json(self, args: list[str]) -> Any:
@@ -269,16 +270,15 @@ def my_tool(params: MyParams) -> str:
 ```python
 import os
 
-
 def _require_env(name: str) -> str:
     """Get a required environment variable or raise at startup."""
     value = os.environ.get(name)
     if not value:
         raise ValueError(
-            f"{name} environment variable is required. Set it before starting the server: export {name}=your_value"
+            f"{name} environment variable is required. "
+            f"Set it before starting the server: export {name}=your_value"
         )
     return value
-
 
 # At module level (checked at startup, not at first tool call)
 API_KEY = _require_env("SERVICE_API_KEY")

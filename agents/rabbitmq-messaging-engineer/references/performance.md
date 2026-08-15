@@ -25,7 +25,7 @@
 ```python
 channel = connection.channel()
 channel.basic_qos(prefetch_count=20)
-channel.basic_consume(queue="tasks", on_message_callback=handle_message, auto_ack=False)
+channel.basic_consume(queue='tasks', on_message_callback=handle_message, auto_ack=False)
 ```
 
 `prefetch_count=0` (default) pushes all messages to first consumer. Others starve.
@@ -38,14 +38,14 @@ channel.basic_consume(queue="tasks", on_message_callback=handle_message, auto_ac
 
 ```python
 channel.queue_declare(
-    queue="bulk-tasks",
+    queue='bulk-tasks',
     durable=True,
     arguments={
-        "x-queue-mode": "lazy",
-        "x-message-ttl": 86400000,
-        "x-max-length": 10_000_000,
-        "x-overflow": "reject-publish",
-    },
+        'x-queue-mode': 'lazy',
+        'x-message-ttl': 86400000,
+        'x-max-length': 10_000_000,
+        'x-overflow': 'reject-publish',
+    }
 )
 ```
 
@@ -112,7 +112,7 @@ rg '\.Consume\(' --type go -B 10 | grep -v 'Qos\('
 
 **Signal**:
 ```python
-channel.basic_consume(queue="tasks", on_message_callback=handle)
+channel.basic_consume(queue='tasks', on_message_callback=handle)
 # No basic_qos — unlimited prefetch
 ```
 
@@ -132,7 +132,7 @@ rabbitmqctl list_queues name policy | grep -v 'ttl\|expire'
 
 **Signal**:
 ```python
-channel.queue_declare(queue="notifications", durable=True)
+channel.queue_declare(queue='notifications', durable=True)
 # No TTL, no max-length — grows forever
 ```
 
@@ -141,14 +141,14 @@ Memory alarm fires at 40% watermark, blocking all publishers.
 **Preferred action**:
 ```python
 channel.queue_declare(
-    queue="notifications",
+    queue='notifications',
     durable=True,
     arguments={
-        "x-message-ttl": 3_600_000,
-        "x-max-length": 1_000_000,
-        "x-overflow": "reject-publish",
-        "x-dead-letter-exchange": "dlx",
-    },
+        'x-message-ttl': 3_600_000,
+        'x-max-length': 1_000_000,
+        'x-overflow': 'reject-publish',
+        'x-dead-letter-exchange': 'dlx',
+    }
 )
 ```
 
@@ -172,9 +172,9 @@ Classic mirrored queues use synchronous replication. Under >10K msg/s, mirrors f
 **Preferred action**:
 ```python
 channel.queue_declare(
-    queue="critical-tasks",
+    queue='critical-tasks',
     durable=True,
-    arguments={"x-queue-type": "quorum"},
+    arguments={'x-queue-type': 'quorum'},
 )
 ```
 

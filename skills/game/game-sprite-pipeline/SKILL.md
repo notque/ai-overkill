@@ -481,7 +481,6 @@ def _is_done(asset_dir: Path) -> bool:
         return True
     return False
 
-
 def run_one(spec, force=False):
     if not force and _is_done(asset_dir):
         return existing_meta  # log "skipping" + return

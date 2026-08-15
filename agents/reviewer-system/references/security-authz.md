@@ -139,7 +139,7 @@ Serializers and update handlers must declare exactly which fields a client can w
 class UserProfileSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ["display_name", "avatar_url", "timezone"]
+        fields = ['display_name', 'avatar_url', 'timezone']
 ```
 
 **Express/Zod:**
@@ -192,7 +192,10 @@ Mount permission middleware on the router or controller, not per-handler. A new 
 
 **FastAPI:**
 ```python
-admin_router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
+admin_router = APIRouter(
+    prefix="/admin",
+    dependencies=[Depends(require_admin)]
+)
 ```
 
 **Express:**

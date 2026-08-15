@@ -7,7 +7,7 @@
 try:
     do_something()
 except SpecificException as e:
-    LOG.error("Failed: %s", e)
+    LOG.error('Failed: %s', e)
 ```
 
 ## Missing i18n Translation
@@ -15,8 +15,7 @@ except SpecificException as e:
 **Solution**:
 ```python
 from myservice.i18n import _
-
-raise Exception(_("Resource not found"))
+raise Exception(_('Resource not found'))
 ```
 
 ## Import Order Violation (H301-H307)

@@ -18,22 +18,21 @@ import ipaddress, socket
 from urllib.parse import urlparse
 
 BLOCKED_RANGES = [
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network('127.0.0.0/8'),
+    ipaddress.ip_network('10.0.0.0/8'),
+    ipaddress.ip_network('172.16.0.0/12'),
+    ipaddress.ip_network('192.168.0.0/16'),
+    ipaddress.ip_network('169.254.0.0/16'),
 ]
-
 
 def safe_fetch(user_url: str) -> bytes:
     parsed = urlparse(user_url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError("scheme not allowed")
+    if parsed.scheme not in ('http', 'https'):
+        raise ValueError('scheme not allowed')
     addr = socket.getaddrinfo(parsed.hostname, parsed.port or 443)[0][4][0]
     ip = ipaddress.ip_address(addr)
     if any(ip in net for net in BLOCKED_RANGES):
-        raise ValueError("internal IP not allowed")
+        raise ValueError('internal IP not allowed')
     resp = requests.get(user_url, allow_redirects=False, timeout=10)
     return resp.content
 ```
@@ -83,7 +82,6 @@ Resolve the full path and verify it stays within the intended base directory.
 from pathlib import Path
 from flask import abort, send_file
 
-
 def serve_export(name: str):
     base = Path("/var/app/exports").resolve()
     target = (base / name).resolve()
@@ -122,7 +120,6 @@ func serveExport(w http.ResponseWriter, r *http.Request) {
 **Archive extraction (Python):**
 ```python
 import tarfile
-
 
 def safe_extract(archive_path: str, dest: str):
     with tarfile.open(archive_path) as tar:
@@ -201,12 +198,10 @@ Configure XML parsers to reject DTDs and external entity references before parsi
 **Python:**
 ```python
 from defusedxml import ElementTree as ET
-
 tree = ET.fromstring(request.data)
 
 # Or configure lxml explicitly
 from lxml import etree
-
 parser = etree.XMLParser(resolve_entities=False, no_network=True)
 tree = etree.fromstring(request.data, parser=parser)
 ```
@@ -253,7 +248,7 @@ Define explicit field lists or DTOs. The database row is never the API response.
 class UserPublicSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "display_name", "avatar_url"]
+        fields = ['id', 'display_name', 'avatar_url']
 ```
 
 **Python (FastAPI/Pydantic):**
@@ -265,7 +260,6 @@ class UserResponse(BaseModel):
 
     class Config:
         extra = "ignore"
-
 
 @app.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int):

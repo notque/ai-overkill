@@ -49,15 +49,18 @@ Use `join()` to filter or order by a related field, not to load related data.
 
 ```python
 # Find users who have published posts — efficient single query
-users = User.select().join(Post).where(Post.status == "published").distinct()
+users = (User
+    .select()
+    .join(Post)
+    .where(Post.status == 'published')
+    .distinct())
 
 # Order users by most recent post date
-users = (
-    User.select(User, fn.MAX(Post.created_at).alias("last_post"))
+users = (User
+    .select(User, fn.MAX(Post.created_at).alias('last_post'))
     .join(Post, JOIN.LEFT_OUTER)
     .group_by(User.id)
-    .order_by(fn.MAX(Post.created_at).desc())
-)
+    .order_by(fn.MAX(Post.created_at).desc()))
 ```
 
 **Why**: `prefetch()` can't filter — it loads all related rows. Use `join()` when related table drives WHERE or ORDER BY.
@@ -71,15 +74,12 @@ Enable WAL for concurrent readers during writes. Set once at connection time.
 ```python
 from peewee import SqliteDatabase
 
-db = SqliteDatabase(
-    "app.db",
-    pragmas={
-        "journal_mode": "wal",  # Allow concurrent reads during writes
-        "cache_size": -1024 * 64,  # 64MB cache
-        "foreign_keys": 1,  # Enforce FK constraints
-        "synchronous": "normal",  # Balance safety/speed (vs. 'full')
-    },
-)
+db = SqliteDatabase('app.db', pragmas={
+    'journal_mode': 'wal',       # Allow concurrent reads during writes
+    'cache_size': -1024 * 64,    # 64MB cache
+    'foreign_keys': 1,            # Enforce FK constraints
+    'synchronous': 'normal',      # Balance safety/speed (vs. 'full')
+})
 ```
 
 **Why**: Default journal mode blocks all readers during writes. WAL allows concurrent reads, essential for web apps.
@@ -100,7 +100,6 @@ users = User.select(User.id, User.username, User.email)
 
 # Named tuples for clean attribute access on partial selects
 from peewee import ModelSelect
-
 users = User.select(User.id, User.username).namedtuples()
 for u in users:
     print(u.username)  # Works without model overhead
@@ -147,10 +146,12 @@ for user in users:
 
 # Option 2: annotate with subquery at SELECT time
 from peewee import fn, ModelSelect
+post_count_q = (Post
+    .select(fn.COUNT(Post.id))
+    .where(Post.user == User.id)
+    .scalar_subquery())
 
-post_count_q = Post.select(fn.COUNT(Post.id)).where(Post.user == User.id).scalar_subquery()
-
-users = User.select(User, post_count_q.alias("post_count"))
+users = User.select(User, post_count_q.alias('post_count'))
 for user in users:
     print(user.post_count)  # Available as attribute, 1 query total
 ```
@@ -172,8 +173,8 @@ rg 'ForeignKeyField\([^)]*\)' --type py | grep -v 'index=True'
 **Signal**:
 ```python
 class Post(Model):
-    user = ForeignKeyField(User, backref="posts")  # No index!
-    category = ForeignKeyField(Category, backref="posts")  # No index!
+    user = ForeignKeyField(User, backref='posts')  # No index!
+    category = ForeignKeyField(Category, backref='posts')  # No index!
 ```
 
 **Why this matters**: Peewee does NOT auto-index ForeignKeyField (unlike Django). Full table scan at 10k+ rows.
@@ -182,13 +183,13 @@ class Post(Model):
 
 ```python
 class Post(Model):
-    user = ForeignKeyField(User, backref="posts", index=True)
-    category = ForeignKeyField(Category, backref="posts", index=True)
+    user = ForeignKeyField(User, backref='posts', index=True)
+    category = ForeignKeyField(Category, backref='posts', index=True)
 
     class Meta:
         # Composite index for queries that filter on both
         indexes = (
-            (("user", "created_at"), False),  # Non-unique
+            (('user', 'created_at'), False),  # Non-unique
         )
 ```
 
@@ -210,11 +211,10 @@ grep -rn 'prefetch' --include="*.py" -A 3 | grep 'join'
 **Signal**:
 ```python
 # BUG: join + prefetch on same model produces cartesian product rows
-users = (
-    User.select()
+users = (User
+    .select()
     .join(Post)  # Creates JOIN
-    .prefetch(Post)
-)  # Also prefetches — duplicates Post rows
+    .prefetch(Post))  # Also prefetches — duplicates Post rows
 ```
 
 **Why this matters**: `join()` + `prefetch()` on same model are mutually exclusive. Combining duplicates Post rows.
@@ -223,7 +223,7 @@ users = (
 
 ```python
 # For filtering: use join only, no prefetch
-users = User.select().join(Post).where(Post.status == "published").distinct()
+users = User.select().join(Post).where(Post.status == 'published').distinct()
 
 # For loading related data: use prefetch only, no join
 users = User.select().prefetch(Post)

@@ -36,18 +36,17 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 import base64
 
-
 def extract_slides(pptx_path: str) -> list[dict]:
     prs = Presentation(pptx_path)
     results = []
 
     for slide_num, slide in enumerate(prs.slides, start=1):
         slide_data = {
-            "number": slide_num,
-            "title": "",
-            "body": [],
-            "notes": "",
-            "images": [],
+            'number': slide_num,
+            'title': '',
+            'body': [],
+            'notes': '',
+            'images': [],
         }
 
         for shape in slide.shapes:
@@ -55,35 +54,33 @@ def extract_slides(pptx_path: str) -> list[dict]:
             if shape.has_text_frame:
                 ph = shape.placeholder_format
                 if ph is not None and ph.idx == 0:
-                    slide_data["title"] = shape.text_frame.text.strip()
+                    slide_data['title'] = shape.text_frame.text.strip()
                 elif ph is not None and ph.idx == 1:
                     # Body placeholder — collect non-empty paragraphs
                     for para in shape.text_frame.paragraphs:
                         text = para.text.strip()
                         if text:
-                            slide_data["body"].append(text)
+                            slide_data['body'].append(text)
                 elif ph is None:
                     # Freestanding text box
                     text = shape.text_frame.text.strip()
                     if text:
-                        slide_data["body"].append(text)
+                        slide_data['body'].append(text)
 
             # Images
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                 img_blob = shape.image.blob
                 img_ext = shape.image.ext
-                img_b64 = base64.b64encode(img_blob).decode("utf-8")
-                slide_data["images"].append(
-                    {
-                        "ext": img_ext,
-                        "data_uri": f"data:image/{img_ext};base64,{img_b64}",
-                    }
-                )
+                img_b64 = base64.b64encode(img_blob).decode('utf-8')
+                slide_data['images'].append({
+                    'ext': img_ext,
+                    'data_uri': f'data:image/{img_ext};base64,{img_b64}',
+                })
 
         # Speaker notes — guard AttributeError for slides with no notes
         try:
             notes_tf = slide.notes_slide.notes_text_frame
-            slide_data["notes"] = notes_tf.text.strip()
+            slide_data['notes'] = notes_tf.text.strip()
         except AttributeError:
             pass
 
@@ -118,7 +115,6 @@ def check_python_pptx() -> None:
 ```python
 def validate_extraction(slides: list[dict], pptx_path: str) -> None:
     from pptx import Presentation
-
     expected = len(Presentation(pptx_path).slides)
     if len(slides) != expected:
         print(f"Warning: extracted {len(slides)} slides but PPTX has {expected}.")
@@ -178,7 +174,7 @@ notes = slide.notes_slide.notes_text_frame.text
 try:
     notes = slide.notes_slide.notes_text_frame.text.strip()
 except AttributeError:
-    notes = ""
+    notes = ''
 ```
 
 ---
@@ -193,7 +189,7 @@ rg 'image\.blob.*open|with open.*image' --type py
 
 **Signal**:
 ```python
-with open(f"slide_{i}_img.png", "wb") as f:
+with open(f'slide_{i}_img.png', 'wb') as f:
     f.write(shape.image.blob)
 # Then references <img src="slide_1_img.png"> in HTML
 ```
@@ -204,9 +200,8 @@ with open(f"slide_{i}_img.png", "wb") as f:
 
 ```python
 import base64
-
-b64 = base64.b64encode(shape.image.blob).decode("utf-8")
-data_uri = f"data:image/{shape.image.ext};base64,{b64}"
+b64 = base64.b64encode(shape.image.blob).decode('utf-8')
+data_uri = f'data:image/{shape.image.ext};base64,{b64}'
 # Use data_uri in <img src="...">
 ```
 
@@ -234,13 +229,11 @@ for shape in slide.shapes:
 ```python
 def iter_shapes(shapes):
     from pptx.enum.shapes import MSO_SHAPE_TYPE
-
     for shape in shapes:
         if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
             yield from iter_shapes(shape.shapes)
         else:
             yield shape
-
 
 for shape in iter_shapes(slide.shapes):
     if shape.has_text_frame:

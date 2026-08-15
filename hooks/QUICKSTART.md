@@ -224,7 +224,6 @@ Or via Python:
 ```python
 import sys
 from pathlib import Path
-
 sys.path.insert(0, str(Path.cwd() / "hooks" / "lib"))
 
 from learning_db_v2 import query_learnings, lookup_error_solution, get_stats

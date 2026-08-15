@@ -134,13 +134,13 @@ class TestUserWorkflow:
     user_id = None  # Shared state
 
     def test_1_create_user(self):
-        response = client.post("/users", json={"name": "Alice"})
-        TestUserWorkflow.user_id = response.json()["id"]
+        response = client.post('/users', json={'name': 'Alice'})
+        TestUserWorkflow.user_id = response.json()['id']
         assert response.status_code == 201
 
     def test_2_get_user(self):
-        response = client.get(f"/users/{TestUserWorkflow.user_id}")  # Depends on test_1
-        assert response.json()["name"] == "Alice"
+        response = client.get(f'/users/{TestUserWorkflow.user_id}')  # Depends on test_1
+        assert response.json()['name'] == 'Alice'
 ```
 
 ```go
@@ -163,15 +163,15 @@ func TestListUsers(t *testing.T) {
 # Each test is self-contained
 class TestUserWorkflow:
     def test_create_user(self):
-        response = client.post("/users", json={"name": "Alice"})
+        response = client.post('/users', json={'name': 'Alice'})
         assert response.status_code == 201
-        assert response.json()["name"] == "Alice"
+        assert response.json()['name'] == 'Alice'
 
     def test_get_user(self):
-        create_response = client.post("/users", json={"name": "Bob"})
-        user_id = create_response.json()["id"]
-        response = client.get(f"/users/{user_id}")
-        assert response.json()["name"] == "Bob"
+        create_response = client.post('/users', json={'name': 'Bob'})
+        user_id = create_response.json()['id']
+        response = client.get(f'/users/{user_id}')
+        assert response.json()['name'] == 'Bob'
 ```
 
 ```go
@@ -221,9 +221,9 @@ func TestCalculate(t *testing.T) {
 ```python
 def test_fetch_user():
     result = fetch_user(user_id=123)
-    assert result["id"] == 123
-    assert result["name"] == "Alice"
-    assert result["email"] == "alice@example.com"
+    assert result['id'] == 123
+    assert result['name'] == 'Alice'
+    assert result['email'] == 'alice@example.com'
 ```
 
 ```go
@@ -293,11 +293,12 @@ Skipped tests are broken tests waiting to cause production issues. Swallowed err
 
 ```python
 @pytest.mark.skip("TODO: fix later")  # Been here 2 years
-def test_payment_processing(): ...
-
+def test_payment_processing():
+    ...
 
 @pytest.mark.skip("Flaky on CI")  # Hiding a real problem
-def test_concurrent_updates(): ...
+def test_concurrent_updates():
+    ...
 ```
 
 ```javascript
@@ -448,7 +449,7 @@ When setup time dominates test time, developers stop running tests.
 ```python
 class TestUserAPI:
     def setup_method(self):
-        self.db = create_database()  # 2 seconds
+        self.db = create_database()       # 2 seconds
         self.db.run_migrations()
         self.db.seed_all_fixtures()
         self.app = create_app(self.db)
@@ -456,7 +457,7 @@ class TestUserAPI:
 
     def test_get_user(self):
         # 50ms test, 2000ms setup
-        response = self.client.get("/users/1")
+        response = self.client.get('/users/1')
         assert response.status_code == 200
 ```
 
@@ -471,7 +472,6 @@ def db():
     yield database
     database.cleanup()
 
-
 @pytest.fixture
 def client(db):
     """Fresh test client with transaction rollback."""
@@ -479,9 +479,8 @@ def client(db):
     yield TestClient(create_app(db))
     db.rollback()  # Instant cleanup
 
-
 def test_get_user(client):
-    response = client.get("/users/1")
+    response = client.get('/users/1')
     assert response.status_code == 200
 ```
 

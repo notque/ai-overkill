@@ -43,12 +43,12 @@ import urllib.request
 
 BASE = "https://public.api.bsky.app/xrpc"
 
-
 def build_url(lexicon: str, **params: str | int) -> str:
     """Build a public XRPC request URL."""
-    encoded = "&".join(f"{k}={urllib.request.quote(str(v))}" for k, v in params.items() if v)
+    encoded = "&".join(
+        f"{k}={urllib.request.quote(str(v))}" for k, v in params.items() if v
+    )
     return f"{BASE}/{lexicon}?{encoded}" if encoded else f"{BASE}/{lexicon}"
-
 
 # Correct
 url = build_url("app.bsky.feed.getAuthorFeed", actor="user.bsky.social", limit=30)
@@ -193,8 +193,8 @@ Each item in the `feed` array is a `FeedViewPost`. Key fields:
             "$type": "app.bsky.feed.post",
             "text": "post content",
             "createdAt": "2024-01-15T12:00:00.000Z",
-            "reply": {},  # Present if this is a reply
-            "embed": {},  # Present if post has images/links/quotes
+            "reply": {},   # Present if this is a reply
+            "embed": {},   # Present if post has images/links/quotes
         },
         "likeCount": 42,
         "repostCount": 7,
@@ -207,7 +207,7 @@ Each item in the `feed` array is a `FeedViewPost`. Key fields:
     "reply": {  # Only present for replies
         "root": {},
         "parent": {},
-    },
+    }
 }
 ```
 

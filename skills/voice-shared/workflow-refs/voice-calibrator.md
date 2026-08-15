@@ -755,14 +755,17 @@ comparison = compare_profiles(profile1, profile2)
 print(comparison)
 
 # Validate content against profile
-result = validate_content(content=content_text, profile=profile_dict, voice="your-voice")
+result = validate_content(
+    content=content_text,
+    profile=profile_dict,
+    voice="your-voice"
+)
 print(f"Pass: {result.passed}, Score: {result.score}")
 for v in result.violations:
     print(f"  [{v.severity}] {v.message}")
 
 # Quick banned check only
 from voice_validator import load_banned_patterns, check_banned_patterns
-
 banned = load_banned_patterns()
 violations = check_banned_patterns(content_text, banned, voice="your-voice")
 ```

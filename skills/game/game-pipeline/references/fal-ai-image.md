@@ -124,19 +124,17 @@ python3 scripts/fal_queue_image_run.py \
 from PIL import Image
 import numpy as np
 
-
 def remove_chroma_key(input_path: str, output_path: str, tolerance: int = 50) -> None:
     """Remove #00FF00 chroma-key background, output PNG with alpha."""
     img = Image.open(input_path).convert("RGBA")
     data = np.array(img)
 
-    r, g, b, a = data[:, :, 0], data[:, :, 1], data[:, :, 2], data[:, :, 3]
+    r, g, b, a = data[:,:,0], data[:,:,1], data[:,:,2], data[:,:,3]
     # Target: R < 100, G > 200, B < 100 (pure green range)
     mask = (r < tolerance) & (g > (255 - tolerance)) & (b < tolerance)
     data[mask] = [0, 0, 0, 0]  # Set to transparent
 
     Image.fromarray(data).save(output_path, "PNG")
-
 
 remove_chroma_key("/tmp/warrior-chroma.png", "public/assets/warrior-sprite.png")
 ```

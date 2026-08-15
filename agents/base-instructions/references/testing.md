@@ -98,7 +98,6 @@ rg '^#!/.+(python|bash|sh)' --files-with-matches | xargs grep -l "TODO: remove\|
 ```python
 # validate_migration.py — written to check if data migration ran correctly
 import psycopg2
-
 conn = psycopg2.connect(...)
 cur = conn.cursor()
 cur.execute("SELECT COUNT(*) FROM users WHERE migrated_at IS NULL")

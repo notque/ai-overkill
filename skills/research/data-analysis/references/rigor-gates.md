@@ -24,7 +24,6 @@ Detailed documentation for the four statistical rigor gates applied during Phase
 ```python
 import math
 
-
 def assess_sample(sample_size, population_size=None, confidence=0.95, margin=0.05):
     """Assess whether sample size is adequate."""
     z = 1.96  # 95% confidence
@@ -32,18 +31,20 @@ def assess_sample(sample_size, population_size=None, confidence=0.95, margin=0.0
     min_sample = math.ceil((z**2 * 0.25) / (margin**2))
 
     result = {
-        "sample_size": sample_size,
-        "min_for_5pct_margin": min_sample,
-        "adequate": sample_size >= min_sample,
+        'sample_size': sample_size,
+        'min_for_5pct_margin': min_sample,
+        'adequate': sample_size >= min_sample,
     }
 
     if population_size:
-        result["coverage"] = sample_size / population_size
-        result["coverage_warning"] = result["coverage"] < 0.05
+        result['coverage'] = sample_size / population_size
+        result['coverage_warning'] = result['coverage'] < 0.05
         # Finite population correction
-        adjusted_min = math.ceil(min_sample / (1 + (min_sample - 1) / population_size))
-        result["adjusted_min"] = adjusted_min
-        result["adequate"] = sample_size >= adjusted_min
+        adjusted_min = math.ceil(
+            min_sample / (1 + (min_sample - 1) / population_size)
+        )
+        result['adjusted_min'] = adjusted_min
+        result['adequate'] = sample_size >= adjusted_min
 
     return result
 ```
@@ -55,33 +56,30 @@ Check for gaps in temporal data:
 ```python
 from datetime import datetime, timedelta
 
-
-def check_time_gaps(dates, expected_granularity="daily"):
+def check_time_gaps(dates, expected_granularity='daily'):
     """Identify gaps in time series data."""
     sorted_dates = sorted(set(dates))
     gaps = []
-    delta = timedelta(days=1) if expected_granularity == "daily" else timedelta(weeks=1)
+    delta = timedelta(days=1) if expected_granularity == 'daily' else timedelta(weeks=1)
 
     for i in range(1, len(sorted_dates)):
-        actual_gap = sorted_dates[i] - sorted_dates[i - 1]
+        actual_gap = sorted_dates[i] - sorted_dates[i-1]
         if actual_gap > delta * 1.5:  # Allow small tolerance
-            gaps.append(
-                {
-                    "start": sorted_dates[i - 1],
-                    "end": sorted_dates[i],
-                    "duration": actual_gap,
-                }
-            )
+            gaps.append({
+                'start': sorted_dates[i-1],
+                'end': sorted_dates[i],
+                'duration': actual_gap,
+            })
 
     total_window = sorted_dates[-1] - sorted_dates[0]
-    gap_duration = sum((g["duration"] for g in gaps), timedelta())
+    gap_duration = sum((g['duration'] for g in gaps), timedelta())
     gap_pct = gap_duration / total_window if total_window.days > 0 else 0
 
     return {
-        "gaps": gaps,
-        "gap_count": len(gaps),
-        "gap_percentage": gap_pct,
-        "passes": gap_pct <= 0.10,  # Pass if gaps <= 10% of window
+        'gaps': gaps,
+        'gap_count': len(gaps),
+        'gap_percentage': gap_pct,
+        'passes': gap_pct <= 0.10,  # Pass if gaps <= 10% of window
     }
 ```
 
@@ -105,16 +103,16 @@ def assess_missing(data, columns, critical_columns=None):
     report = {}
     for col in columns:
         total = len(data)
-        missing = sum(1 for row in data if not row.get(col) or row[col] in ("", "NA", "null", "None"))
+        missing = sum(1 for row in data if not row.get(col) or row[col] in ('', 'NA', 'null', 'None'))
         pct = missing / total if total > 0 else 0
         is_critical = col in critical_columns
 
         report[col] = {
-            "missing": missing,
-            "total": total,
-            "pct": pct,
-            "critical": is_critical,
-            "passes": pct <= 0.20 or not is_critical,
+            'missing': missing,
+            'total': total,
+            'pct': pct,
+            'critical': is_critical,
+            'passes': pct <= 0.20 or not is_critical,
         }
 
     return report
@@ -160,11 +158,11 @@ def check_time_alignment(group_a_dates, group_b_dates):
     alignment = overlap / max(a_range, b_range) if max(a_range, b_range) > 0 else 0
 
     return {
-        "group_a_range": f"{a_start} to {a_end}",
-        "group_b_range": f"{b_start} to {b_end}",
-        "overlap_pct": alignment,
-        "passes": alignment >= 0.90,  # 90% overlap minimum
-        "warning": f"Groups cover different periods" if alignment < 0.90 else None,
+        'group_a_range': f"{a_start} to {a_end}",
+        'group_b_range': f"{b_start} to {b_end}",
+        'overlap_pct': alignment,
+        'passes': alignment >= 0.90,  # 90% overlap minimum
+        'warning': f"Groups cover different periods" if alignment < 0.90 else None,
     }
 ```
 
@@ -219,21 +217,19 @@ def bonferroni_correction(p_values, alpha=0.05):
 
     results = []
     for name, p in p_values:
-        results.append(
-            {
-                "test": name,
-                "p_value": p,
-                "adjusted_alpha": adjusted_alpha,
-                "significant_after_correction": p < adjusted_alpha,
-                "significant_unadjusted": p < alpha,
-            }
-        )
+        results.append({
+            'test': name,
+            'p_value': p,
+            'adjusted_alpha': adjusted_alpha,
+            'significant_after_correction': p < adjusted_alpha,
+            'significant_unadjusted': p < alpha,
+        })
 
     return {
-        "n_tests": n_tests,
-        "original_alpha": alpha,
-        "adjusted_alpha": adjusted_alpha,
-        "results": results,
+        'n_tests': n_tests,
+        'original_alpha': alpha,
+        'adjusted_alpha': adjusted_alpha,
+        'results': results,
     }
 ```
 
@@ -279,10 +275,12 @@ When multiple tests are performed, report transparently:
 ```python
 import math
 
-
 def cohens_d(mean_a, mean_b, std_a, std_b, n_a, n_b):
     """Calculate Cohen's d for two independent groups."""
-    pooled_std = math.sqrt(((n_a - 1) * std_a**2 + (n_b - 1) * std_b**2) / (n_a + n_b - 2))
+    pooled_std = math.sqrt(
+        ((n_a - 1) * std_a**2 + (n_b - 1) * std_b**2)
+        / (n_a + n_b - 2)
+    )
     d = (mean_a - mean_b) / pooled_std if pooled_std > 0 else 0
 
     # Interpretation
@@ -296,21 +294,20 @@ def cohens_d(mean_a, mean_b, std_a, std_b, n_a, n_b):
         interpretation = "large"
 
     return {
-        "cohens_d": d,
-        "interpretation": interpretation,
+        'cohens_d': d,
+        'interpretation': interpretation,
     }
-
 
 def relative_and_absolute_change(baseline, treatment):
     """Report both relative and absolute change."""
     absolute = treatment - baseline
-    relative = (treatment - baseline) / baseline if baseline != 0 else float("inf")
+    relative = (treatment - baseline) / baseline if baseline != 0 else float('inf')
     return {
-        "baseline": baseline,
-        "treatment": treatment,
-        "absolute_change": absolute,
-        "relative_change_pct": relative * 100,
-        "summary": f"{baseline:.2%} to {treatment:.2%} (absolute: {absolute:+.2%}, relative: {relative:+.1%})",
+        'baseline': baseline,
+        'treatment': treatment,
+        'absolute_change': absolute,
+        'relative_change_pct': relative * 100,
+        'summary': f"{baseline:.2%} to {treatment:.2%} (absolute: {absolute:+.2%}, relative: {relative:+.1%})"
     }
 ```
 

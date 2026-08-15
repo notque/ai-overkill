@@ -22,8 +22,8 @@ Extended catalog of patterns beyond the top 5 in the main SKILL.md. Each entry i
 
 ```python
 # Bad: Jump straight to the metric
-df = pd.read_csv("data.csv")
-print(f"Conversion improved: {df[df.group == 'B'].converted.mean() - df[df.group == 'A'].converted.mean():.1%}")
+df = pd.read_csv('data.csv')
+print(f"Conversion improved: {df[df.group=='B'].converted.mean() - df[df.group=='A'].converted.mean():.1%}")
 ```
 
 **Why wrong**: Skipping data profiling misses quality issues that invalidate the metric. Missing values, date gaps, or population mismatches silently distort the result.
@@ -32,7 +32,7 @@ print(f"Conversion improved: {df[df.group == 'B'].converted.mean() - df[df.group
 
 ```python
 # Good: Profile first
-df = pd.read_csv("data.csv")
+df = pd.read_csv('data.csv')
 print(f"Rows: {len(df)}")
 print(f"Missing values:\n{df.isnull().sum()}")
 print(f"Date range: {df.date.min()} to {df.date.max()}")

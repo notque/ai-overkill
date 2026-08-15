@@ -19,8 +19,7 @@ Complete implementations for condition-based waiting patterns. The main SKILL.md
 import time
 from typing import Callable, TypeVar
 
-T = TypeVar("T")
-
+T = TypeVar('T')
 
 def wait_for(
     condition: Callable[[], T],
@@ -56,23 +55,34 @@ def wait_for(
         time.sleep(poll_interval_seconds)
 
     elapsed = time.monotonic() - start
-    raise TimeoutError(f"Timeout waiting for: {description}. Waited {elapsed:.1f}s, last result: {last_result}")
+    raise TimeoutError(
+        f"Timeout waiting for: {description}. "
+        f"Waited {elapsed:.1f}s, last result: {last_result}"
+    )
 ```
 
 ### Python Usage
 
 ```python
 # Wait for file to exist
-wait_for(lambda: os.path.exists("/tmp/signal.txt"), "signal file to be created", timeout_seconds=10.0)
+wait_for(
+    lambda: os.path.exists("/tmp/signal.txt"),
+    "signal file to be created",
+    timeout_seconds=10.0
+)
 
 # Wait for state machine
-wait_for(lambda: machine.state == "ready", "state machine to reach 'ready' state", timeout_seconds=60.0)
+wait_for(
+    lambda: machine.state == "ready",
+    "state machine to reach 'ready' state",
+    timeout_seconds=60.0
+)
 
 # Wait for complex condition
 wait_for(
     lambda: obj.ready and obj.value > 10 and not obj.error,
     "object ready with value > 10 and no error",
-    timeout_seconds=15.0,
+    timeout_seconds=15.0
 )
 ```
 
@@ -116,8 +126,7 @@ import random
 import time
 from typing import Callable, TypeVar, Type, Tuple
 
-T = TypeVar("T")
-
+T = TypeVar('T')
 
 def retry_with_backoff(
     operation: Callable[[], T],
@@ -163,10 +172,8 @@ def retry_with_backoff(
             jitter = 1.0 + random.uniform(-jitter_range, jitter_range)
             actual_delay = min(delay * jitter, max_delay_seconds)
 
-            print(
-                f"[{description}] Attempt {attempt + 1}/{max_retries + 1} failed: {e}. "
-                f"Retrying in {actual_delay:.1f}s..."
-            )
+            print(f"[{description}] Attempt {attempt + 1}/{max_retries + 1} failed: {e}. "
+                  f"Retrying in {actual_delay:.1f}s...")
 
             time.sleep(actual_delay)
             delay = min(delay * backoff_factor, max_delay_seconds)
@@ -179,13 +186,11 @@ def retry_with_backoff(
 ```python
 import requests
 
-
 # Retry HTTP request
 def fetch_data():
     response = requests.get("https://api.example.com/data", timeout=10)
     response.raise_for_status()
     return response.json()
-
 
 data = retry_with_backoff(
     fetch_data,
@@ -244,7 +249,6 @@ retry_with_backoff 3 2 docker-compose up -d
 ```python
 import time
 import requests
-
 
 class RateLimitedClient:
     """HTTP client with automatic rate limit handling."""
@@ -308,14 +312,12 @@ import socket
 from typing import List
 from dataclasses import dataclass
 
-
 @dataclass
 class HealthCheck:
     name: str
     check_type: str  # "tcp", "http", "command"
-    target: str  # host:port, URL, or command
+    target: str      # host:port, URL, or command
     timeout: float = 5.0
-
 
 def check_tcp(host: str, port: int, timeout: float) -> bool:
     try:
@@ -327,26 +329,21 @@ def check_tcp(host: str, port: int, timeout: float) -> bool:
     except (socket.error, socket.timeout):
         return False
 
-
 def check_http(url: str, timeout: float) -> bool:
     import requests
-
     try:
         response = requests.get(url, timeout=timeout)
         return 200 <= response.status_code < 300
     except requests.RequestException:
         return False
 
-
 def check_command(command: str, timeout: float) -> bool:
     import subprocess
-
     try:
         result = subprocess.run(command, shell=True, timeout=timeout, capture_output=True)
         return result.returncode == 0
     except subprocess.TimeoutExpired:
         return False
-
 
 def wait_for_healthy(
     checks: List[HealthCheck],
@@ -383,7 +380,8 @@ def wait_for_healthy(
         time.sleep(poll_interval_seconds)
 
     raise TimeoutError(
-        f"Health checks did not pass within {timeout_seconds}s. Final status:\n" + "\n".join(status_report)
+        f"Health checks did not pass within {timeout_seconds}s. "
+        f"Final status:\n" + "\n".join(status_report)
     )
 ```
 
@@ -461,20 +459,16 @@ import threading
 from enum import Enum
 from typing import Callable, TypeVar, Optional
 
-T = TypeVar("T")
-
+T = TypeVar('T')
 
 class CircuitState(Enum):
-    CLOSED = "closed"  # Normal operation
-    OPEN = "open"  # Failing fast
+    CLOSED = "closed"        # Normal operation
+    OPEN = "open"            # Failing fast
     HALF_OPEN = "half_open"  # Testing recovery
-
 
 class CircuitOpenError(Exception):
     """Raised when circuit breaker is open."""
-
     pass
-
 
 class CircuitBreaker:
     """
@@ -513,7 +507,9 @@ class CircuitBreaker:
     def call(self, operation: Callable[[], T]) -> T:
         current_state = self.state
         if current_state == CircuitState.OPEN:
-            raise CircuitOpenError(f"Circuit '{self.name}' is OPEN. Retry after {self.recovery_timeout_seconds}s.")
+            raise CircuitOpenError(
+                f"Circuit '{self.name}' is OPEN. Retry after {self.recovery_timeout_seconds}s."
+            )
         try:
             result = operation()
             self._on_success()
@@ -552,7 +548,6 @@ api_circuit = CircuitBreaker(
     failure_threshold=5,
     recovery_timeout_seconds=30.0,
 )
-
 
 def make_payment(amount: float) -> dict:
     def _call():

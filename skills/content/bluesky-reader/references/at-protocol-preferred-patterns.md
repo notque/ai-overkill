@@ -103,7 +103,7 @@ is only used by `searchPosts`. Confusing the two silently returns nothing.
 ```python
 # getAuthorFeed
 data = fetch_json(url)
-items = data.get("feed", [])  # Each item is a FeedViewPost wrapper
+items = data.get("feed", [])   # Each item is a FeedViewPost wrapper
 
 # searchPosts
 data = fetch_json(search_url)

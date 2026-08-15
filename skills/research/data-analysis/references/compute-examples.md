@@ -9,17 +9,14 @@ Python code patterns for Phase 3 (EXTRACT) and Phase 4 (ANALYZE). Use these when
 ```python
 try:
     import pandas as pd
-
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
 
 try:
     import matplotlib
-
-    matplotlib.use("Agg")
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -41,7 +38,7 @@ with open(data_file) as f:
     rows = list(reader)
 
 # Example: conversion rate with Wilson score confidence interval
-successes = sum(1 for r in rows if r["converted"] == "1")
+successes = sum(1 for r in rows if r['converted'] == '1')
 total = len(rows)
 rate = successes / total
 z = 1.96  # 95% CI
@@ -58,7 +55,7 @@ ci_upper = centre + spread
 import pandas as pd
 
 df = pd.read_csv(data_file)
-rate = df["converted"].mean()
+rate = df['converted'].mean()
 # Bootstrap CI or Wilson as above
 ```
 

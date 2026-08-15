@@ -23,11 +23,9 @@ rollback_to_commit() {
 
 **Solution**:
 ```python
-@app.route("/health")
+@app.route('/health')
 def health_check():
     return {"status": "healthy", "timestamp": time.time()}
-
-
 # Deploy: ./deploy.sh && curl http://localhost:8000/health || ./rollback.sh
 ```
 **Prevention**: /health and /ready endpoints. Verify DB, cache, external APIs. Integrate with load balancers.
@@ -48,7 +46,7 @@ def retry_with_backoff(func, max_retries=3, base_delay=1):
         except TransientError as e:
             if attempt == max_retries - 1:
                 raise
-            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
             time.sleep(delay)
 ```
 **Prevention**: Wrap all external calls. Exponential backoff with jitter. Circuit breakers. Log retries.
@@ -61,9 +59,9 @@ def retry_with_backoff(func, max_retries=3, base_delay=1):
 def process_job(job_id):
     try:
         # job logic
-        metrics.increment("jobs.success")
+        metrics.increment('jobs.success')
     except Exception as e:
-        metrics.increment("jobs.failure")
+        metrics.increment('jobs.failure')
         logger.error(f"Job {job_id} failed", exc_info=True)
         alert_on_call(f"Critical job failure: {job_id}")
         raise
@@ -81,10 +79,10 @@ def process_job(job_id):
 ```python
 # Before: logging.info(f"User {user_id} purchased item {item_id}")
 # After:
-logging.info(
-    "user_purchase",
-    extra={"event_type": "purchase", "user_id": user_id, "item_id": item_id, "correlation_id": request.correlation_id},
-)
+logging.info("user_purchase", extra={
+    'event_type': 'purchase', 'user_id': user_id,
+    'item_id': item_id, 'correlation_id': request.correlation_id
+})
 ```
 **Prevention**: Structured logging libraries. Correlation IDs everywhere. Standard log fields. Queryable backend.
 
@@ -93,8 +91,8 @@ logging.info(
 
 **Solution**:
 ```python
-request_count = Counter("api_requests_total", "Total", ["endpoint", "status"])
-request_duration = Histogram("api_request_duration_seconds", "Duration", ["endpoint"])
+request_count = Counter('api_requests_total', 'Total', ['endpoint', 'status'])
+request_duration = Histogram('api_request_duration_seconds', 'Duration', ['endpoint'])
 ```
 **Prevention**: Instrument all endpoints. Track resource usage. Monitor queues. Dashboards before production.
 
@@ -124,7 +122,6 @@ class SafeCounter:
     def __init__(self):
         self._value = 0
         self._lock = threading.Lock()
-
     def increment(self):
         with self._lock:
             self._value += 1

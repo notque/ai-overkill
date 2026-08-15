@@ -41,7 +41,7 @@ Client (new node)        Transport        Server (old node)
 
 ```python
 class MyServiceManager(manager.Manager):
-    RPC_API_VERSION = "1.4"
+    RPC_API_VERSION = '1.4'
     target = messaging.Target(version=RPC_API_VERSION)
 
     def create_resource(self, context, name, properties=None):
@@ -61,29 +61,28 @@ class MyServiceManager(manager.Manager):
 
 ```python
 class MyServiceAPI:
-    RPC_API_VERSION = "1.4"
+    RPC_API_VERSION = '1.4'
 
     def __init__(self):
         transport = messaging.get_rpc_transport(CONF)
-        target = messaging.Target(topic="myservice", version=self.RPC_API_VERSION)
+        target = messaging.Target(topic='myservice', version=self.RPC_API_VERSION)
         self._client = messaging.get_rpc_client(transport, target)
 
     def create_resource(self, context, name):
         """Works against servers >= 1.0."""
-        cctxt = self._client.prepare(version="1.0")
-        return cctxt.call(context, "create_resource", name=name)
+        cctxt = self._client.prepare(version='1.0')
+        return cctxt.call(context, 'create_resource', name=name)
 
     def create_resource_with_props(self, context, name, properties):
         """Requires server >= 1.2."""
-        cctxt = self._client.prepare(version="1.2")
-        return cctxt.call(context, "create_resource", name=name, properties=properties)
+        cctxt = self._client.prepare(version='1.2')
+        return cctxt.call(context, 'create_resource', name=name, properties=properties)
 
     def resize_resource(self, context, resource_id, new_size, preserve_data=False):
         """Requires server >= 1.4."""
-        cctxt = self._client.prepare(version="1.4")
-        return cctxt.call(
-            context, "resize_resource", resource_id=resource_id, new_size=new_size, preserve_data=preserve_data
-        )
+        cctxt = self._client.prepare(version='1.4')
+        return cctxt.call(context, 'resize_resource',
+                          resource_id=resource_id, new_size=new_size, preserve_data=preserve_data)
 ```
 
 ---
@@ -91,22 +90,17 @@ class MyServiceAPI:
 ### Version Cap During Upgrades
 
 ```python
-(
-    cfg.StrOpt(
-        "rpc_current_version",
-        default=None,
-        help="RPC API version cap. Set to old version during upgrade, unset when all nodes upgraded.",
-    ),
-)
-
+cfg.StrOpt(
+    'rpc_current_version',
+    default=None,
+    help='RPC API version cap. Set to old version during upgrade, unset when all nodes upgraded.',
+),
 
 def __init__(self):
     transport = messaging.get_rpc_transport(CONF)
     version_cap = CONF.myservice.rpc_current_version or self.RPC_API_VERSION
     target = messaging.Target(
-        topic="myservice",
-        version=self.RPC_API_VERSION,
-        version_cap=version_cap,
+        topic='myservice', version=self.RPC_API_VERSION, version_cap=version_cap,
     )
     self._client = messaging.get_rpc_client(transport, target)
 ```

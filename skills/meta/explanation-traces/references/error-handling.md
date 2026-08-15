@@ -164,11 +164,9 @@ values.
 **Detection logic**:
 ```python
 query = "golang-general-engineer"
-matches = [
-    d
-    for d in decisions
-    if query in d.get("agent", "") or query in d.get("skill", "") or query in (d.get("alternates") or [])
-]
+matches = [d for d in decisions
+           if query in d.get("agent", "") or query in d.get("skill", "")
+           or query in (d.get("alternates") or [])]
 ```
 
 **Root causes**:

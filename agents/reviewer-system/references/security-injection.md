@@ -15,7 +15,6 @@ Use array form with `shell=False`. Prevents shell metacharacter interpretation.
 **Python:**
 ```python
 import subprocess
-
 subprocess.run(["git", "clone", "--", user_repo_url], check=True)
 subprocess.run(["convert", user_filename, "out.png"], shell=False, check=True)
 ```
@@ -62,21 +61,18 @@ Use format-restricted loaders. For YAML: `safe_load`. For data exchange: JSON. N
 **Python (YAML):**
 ```python
 import yaml
-
 config = yaml.safe_load(request.data)
 ```
 
 **Python (data exchange):**
 ```python
 import json
-
 data = json.loads(request.data)
 ```
 
 **Python (ML models):**
 ```python
 from safetensors import safe_open
-
 model = safe_open(uploaded_path, framework="pt")
 ```
 
@@ -122,7 +118,6 @@ def preview():
 **Python (Jinja2 direct):**
 ```python
 from jinja2 import Environment, FileSystemLoader
-
 env = Environment(loader=FileSystemLoader("templates"), autoescape=True)
 tmpl = env.get_template("report.html")
 output = tmpl.render(data=user_data)
@@ -162,11 +157,9 @@ Use restricted parsers for user expression evaluation. Never pass user strings t
 **Python:**
 ```python
 import ast
-
 result = ast.literal_eval(request.args["expr"])
 
 from simpleeval import simple_eval
-
 result = simple_eval(request.args["expr"])
 ```
 

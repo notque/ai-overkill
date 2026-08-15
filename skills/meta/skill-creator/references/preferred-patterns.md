@@ -177,14 +177,14 @@ Never hardcode credentials in skill scripts. Read secrets from environment varia
 # scripts/deploy.py
 import os
 
-
 def deploy():
     api_key = os.environ.get("API_KEY")
     db_password = os.environ.get("DB_PASSWORD")
 
     if not api_key or not db_password:
         raise ValueError(
-            "Required environment variables: API_KEY, DB_PASSWORD\nSee references/setup.md for configuration"
+            "Required environment variables: API_KEY, DB_PASSWORD\n"
+            "See references/setup.md for configuration"
         )
 
     connect(api_key=api_key, password=db_password)

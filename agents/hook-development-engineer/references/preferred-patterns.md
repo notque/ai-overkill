@@ -32,7 +32,7 @@ Use lazy loading, early exit on irrelevant events, and streaming parsers. Never 
 # Correct: stream lines and exit early
 for line in f:
     pattern = json.loads(line)
-    if pattern["id"] == target_id:
+    if pattern['id'] == target_id:
         return pattern
         # Stops reading after finding the match -- O(1) best case
 ```
@@ -50,8 +50,8 @@ Parse only what is needed and exit as soon as the relevant data is found. Read f
 Write to a temporary file first, then atomically rename it to the target path. Direct writes to the database file can corrupt it if the hook is interrupted (e.g., by a timeout or signal).
 
 ```python
-temp_path = db_path.with_suffix(".tmp")
-with open(temp_path, "w") as f:
+temp_path = db_path.with_suffix('.tmp')
+with open(temp_path, 'w') as f:
     json.dump(data, f)
 temp_path.replace(db_path)  # Atomic on POSIX filesystems
 ```

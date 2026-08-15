@@ -12,22 +12,19 @@ Complete template with comprehensive error handling and non-blocking execution.
 Hook template with non-blocking execution patterns.
 Always exits with code 0 to prevent blocking Claude Code.
 """
-
 import json
 import sys
 import traceback
 from pathlib import Path
 from datetime import datetime
 
-
 def debug_log(message):
     """Log debug information without blocking execution."""
     try:
-        with open("/tmp/claude_hook_debug.log", "a") as f:
+        with open('/tmp/claude_hook_debug.log', 'a') as f:
             f.write(f"[{datetime.now().isoformat()}] {message}\n")
     except Exception:
         pass  # Never let logging block execution
-
 
 def process_event(event_data):
     """
@@ -40,18 +37,17 @@ def process_event(event_data):
         dict: Result to output (or None)
     """
     # Implement your hook logic here
-    tool_name = event_data.get("tool", "")
-    tool_output = event_data.get("output", "")
+    tool_name = event_data.get('tool', '')
+    tool_output = event_data.get('output', '')
 
     debug_log(f"Processing {tool_name} event")
 
     # Example: Detect errors in tool output
-    if "error" in tool_output.lower():
+    if 'error' in tool_output.lower():
         debug_log(f"Error detected in {tool_name}")
-        return {"detected": True, "tool": tool_name}
+        return {'detected': True, 'tool': tool_name}
 
     return None
-
 
 def main():
     """Main hook execution with comprehensive error handling."""
@@ -74,7 +70,6 @@ def main():
         # CRITICAL: Always exit 0 to prevent blocking Claude Code
         sys.exit(0)
 
-
 if __name__ == "__main__":
     main()
 ```
@@ -92,25 +87,22 @@ Smart error detector with pattern matching and solution injection.
 Detects errors, classifies them, queries learning database for solutions,
 and injects high-confidence solutions into Claude Code context.
 """
-
 import json
 import sys
 import hashlib
 from pathlib import Path
 from datetime import datetime
 
-LEARNING_DB = Path.home() / ".claude" / "learnings" / "error_patterns.json"
-DEBUG_LOG = Path("/tmp/claude_hook_debug.log")
-
+LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
+DEBUG_LOG = Path('/tmp/claude_hook_debug.log')
 
 def debug_log(message):
     """Non-blocking debug logging."""
     try:
-        with DEBUG_LOG.open("a") as f:
+        with DEBUG_LOG.open('a') as f:
             f.write(f"[{datetime.now().isoformat()}] {message}\\n")
     except Exception:
         pass
-
 
 def classify_error(tool_name, error_output):
     """
@@ -126,19 +118,18 @@ def classify_error(tool_name, error_output):
     output_lower = error_output.lower()
 
     # Classification rules
-    if "no such file" in output_lower or "filenotfound" in output_lower:
-        return "missing_file"
-    elif "permission denied" in output_lower:
-        return "permissions"
-    elif "multiple matches" in output_lower and tool_name == "Edit":
-        return "multiple_matches"
-    elif "syntaxerror" in output_lower:
-        return "syntax_error"
-    elif "typeerror" in output_lower:
-        return "type_error"
+    if 'no such file' in output_lower or 'filenotfound' in output_lower:
+        return 'missing_file'
+    elif 'permission denied' in output_lower:
+        return 'permissions'
+    elif 'multiple matches' in output_lower and tool_name == 'Edit':
+        return 'multiple_matches'
+    elif 'syntaxerror' in output_lower:
+        return 'syntax_error'
+    elif 'typeerror' in output_lower:
+        return 'type_error'
     else:
-        return "unknown"
-
+        return 'unknown'
 
 def generate_signature(tool_name, error_type, error_message):
     """
@@ -157,7 +148,6 @@ def generate_signature(tool_name, error_type, error_message):
     signature_input = f"{tool_name}:{error_type}:{message_snippet}"
     return hashlib.md5(signature_input.encode()).hexdigest()
 
-
 def query_learning_db(signature):
     """
     Query learning database for known pattern.
@@ -172,13 +162,13 @@ def query_learning_db(signature):
         if not LEARNING_DB.exists():
             return None
 
-        with LEARNING_DB.open("r") as f:
+        with LEARNING_DB.open('r') as f:
             data = json.load(f)
 
-        patterns = data.get("patterns", [])
+        patterns = data.get('patterns', [])
         for pattern in patterns:
-            if pattern.get("signature") == signature:
-                confidence = pattern.get("confidence", 0.0)
+            if pattern.get('signature') == signature:
+                confidence = pattern.get('confidence', 0.0)
                 if confidence > 0.7:  # High confidence threshold
                     return pattern
 
@@ -186,7 +176,6 @@ def query_learning_db(signature):
         debug_log(f"Learning DB query error: {e}")
 
     return None
-
 
 def inject_solution(solution_data, event_name: str) -> None:
     """
@@ -198,7 +187,6 @@ def inject_solution(solution_data, event_name: str) -> None:
     """
     try:
         from hook_utils import context_output
-
         text = (
             f"[auto-fix] action={solution_data.get('command', '')}\n"
             f"description={solution_data.get('description', '')}\n"
@@ -208,7 +196,6 @@ def inject_solution(solution_data, event_name: str) -> None:
     except Exception as e:
         debug_log(f"Context injection error: {e}")
 
-
 def main():
     """Main error detection logic."""
     try:
@@ -216,9 +203,9 @@ def main():
         event = json.loads(sys.stdin.read())
 
         # Extract tool info
-        tool_name = event.get("tool", "")
-        tool_output = event.get("output", "")
-        is_error = event.get("is_error", False)
+        tool_name = event.get('tool', '')
+        tool_output = event.get('output', '')
+        is_error = event.get('is_error', False)
 
         # Only process if error occurred
         if not is_error:
@@ -246,7 +233,6 @@ def main():
     finally:
         sys.exit(0)
 
-
 if __name__ == "__main__":
     main()
 ```
@@ -263,37 +249,33 @@ Hook that tracks solution success/failure and updates confidence scores.
 Continuous learner hook that updates learning database based on outcomes.
 Tracks solution application success/failure and adjusts confidence scores.
 """
-
 import json
 import sys
 from pathlib import Path
 from datetime import datetime
 
-LEARNING_DB = Path.home() / ".claude" / "learnings" / "error_patterns.json"
-DEBUG_LOG = Path("/tmp/claude_hook_debug.log")
-
+LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
+DEBUG_LOG = Path('/tmp/claude_hook_debug.log')
 
 def debug_log(message):
     """Non-blocking debug logging."""
     try:
-        with DEBUG_LOG.open("a") as f:
+        with DEBUG_LOG.open('a') as f:
             f.write(f"[{datetime.now().isoformat()}] {message}\\n")
     except Exception:
         pass
-
 
 def load_learning_db():
     """Load learning database with error handling."""
     try:
         if LEARNING_DB.exists():
-            with LEARNING_DB.open("r") as f:
+            with LEARNING_DB.open('r') as f:
                 return json.load(f)
     except Exception as e:
         debug_log(f"DB load error: {e}")
 
     # Return empty structure if load fails
-    return {"patterns": [], "metadata": {"version": "1.0"}}
-
+    return {'patterns': [], 'metadata': {'version': '1.0'}}
 
 def save_learning_db(data):
     """Save learning database with atomic operations."""
@@ -302,8 +284,8 @@ def save_learning_db(data):
         LEARNING_DB.parent.mkdir(parents=True, exist_ok=True)
 
         # Atomic write pattern
-        temp_path = LEARNING_DB.with_suffix(".tmp")
-        with temp_path.open("w") as f:
+        temp_path = LEARNING_DB.with_suffix('.tmp')
+        with temp_path.open('w') as f:
             json.dump(data, f, indent=2)
         temp_path.replace(LEARNING_DB)
 
@@ -311,7 +293,6 @@ def save_learning_db(data):
 
     except Exception as e:
         debug_log(f"DB save error: {e}")
-
 
 def update_confidence(pattern_id, success):
     """
@@ -323,9 +304,9 @@ def update_confidence(pattern_id, success):
     """
     db = load_learning_db()
 
-    for pattern in db["patterns"]:
-        if pattern.get("id") == pattern_id:
-            current_confidence = pattern.get("confidence", 0.0)
+    for pattern in db['patterns']:
+        if pattern.get('id') == pattern_id:
+            current_confidence = pattern.get('confidence', 0.0)
 
             if success:
                 # Increase confidence on success
@@ -334,14 +315,13 @@ def update_confidence(pattern_id, success):
                 # Decrease confidence on failure
                 new_confidence = max(0.0, current_confidence - 0.2)
 
-            pattern["confidence"] = new_confidence
-            pattern["last_updated"] = datetime.now().isoformat()
+            pattern['confidence'] = new_confidence
+            pattern['last_updated'] = datetime.now().isoformat()
 
             debug_log(f"Updated pattern {pattern_id}: {current_confidence} -> {new_confidence}")
             break
 
     save_learning_db(db)
-
 
 def store_new_pattern(tool_name, error_type, signature, solution):
     """
@@ -356,28 +336,27 @@ def store_new_pattern(tool_name, error_type, signature, solution):
     db = load_learning_db()
 
     # Check if pattern already exists
-    for pattern in db["patterns"]:
-        if pattern.get("signature") == signature:
+    for pattern in db['patterns']:
+        if pattern.get('signature') == signature:
             debug_log(f"Pattern {signature} already exists")
             return
 
     # Create new pattern with initial confidence 0.0
     new_pattern = {
-        "id": f"{tool_name}_{error_type}_{len(db['patterns'])}",
-        "tool": tool_name,
-        "error_type": error_type,
-        "signature": signature,
-        "solution": solution,
-        "confidence": 0.0,
-        "created": datetime.now().isoformat(),
-        "last_updated": datetime.now().isoformat(),
+        'id': f"{tool_name}_{error_type}_{len(db['patterns'])}",
+        'tool': tool_name,
+        'error_type': error_type,
+        'signature': signature,
+        'solution': solution,
+        'confidence': 0.0,
+        'created': datetime.now().isoformat(),
+        'last_updated': datetime.now().isoformat()
     }
 
-    db["patterns"].append(new_pattern)
+    db['patterns'].append(new_pattern)
     save_learning_db(db)
 
     debug_log(f"Stored new pattern: {new_pattern['id']}")
-
 
 def main():
     """Main learning update logic."""
@@ -386,21 +365,23 @@ def main():
         event = json.loads(sys.stdin.read())
 
         # Check for learning update signals
-        if "pattern_id" in event and "success" in event:
+        if 'pattern_id' in event and 'success' in event:
             # Update existing pattern confidence
-            update_confidence(event["pattern_id"], event["success"])
-        elif "new_pattern" in event:
+            update_confidence(event['pattern_id'], event['success'])
+        elif 'new_pattern' in event:
             # Store new pattern
-            pattern_data = event["new_pattern"]
+            pattern_data = event['new_pattern']
             store_new_pattern(
-                pattern_data["tool"], pattern_data["error_type"], pattern_data["signature"], pattern_data["solution"]
+                pattern_data['tool'],
+                pattern_data['error_type'],
+                pattern_data['signature'],
+                pattern_data['solution']
             )
 
     except Exception as e:
         debug_log(f"Learning update error: {e}")
     finally:
         sys.exit(0)
-
 
 if __name__ == "__main__":
     main()
@@ -418,13 +399,11 @@ Hook optimized for sub-50ms execution with lazy loading and early exit.
 Performance-optimized error pattern matcher.
 Uses lazy loading and early exit to maintain sub-50ms execution time.
 """
-
 import json
 import sys
 from pathlib import Path
 
-LEARNING_DB = Path.home() / ".claude" / "learnings" / "error_patterns.json"
-
+LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
 
 def find_pattern_lazy(signature, confidence_threshold=0.7):
     """
@@ -442,13 +421,13 @@ def find_pattern_lazy(signature, confidence_threshold=0.7):
             return None
 
         # Open file but don't load all at once
-        with LEARNING_DB.open("r") as f:
+        with LEARNING_DB.open('r') as f:
             data = json.load(f)  # Unfortunately must load full JSON
 
             # But we can early-exit on first match
-            for pattern in data.get("patterns", []):
-                if pattern.get("signature") == signature:
-                    if pattern.get("confidence", 0.0) >= confidence_threshold:
+            for pattern in data.get('patterns', []):
+                if pattern.get('signature') == signature:
+                    if pattern.get('confidence', 0.0) >= confidence_threshold:
                         return pattern
                     else:
                         # Found pattern but confidence too low
@@ -459,23 +438,21 @@ def find_pattern_lazy(signature, confidence_threshold=0.7):
 
     return None
 
-
 def main():
     """Optimized pattern matching."""
     try:
         event = json.loads(sys.stdin.read())
-        signature = event.get("signature")
+        signature = event.get('signature')
 
         if signature:
             pattern = find_pattern_lazy(signature)
             if pattern:
-                print(json.dumps({"found": True, "pattern": pattern}))
+                print(json.dumps({'found': True, 'pattern': pattern}))
 
     except Exception:
         pass
     finally:
         sys.exit(0)
-
 
 if __name__ == "__main__":
     main()

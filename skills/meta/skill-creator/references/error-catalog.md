@@ -425,7 +425,6 @@ api_key = "sk-1234567890abcdef"
 
 # After (environment variable)
 import os
-
 api_key = os.environ.get("API_KEY")
 if not api_key:
     raise ValueError("API_KEY environment variable required")
