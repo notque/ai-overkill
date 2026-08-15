@@ -1544,6 +1544,167 @@ def _read_basis_counts() -> dict[str, int]:
     return counts
 
 
+# ─── Counter-metrics to the fallback rate ────────────────────────────────────
+#
+# Fallback rate ALONE is gameable. A router told to minimize it can route
+# everything to one specialist (python-general-engineer is already 27.9% of
+# traffic) and score a perfect 0% with zero accuracy gain. So the fallback rate
+# is only ever printed alongside three counters that such a move would blow up:
+# top-2 concentration, distribution entropy, and the observed misroute /
+# route-fit negative rates. Read from evidence_route_decisions (one row per
+# dispatch), NOT from the aggregated learnings rows — those are one row per
+# route KEY, so they cannot measure traffic share.
+_FALLBACK_AGENT = "general-purpose"
+# Target band. Below ~8% the router is forcing specialists it has no evidence
+# for (or gaming the number); above 20% it is not routing at all. Both are
+# alarms — a fallback rate can be too LOW.
+_FALLBACK_BAND_LOW, _FALLBACK_BAND_HIGH = 10.0, 15.0
+_FALLBACK_ALARM_LOW, _FALLBACK_ALARM_HIGH = 8.0, 20.0
+_TOP2_TARGET = 50.0  # top-2 agent share; above this the "distribution" is two agents
+_ROUTE_FIT_BASIS_PREFIX = "route_fit:"
+
+
+def _read_agent_distribution() -> dict[str, int]:
+    """Dispatches per agent from evidence_route_decisions. {} on any error."""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute("SELECT agent, COUNT(*) AS n FROM evidence_route_decisions GROUP BY agent").fetchall()
+        return {row["agent"]: int(row["n"] or 0) for row in rows if row["agent"]}
+    except Exception:
+        return {}
+
+
+def _read_route_fit_counts() -> dict[str, int]:
+    """route-fit verdict counts, keyed by verdict. {} on any error/no data."""
+    counts: dict[str, int] = {}
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT basis, SUM(count) AS n FROM routing_outcome_basis WHERE basis LIKE ? GROUP BY basis",
+                (f"{_ROUTE_FIT_BASIS_PREFIX}%",),
+            ).fetchall()
+        for row in rows:
+            verdict = str(row["basis"])[len(_ROUTE_FIT_BASIS_PREFIX) :]
+            if verdict:
+                counts[verdict] = int(row["n"] or 0)
+    except Exception:
+        pass
+    return counts
+
+
+def _read_misroute_count() -> int:
+    """Total recorded misroutes (scripts/record-misroute.py rows). 0 on error."""
+    try:
+        rows = query_learnings(
+            topic="routing",
+            category="misroute",
+            min_confidence=0.0,
+            limit=10000,
+            exclude_graduated=False,
+            exclude_test_sources=True,
+        )
+        return sum(int(r.get("observation_count") or 1) for r in rows)
+    except Exception:
+        return 0
+
+
+def _fallback_band(pct: float) -> str:
+    """Label one fallback rate against the target band."""
+    if pct > _FALLBACK_ALARM_HIGH:
+        return "ALARM-HIGH"
+    if pct < _FALLBACK_ALARM_LOW:
+        return "ALARM-LOW"
+    if _FALLBACK_BAND_LOW <= pct <= _FALLBACK_BAND_HIGH:
+        return "IN BAND"
+    return "WATCH"
+
+
+def _routing_shape(dist: dict[str, int]) -> dict:
+    """Fallback rate + concentration + entropy for one agent distribution.
+
+    Entropy is Shannon over the agent traffic shares, in bits. It is the
+    counter-metric that cannot be gamed by shifting traffic: moving every
+    fallback onto ONE specialist lowers the fallback rate and lowers entropy at
+    the same time, so the trade shows up instead of reading as a win.
+    `effective_agents` (2**H) restates it as "this traffic behaves like N evenly
+    used agents" — comparable across different agent-roster sizes.
+    """
+    total = sum(dist.values())
+    if not total:
+        return {"dispatch_total": 0}
+    import math
+
+    ordered = sorted(dist.items(), key=lambda kv: (-kv[1], kv[0]))
+    top2 = ordered[:2]
+    entropy = -sum((n / total) * math.log2(n / total) for n in dist.values() if n > 0)
+    max_entropy = math.log2(len(dist)) if len(dist) > 1 else 0.0
+    fallback_n = dist.get(_FALLBACK_AGENT, 0)
+    fallback_pct = fallback_n / total * 100
+    return {
+        "dispatch_total": total,
+        "distinct_agents": len(dist),
+        "fallback_count": fallback_n,
+        "fallback_rate_pct": round(fallback_pct, 1),
+        "fallback_band": _fallback_band(fallback_pct),
+        "top2_agents": [name for name, _ in top2],
+        "top2_concentration_pct": round(sum(n for _, n in top2) / total * 100, 1),
+        "top2_target_pct": _TOP2_TARGET,
+        "agent_entropy_bits": round(entropy, 2),
+        "agent_entropy_max_bits": round(max_entropy, 2),
+        "agent_entropy_normalized": round(entropy / max_entropy, 2) if max_entropy else None,
+        "effective_agents": round(2**entropy, 1),
+    }
+
+
+def _route_fit_summary(counts: dict[str, int]) -> dict:
+    """Totals and the negative rate for the route-fit verdicts."""
+    total = sum(counts.values())
+    negatives = total - counts.get("ok", 0)
+    return {
+        "route_fit_counts": counts,
+        "route_fit_total": total,
+        "route_fit_negative": negatives,
+        "route_fit_negative_rate_pct": round(negatives / total * 100, 1) if total else None,
+    }
+
+
+def _print_routing_shape(shape: dict, fit: dict, misroutes: int) -> None:
+    """Print the fallback rate together with every counter-metric."""
+    total = shape.get("dispatch_total", 0)
+    if not total:
+        print("Fallback rate: no dispatch rows yet (evidence_route_decisions is empty)")
+        return
+    print(
+        f"Fallback rate: {shape['fallback_count']}/{total} dispatches went to "
+        f"{_FALLBACK_AGENT} ({shape['fallback_rate_pct']:.1f}%) — {shape['fallback_band']}"
+    )
+    print(
+        f"  target band {_FALLBACK_BAND_LOW:.0f}-{_FALLBACK_BAND_HIGH:.0f}%; "
+        f"alarm above {_FALLBACK_ALARM_HIGH:.0f}%; alarm below {_FALLBACK_ALARM_LOW:.0f}%"
+    )
+    print(
+        f"Top-2 agent concentration: {shape['top2_concentration_pct']:.1f}% "
+        f"({', '.join(shape['top2_agents'])}) — target below {_TOP2_TARGET:.0f}%"
+    )
+    norm = shape["agent_entropy_normalized"]
+    norm_text = f", normalized {norm:.2f}" if norm is not None else ""
+    print(
+        f"Agent distribution entropy: {shape['agent_entropy_bits']:.2f} bits of "
+        f"{shape['agent_entropy_max_bits']:.2f} max{norm_text} across "
+        f"{shape['distinct_agents']} agents (effective agents {shape['effective_agents']:.1f})"
+    )
+    print(f"Misroute rate: {misroutes}/{total} dispatches reported a misroute ({misroutes / total * 100:.1f}%)")
+    fit_total = fit["route_fit_total"]
+    if fit_total:
+        print(
+            f"Route-fit negatives: {fit['route_fit_negative']}/{fit_total} verdicts "
+            f"({fit['route_fit_negative_rate_pct']:.1f}%) — "
+            f"{', '.join(f'{v} {n}' for v, n in sorted(fit['route_fit_counts'].items()))}"
+        )
+    else:
+        print("Route-fit negatives: no route-fit verdicts yet (banner lands with the next dispatches)")
+
+
 def cmd_route_health(args: argparse.Namespace) -> None:
     """Display a quick health summary of routing entries."""
     init_db()
@@ -1602,6 +1763,15 @@ def cmd_route_health(args: argparse.Namespace) -> None:
     pct_corr = (routed_with_corr / len(routed_sessions) * 100) if routed_sessions else 0.0
     unattributed_corr = len(corr_sessions - routed_sessions)
 
+    # Fallback rate + its counter-metrics. Never report one without the others:
+    # the fallback rate on its own is minimized by routing everything to a
+    # single agent, which these three make visible.
+    shape = _routing_shape(_read_agent_distribution())
+    fit = _route_fit_summary(_read_route_fit_counts())
+    misroutes = _read_misroute_count()
+    dispatch_total = shape.get("dispatch_total", 0)
+    misroute_rate = round(misroutes / dispatch_total * 100, 1) if dispatch_total else None
+
     if as_json:
         print(
             json.dumps(
@@ -1622,6 +1792,10 @@ def cmd_route_health(args: argparse.Namespace) -> None:
                     "routed_sessions_with_correction": routed_with_corr,
                     "routed_sessions": len(routed_sessions),
                     "unattributed_corrections": unattributed_corr,
+                    **shape,
+                    **fit,
+                    "misroute_count": misroutes,
+                    "misroute_rate_pct": misroute_rate,
                 },
                 indent=2,
             )
@@ -1648,6 +1822,7 @@ def cmd_route_health(args: argparse.Namespace) -> None:
         f"routed sessions drew correction language ({pct_corr:.0f}%)"
     )
     print(f"Unattributed corrections: {unattributed_corr} (correction with no concurrent /do route)")
+    _print_routing_shape(shape, fit, misroutes)
 
 
 def _print_freq_table(records: list[dict[str, str | int]], label: str, key_fn: object) -> None:

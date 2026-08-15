@@ -121,11 +121,12 @@ ROUND_TRIP_CASES = [
         id="health-dash-with-stack",
     ),
     pytest.param(  # V3: agent-only routing => skill=-, recorder reads ""
-        {"skill": "", "health": None, "stack": []},
+        # Trivial only: simple/medium/complex now hard-fail on a missing skill.
+        {"skill": "", "complexity": "trivial", "health": None, "stack": []},
         {
             "agent": "python-general-engineer",
             "skill": "",
-            "complexity": "medium",
+            "complexity": "trivial",
             "model": "opus",
             "health": None,
             "gate_inputs_present": True,
@@ -274,6 +275,7 @@ def test_preamble_contains_every_mandatory_block_in_order():
         bd.INJ_COMPLETENESS,
         bd.INJ_DENSE_COMPLETE,
         bd.INJ_BASE_INSTRUCTIONS,
+        bd.INJ_ROUTE_FIT,
     ]
     pos = -1
     for piece in ordered:
@@ -319,9 +321,11 @@ def test_thinking_directive_by_complexity_and_override(complexity, override, exp
 
 
 def test_missing_optional_fields_omit_their_blocks_only():
-    minimal = {"agent": "claude", "complexity": "medium", "model": "opus"}
+    # Trivial is the only complexity that may omit the skill (the
+    # skill-greediness gate is HARD for simple/medium/complex).
+    minimal = {"agent": "claude", "complexity": "trivial", "model": "opus"}
     preamble = bd.build_preamble(minimal)
-    assert preamble.startswith("[do-route] agent=claude skill=- complexity=medium model=opus health=-\n")
+    assert preamble.startswith("[do-route] agent=claude skill=- complexity=trivial model=opus health=-\n")
     assert "## Task Specification" not in preamble
     assert "stack={" not in preamble
     # Mandatory blocks survive the minimal input.
@@ -394,6 +398,101 @@ def test_model_required_for_medium_errors_on_omission():
 def test_model_required_for_complex_errors_on_omission():
     with pytest.raises(bd.InputError, match="'model' is required"):
         bd.build_preamble(_decision(complexity="complex", model=None))
+
+
+# ---------------------------------------------------------------------------
+# Route-fit injection (D): every dispatch asks for the closing banner, and the
+# banner the injection names is the one the recorder parses.
+# ---------------------------------------------------------------------------
+
+
+def test_route_fit_injection_present_on_every_dispatch():
+    for complexity in ("trivial", "simple", "medium", "complex"):
+        preamble = bd.build_preamble(_decision(complexity=complexity, model="opus"))
+        assert bd.INJ_ROUTE_FIT in preamble, complexity
+        assert "route-fit:" in preamble
+
+
+@pytest.mark.parametrize("verdict", ["ok", "wrong-agent", "wrong-skill", "needs-coordinator", "underspecified"])
+def test_every_injected_verdict_parses_with_the_real_recorder(verdict):
+    """The enum the injection advertises must be exactly what the recorder reads."""
+    assert verdict in bd.INJ_ROUTE_FIT
+    assert recorder.parse_route_fit(f"work done.\nroute-fit: {verdict}") == verdict
+
+
+# ---------------------------------------------------------------------------
+# Agent validation: unknown agent coerces (never raises); general-purpose needs
+# a reason; the fallback token survives the recorder's parser.
+# ---------------------------------------------------------------------------
+
+
+def test_unknown_agent_coerces_to_general_purpose_with_a_reason():
+    """An exception mid-session would stall real work, so this must NOT raise."""
+    marker = bd.build_marker(_decision(agent="python-hook-wizard"))
+    assert "agent=general-purpose" in marker
+    assert "fallback=invalid-agent:python-hook-wizard" in marker
+    # The coerced marker still parses field-for-field with the shipped recorder.
+    assert recorder.parse_do_route_marker(marker) == ("general-purpose", "test-driven-development")
+    assert recorder.parse_marker_complexity(marker) == ("medium", "")
+    assert recorder.parse_model(marker) == "opus"
+    assert recorder.parse_health_inputs(marker)["health"] == 0.72
+    assert recorder.parse_fallback_reason(marker) == "invalid-agent:python-hook-wizard"
+
+
+def test_known_agent_and_builtins_are_not_coerced():
+    for agent in ("python-general-engineer", "hook-development-engineer", "claude"):
+        marker = bd.build_marker(_decision(agent=agent))
+        assert f"agent={agent}" in marker
+        assert "fallback=" not in marker
+
+
+def test_unreadable_agent_index_fails_open(tmp_path):
+    """No index => cannot validate => keep the agent. Never manufacture a fallback."""
+    assert bd.load_known_agents(tmp_path / "nope.json") == frozenset()
+
+
+def test_general_purpose_requires_a_fallback_reason():
+    with pytest.raises(bd.InputError, match="fallback_reason"):
+        bd.build_preamble(_decision(agent="general-purpose"))
+
+
+def test_general_purpose_with_a_reason_emits_the_token():
+    marker = bd.build_marker(_decision(agent="general-purpose", fallback_reason="No specialist matches!"))
+    assert marker.endswith("fallback=no-specialist-matches")
+    assert recorder.parse_fallback_reason(marker) == "no-specialist-matches"
+
+
+def test_fallback_token_never_shifts_an_existing_marker_field():
+    """`fallback=` is appended last; every other parsed field is byte-identical."""
+    plain = bd.build_marker(_decision(agent="python-general-engineer"))
+    fallen = bd.build_marker(_decision(agent="general-purpose", fallback_reason="no-specialist-match"))
+    assert fallen == plain.replace("agent=python-general-engineer", "agent=general-purpose", 1) + (
+        " fallback=no-specialist-match"
+    )
+    for parse in (recorder.parse_marker_complexity, recorder.parse_stack, recorder.parse_model):
+        assert parse(fallen) == parse(plain)
+    assert recorder.parse_health_inputs(fallen) == recorder.parse_health_inputs(plain)
+
+
+def test_reason_without_a_letter_or_digit_raises():
+    with pytest.raises(bd.InputError, match="fallback_reason"):
+        bd.build_marker(_decision(agent="general-purpose", fallback_reason="!!!"))
+
+
+# ---------------------------------------------------------------------------
+# Skill enforcement: the skill-greediness gate, HARD for simple/medium/complex.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("complexity", ["simple", "medium", "complex"])
+@pytest.mark.parametrize("skill", [None, "", "-"])
+def test_missing_skill_raises_for_simple_and_above(complexity, skill):
+    with pytest.raises(bd.InputError, match="'skill' is required"):
+        bd.build_preamble(_decision(complexity=complexity, skill=skill, model="opus"))
+
+
+def test_missing_skill_allowed_for_trivial():
+    assert "skill=-" in bd.build_marker(_decision(complexity="trivial", skill=None))
 
 
 def test_model_optional_for_trivial_and_simple():
@@ -718,7 +817,7 @@ def test_cli_bad_input_exits_2_with_empty_stdout(payload):
 
 def test_cli_model_missing_error_message():
     """CLI exit-2 message names the missing field and the allowed values."""
-    result = _run_cli("--json", json.dumps({"agent": "claude", "complexity": "complex"}))
+    result = _run_cli("--json", json.dumps({"agent": "claude", "skill": "quick", "complexity": "complex"}))
     assert result.returncode == 2
     assert "'model' is required" in result.stderr
     assert "Model Selection" in result.stderr or "sonnet" in result.stderr

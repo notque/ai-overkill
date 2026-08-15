@@ -8,8 +8,11 @@ truth for every one of them ("LLMs orchestrate, programs execute"):
 
   1. `[do-route]` marker line — full grammar: agent/skill/complexity/model,
      health gate inputs (`health= n= fail= action=` or `health=-`),
-     optional `alts={...}`, optional `stack={...}`. model= is required for
-     medium/complex (errors on omission); trivial/simple get `model=-`.
+     optional `alts={...}`, optional `stack={...}`, optional `fallback=<slug>`.
+     model= is required for medium/complex (errors on omission); trivial/simple
+     get `model=-`. skill is required for simple/medium/complex (errors on
+     omission). An agent absent from agents/INDEX.json is coerced to
+     general-purpose with `fallback=invalid-agent:<name>` (never raises).
      Emitted in the exact shape hooks/routing-decision-recorder.py parses.
   2. Thinking directive by complexity, with slow/fast category overrides.
   3. Token-budget line (input value, else `orchestration.token_budget`
@@ -22,8 +25,11 @@ truth for every one of them ("LLMs orchestrate, programs execute"):
 Input schema (missing optional fields degrade gracefully — block omitted):
 
     {
-      "agent": "python-general-engineer",          // required
-      "skill": "test-driven-development",          // optional; empty => skill=-
+      "agent": "python-general-engineer",          // required; unknown => coerced
+      "fallback_reason": "no-specialist-match",    // required when the agent is
+                                                   // general-purpose; slugified
+      "skill": "test-driven-development",          // required for simple/medium/
+                                                   // complex; trivial => skill=-
       "complexity": "medium",                      // required enum, case-insensitive:
                                                    // trivial|simple|medium|complex
       "model": "opus",                             // required for medium/complex;
@@ -96,6 +102,19 @@ INJ_DENSE_COMPLETE = (
 
 INJ_BASE_INSTRUCTIONS = "Before starting work, also load `agents/base-instructions.md` for universal operational rules."
 
+# Route-fit banner. The router has no outcome signal today: 285 of 287 recorded
+# dispatches carry a NULL outcome and success is inferred from the absence of a
+# complaint, so a timid fallback scores like a correct specialist. This asks the
+# one party that knows — the agent that read the task — to say whether the pick
+# fit. Kept to one short imperative line: it is paid for on EVERY dispatch.
+# Read back by hooks/routing-decision-recorder.py (parse_route_fit); negatives
+# decay the route, `ok` never boosts it.
+INJ_ROUTE_FIT = (
+    "End your reply with this exact final line, nothing after it: "
+    "`route-fit: <ok|wrong-agent|wrong-skill|needs-coordinator|underspecified>` — "
+    "your honest read of whether this agent and skill fit the task."
+)
+
 THINKING_FAST = "Prioritize responding quickly rather than thinking deeply. When in doubt, respond directly."
 
 THINKING_SLOW = "Think carefully and step-by-step before responding; this problem is harder than it looks."
@@ -162,6 +181,27 @@ VALID_ACTIONS = ("keep", "demote", "tiebreak")
 _AGENT_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _SKILL_RE = re.compile(r"^[a-z0-9-]+$")
 _KEY_RE = re.compile(r"^[a-z0-9:_-]+$")  # alts= / stack= items (comma is the separator)
+
+# Fallback accounting. 128 of 287 recorded dispatches (44.6%) fell back to
+# general-purpose with no recorded reason, so the regression was invisible for
+# six weeks. Every fallback now carries a reason token on the marker line.
+FALLBACK_AGENT = "general-purpose"
+AGENT_INDEX_PATH = REPO_ROOT / "agents" / "INDEX.json"
+AGENT_INDEX_LOCAL = "INDEX.local.json"
+# Harness-provided agents that exist outside agents/INDEX.json. Superset of
+# validate-do-references.py's set: the Agent tool accepts these names, so
+# coercing them would MANUFACTURE fallbacks instead of catching them.
+BUILTIN_AGENTS = frozenset({"general-purpose", "claude", "explore", "plan", "statusline-setup"})
+# Reason slug charset — same shape as alts=/stack= items, so the token can never
+# grow a space and split the marker line into two tokens.
+_FALLBACK_REASON_RE = re.compile(r"^[a-z0-9][a-z0-9:_-]*$")
+_FALLBACK_SLUG_SUB = re.compile(r"[^a-z0-9:_-]+")
+_FALLBACK_REASON_MAX = 80
+# Complexities where a skill is mandatory. do/SKILL.md already states this as
+# the "Skill-greediness gate (HARD — non-negotiable for Simple+)"; 23 of the 128
+# recorded fallbacks violated it because nothing enforced it. Trivial dispatches
+# stay exempt (they carry no skill by design).
+_SKILL_REQUIRED_COMPLEXITY = frozenset({"simple", "medium", "complex"})
 
 # Complexity -> thinking directive. Trivial never dispatches; medium is
 # adaptive (no directive). Overrides: "slow" => THINKING_SLOW, "fast" =>
@@ -330,11 +370,84 @@ def _key_list(raw: object, field: str) -> list[str]:
     return items
 
 
-def build_marker(decision: dict) -> str:
-    """Build the `[do-route]` marker line from one routing decision."""
+def load_known_agents(index_path: Path = AGENT_INDEX_PATH) -> frozenset[str]:
+    """Dispatchable agent names: agents/INDEX.json + INDEX.local.json + built-ins.
+
+    Add-only merge of the tracked index and the gitignored local overlay — the
+    same semantics as scripts/routing_index_merge.py, inlined (names only) to
+    keep this script import-free and deterministic.
+
+    Returns an EMPTY set when neither file is readable. Callers treat empty as
+    "cannot validate" and keep the agent as given: a missing index must never
+    coerce a valid pick into a fallback.
+    """
+    names: set[str] = set()
+    for path in (index_path, index_path.parent / AGENT_INDEX_LOCAL):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        agents = raw.get("agents")
+        if isinstance(agents, dict):
+            names.update(str(name).strip().lower() for name in agents if str(name).strip())
+    if not names:
+        return frozenset()
+    return frozenset(names | BUILTIN_AGENTS)
+
+
+def slugify_fallback_reason(value: object) -> str:
+    """Normalize a fallback reason into ONE marker token; "" when absent.
+
+    The marker is space-separated, so the reason must never contain a space:
+    prose is lowercased and slugified to the alts=/stack= charset.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    if not text or text == "-":
+        return ""
+    slug = _FALLBACK_SLUG_SUB.sub("-", text).strip("-:_")[:_FALLBACK_REASON_MAX].strip("-:_")
+    if not slug or not _FALLBACK_REASON_RE.match(slug):
+        raise InputError(f"'fallback_reason' {text!r} — needs at least one letter or digit")
+    return slug
+
+
+def resolve_agent(decision: dict) -> tuple[str, str]:
+    """Return the validated ``(agent, fallback_reason)`` for one dispatch.
+
+    Two rules the router already had but nothing enforced:
+
+    1. UNKNOWN AGENT — an agent absent from agents/INDEX.json cannot be
+       dispatched, so it is coerced to general-purpose with
+       ``fallback_reason=invalid-agent:<name>``. Deliberately NOT an exception:
+       raising mid-session would stall real work, and a phantom agent name is
+       the router's bug to see in the data, not the user's task to lose.
+    2. FALLBACK JUSTIFICATION — general-purpose (however reached) REQUIRES a
+       non-empty reason, so every fallback is justified and countable instead
+       of being an invisible default.
+    """
     agent = _require_str(decision, "agent").lower()
     if not _AGENT_RE.match(agent):
         raise InputError(f"'agent' {agent!r} — must match [a-z0-9][a-z0-9-]*")
+
+    reason = slugify_fallback_reason(decision.get("fallback_reason"))
+    known = load_known_agents()
+    if known and agent not in known:
+        reason = f"invalid-agent:{agent}"
+        agent = FALLBACK_AGENT
+
+    if agent == FALLBACK_AGENT and not reason:
+        raise InputError(
+            "'fallback_reason' is required when agent='general-purpose' "
+            "(a non-empty slug, e.g. 'no-specialist-match'). "
+            "An unjustified fallback is the failure mode this field exists to make countable."
+        )
+    return agent, reason
+
+
+def build_marker(decision: dict) -> str:
+    """Build the `[do-route]` marker line from one routing decision."""
+    agent, fallback_reason = resolve_agent(decision)
 
     skill = str(decision.get("skill") or "").strip().lower()
     if skill and skill != "-" and not _SKILL_RE.match(skill):
@@ -344,6 +457,17 @@ def build_marker(decision: dict) -> str:
     complexity = _require_str(decision, "complexity").lower()
     if complexity not in VALID_COMPLEXITY:
         raise InputError(f"'complexity' {complexity!r} — must be one of {'/'.join(VALID_COMPLEXITY)}")
+
+    # Skill enforcement: mandatory for simple/medium/complex (do/SKILL.md
+    # skill-greediness gate), exempt for trivial. Same hard-fail style as the
+    # model rule below — a skill-less Simple+ dispatch is a routing defect, and
+    # silently coercing it to `-` is what hid 23 of the 128 fallbacks.
+    if skill == "-" and complexity in _SKILL_REQUIRED_COMPLEXITY:
+        raise InputError(
+            f"'skill' is required for complexity={complexity} "
+            f"(skill-greediness gate: HARD, non-negotiable for Simple+). "
+            f"Name the skill the agent must load, or route as trivial."
+        )
 
     parts = [f"[do-route] agent={agent}", f"skill={skill}", f"complexity={complexity}"]
 
@@ -397,6 +521,12 @@ def build_marker(decision: dict) -> str:
     stack = _key_list(decision.get("stack") or [], "stack")
     if stack:
         parts.append(f"stack={{{','.join(stack)}}}")
+
+    # `fallback=<slug>` last: an independent \b-delimited token, appended after
+    # every existing one so no recorder regex shifts. Verified round-trip
+    # against the real recorder in scripts/tests/test_build_dispatch.py.
+    if fallback_reason:
+        parts.append(f"fallback={fallback_reason}")
 
     return " ".join(parts)
 
@@ -465,6 +595,7 @@ def build_preamble(decision: dict, settings_path: Path = SETTINGS_PATH) -> str:
         INJ_COMPLETENESS,
         INJ_DENSE_COMPLETE,
         INJ_BASE_INSTRUCTIONS,
+        INJ_ROUTE_FIT,
         WORKTREE_RULES if flags.get("worktree") else "",
         LOCAL_ONLY_BLOCK if flags.get("local_only") else "",
     ]
