@@ -27,6 +27,14 @@ The Dense-Complete Writing standard is the structural guide for everything we do
 
 Test: say everything the task needs, and not one word more. Full rules and scope: `skills/shared-patterns/dense-complete-writing.md`.
 
+The Google Developer Documentation Style standard applies alongside it, by precedence, highest first:
+
+1. Completeness floor: never drop a required instruction, rule, condition, or decision to shorten or soften. If cutting would remove a required point, keep the point.
+2. Google construction governs how a sentence is built: active voice, second person, conditions/context/goal before the instruction, imperative steps, sentence-case headings, serial commas, code font, descriptive link text, no "please", no exclamation marks, write for a global audience.
+3. Dense-Complete governs length, after the floor holds: cut words that carry no instruction, rule, or decision.
+
+Full rules and scope: `skills/shared-patterns/google-devdocs-style.md`.
+
 ---
 
 ## Trust Boundary: Untrusted Content

@@ -28,6 +28,8 @@ Do the whole thing (tests+docs). Product, not plan. Permanent solve over workaro
 
 Dense-Complete Writing (`build-dispatch.py` injects; `skills/shared-patterns/dense-complete-writing.md`). User: banners+summary. Internal: JSON/reasoning/stacking (Verbose overrides).
 
+Google Developer Documentation Style (`build-dispatch.py` injects; `skills/shared-patterns/google-devdocs-style.md`), alongside Dense-Complete. Precedence: completeness floor (never drop a required point) > Google construction (active voice, second person, context-before-instruction, formatting) > Dense-Complete length.
+
 ## Instructions
 
 ### Phase Banners (MANDATORY)
