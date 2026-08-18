@@ -15,7 +15,7 @@ routing:
   pairs_with:
     - pr-workflow
   complexity: Medium
-  category: devops
+  category: infrastructure
 ---
 
 # Dev-Branch Deploy — Hermes & Maia
