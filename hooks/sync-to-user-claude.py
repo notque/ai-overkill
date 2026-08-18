@@ -643,6 +643,75 @@ def _is_support_dir(item: Path) -> bool:
     return has_md and not has_skill_subdir
 
 
+def _copy_if_changed(item: Path, target: Path) -> bool:
+    """Copy item to target when the two differ. Robust to broken symlinks.
+
+    Skips items whose symlink target is missing (a dangling source link, e.g. a
+    private-voices reference not present on this machine). Treats a dangling
+    destination symlink as "needs copy". Returns True when a copy happened.
+    """
+    # Dangling source symlink — nothing real to copy.
+    if item.is_symlink() and not item.exists():
+        return False
+    target_ok = target.exists() and not (target.is_symlink() and not target.exists())
+    if target_ok and filecmp.cmp(item, target, shallow=False):
+        return False
+    # Replace a dangling destination symlink before copying onto it.
+    if target.is_symlink() and not target.exists():
+        target.unlink()
+    shutil.copy2(item, target)
+    return True
+
+
+def _clean_codex_orphan_categories(repo_skills: Path, codex_skills_dst: Path) -> int:
+    """Remove orphaned category directories from a flat skills mirror.
+
+    The mirror flattens repo skills: repo/skills/content/create-voice/ →
+    <mirror>/create-voice/. An earlier strategy copied the nested category
+    structure verbatim (<mirror>/content/create-voice/), then the strategy
+    switched to flat. Because the mirror is additive-only (never deletes), the
+    old nested copies persist. Codex scans the mirror recursively, so it
+    discovers every skill twice — once flat, once nested.
+
+    Fix uses a structural invariant, not a name list: the flat strategy never
+    creates a top-level directory that itself contains skill subdirectories
+    (child dirs with SKILL.md). So any top-level real dir holding nested
+    SKILL.md is an orphan from the old strategy — including categories that were
+    renamed or removed from the repo (e.g. a former opensearch/ or .system/).
+
+    Preserved, so the additive-only contract holds for anything we do not own:
+      - flat skills (a dir whose own SKILL.md is at the top level)
+      - support dirs (shared-patterns, workflow, kb — reference material)
+      - symlinks (never followed out of the mirror)
+      - dot-directories and Codex-owned trees (e.g. .system/, which carries a
+        .codex-system-skills.marker and holds Codex's native skills)
+      - foreign flat skills a user or Codex created
+
+    Returns the number of orphan category directories removed.
+    """
+    if not repo_skills.is_dir() or not codex_skills_dst.is_dir():
+        return 0
+    removed = 0
+    for entry in codex_skills_dst.iterdir():
+        if entry.is_symlink() or not entry.is_dir():
+            continue
+        if entry.name.startswith("."):
+            continue  # Codex-owned infra (.system/) or hidden — never ours
+        if (entry / "SKILL.md").exists():
+            continue  # a flat skill, not a category
+        if _is_support_dir(entry):
+            continue  # reference material, keep
+        # Never touch a tree a foreign tool marks as its own.
+        if any(m.name.endswith(".marker") for m in entry.iterdir() if m.is_file()):
+            continue
+        # Orphan only if it holds skill subdirectories (nested SKILL.md).
+        has_nested_skill = any(sub.is_dir() and (sub / "SKILL.md").exists() for sub in entry.iterdir())
+        if has_nested_skill:
+            shutil.rmtree(entry)
+            removed += 1
+    return removed
+
+
 def _sync_skills_flat_symlinks(src: Path, dst: Path, repo_root: "Path | list[Path] | None" = None) -> None:
     """Create flat per-skill symlinks from nested category structure.
 
@@ -748,6 +817,13 @@ def _sync_skills_flat_symlinks(src: Path, dst: Path, repo_root: "Path | list[Pat
                 if item.exists():
                     continue  # (b) live and outside all roots — foreign, preserve
             item.unlink()
+
+    # Remove orphaned category directories (real dirs, not symlinks) left by an
+    # earlier nested-copy strategy. The flat-symlink strategy never creates a
+    # category-named top-level dir, so any real one is an orphan. Harmless to
+    # Claude Code (it reads flat depth-1 only) but scoped removal keeps the
+    # mirror clean and prevents recursive scanners from seeing skills twice.
+    _clean_codex_orphan_categories(src, dst)
 
 
 def _is_git_worktree(path: Path) -> bool:
@@ -1248,10 +1324,8 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                             rel = item.relative_to(repo_skills)
                             target = codex_skills_dst / rel
                             _tolerant_mkdir(target.parent)
-                            if target.exists() and filecmp.cmp(item, target, shallow=False):
-                                continue
-                            shutil.copy2(item, target)
-                            codex_count += 1
+                            if _copy_if_changed(item, target):
+                                codex_count += 1
                 elif child.is_dir() and not child.name.startswith("."):
                     # Category folder: copy each skill inside as a flat entry
                     for skill_dir in sorted(child.iterdir()):
@@ -1265,10 +1339,8 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                                 rel = item.relative_to(skill_dir)
                                 target = codex_skills_dst / skill_dir.name / rel
                                 _tolerant_mkdir(target.parent)
-                                if target.exists() and filecmp.cmp(item, target, shallow=False):
-                                    continue
-                                shutil.copy2(item, target)
-                                codex_count += 1
+                                if _copy_if_changed(item, target):
+                                    codex_count += 1
         except Exception as e:
             errors.append(f"codex-skills: {e}")
     # Also sync private skills to Codex (same category pattern as ~/.claude/skills)
@@ -1300,9 +1372,17 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                             codex_count += 1
                 except Exception as e:
                     errors.append(f"codex-private-{deploy_name}: {e}")
-    # No stale cleanup for Codex — additive only. Users or Codex itself may
-    # create skills in ~/.codex/skills/ that we don't own. We only copy ours in;
-    # we never delete theirs.
+    # No stale cleanup for user- or Codex-created skills — additive only. But
+    # remove orphaned category directories left by the previous nested mirror
+    # strategy: Codex scans recursively, so a stale ~/.codex/skills/content/
+    # would list every skill inside it a second time. Scoped to repo category
+    # names only, so foreign skills are never touched.
+    try:
+        orphans = _clean_codex_orphan_categories(repo_skills, codex_skills_dst)
+        if orphans:
+            codex_count += orphans
+    except Exception as e:
+        errors.append(f"codex-skills-cleanup: {e}")
     if codex_count > 0:
         synced.append(f".codex/skills({codex_count} updated)")
     elif codex_skills_dst.is_dir():
