@@ -274,7 +274,7 @@ External repositories reveal patterns and missing checks. Adoption path: study, 
 
 **Test:** Did the practice arrive rebuilt and tested inside our architecture, or as copied files? Copied files skipped the gate.
 
-Worked example: the OpenAI curated-template skills (20 skills, 27 MB of `.pptx`/`.xlsx`/`.docx` binaries) were studied, not imported. We extracted two practices — clone-don't-regenerate fidelity and the content-vs-layout authority rule — and rebuilt them as `html-artifact` clone mode: one skill, a `templates/saved/` gallery, and `fill-template.py` enforcing the authority rule with exit codes. The 20 skills themselves failed the test on three counts (thin wrappers, host-locked to an Office runtime, 20 copies of one skill), so none were imported. Practice adopted, files rejected. (`skills/meta/html-artifact/scripts/tests/test_fill_template.py`.)
+Worked example: the OpenAI curated-template pack (twenty near-identical `artifact-template-*` entries, 27 MB of `.pptx`/`.xlsx`/`.docx` binaries) was studied, not imported. We extracted two practices — clone-don't-regenerate fidelity and the content-vs-layout authority rule — and rebuilt them as `html-artifact` clone mode: one skill, a saved-template gallery, and a fill script enforcing the authority rule with exit codes (`skills/meta/html-artifact/scripts/fill-template.py`). The pack itself failed the test on three counts (thin wrappers, host-locked to an Office runtime, one skill copied twenty times), so nothing was imported. Practice adopted, files rejected. Test: `skills/meta/html-artifact/scripts/tests/test_fill_template.py`.
 
 ### One Domain, One Component
 
