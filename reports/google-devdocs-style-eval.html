@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google DevDocs Style: Blind A/B Eval</title>
+<style>
+  :root{
+    --bg:#fbfbfa; --ink:#1f2328; --muted:#6b7280; --line:#e6e6e3;
+    --card:#ffffff; --armA:#2f6f4f; --armB:#8a6d3b; --armC:#3b5b8a;
+    --armA-bg:#eef6f0; --armB-bg:#f7f1e6; --armC-bg:#eef2f8;
+    --pass:#2f6f4f; --code:#f2f2ef;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:56px 24px 96px}
+  header{border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:40px}
+  h1{font-size:30px; line-height:1.2; margin:0 0 8px; letter-spacing:-.01em}
+  .sub{color:var(--muted); font-size:16px; margin:0}
+  .date{color:var(--muted); font-size:13px; margin-top:10px; letter-spacing:.02em; text-transform:uppercase}
+  h2{font-size:20px; margin:48px 0 16px; letter-spacing:-.01em}
+  h3{font-size:15px; margin:0 0 10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
+  p{margin:0 0 14px}
+  table{border-collapse:collapse; width:100%; margin:8px 0 20px; font-size:14.5px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{color:var(--muted); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.04em}
+  code,pre{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  code{background:var(--code); padding:.12em .4em; border-radius:4px; font-size:.88em}
+  .arm{display:inline-block; font-weight:600; padding:2px 9px; border-radius:999px; font-size:12.5px; color:#fff}
+  .A{background:var(--armA)} .B{background:var(--armB)} .C{background:var(--armC)}
+  .prompt-box{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:0 0 12px; white-space:pre-wrap; font-size:14px; color:#33383e}
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:14px 0 8px}
+  .out{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0; overflow:hidden; display:flex; flex-direction:column}
+  .out .cap{padding:10px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; font-size:13px}
+  .out .rank{margin-left:auto; font-weight:700; font-size:13px; color:var(--muted)}
+  .out.first .cap{background:linear-gradient(0deg,rgba(0,0,0,.015),rgba(0,0,0,.015))}
+  .out.first{box-shadow:0 0 0 2px rgba(47,111,79,.22)}
+  .out .body{padding:14px; font-size:13px; line-height:1.55; white-space:pre-wrap; overflow-x:auto; flex:1}
+  .out.tA{border-top:3px solid var(--armA)} .out.tB{border-top:3px solid var(--armB)} .out.tC{border-top:3px solid var(--armC)}
+  .reason{background:var(--card); border:1px solid var(--line); border-left:3px solid var(--muted); border-radius:0 8px 8px 0; padding:14px 16px; font-size:14px; color:#3a3f45; margin:6px 0 8px}
+  .reason b{color:var(--ink)}
+  .rankline{font-size:14px; margin:14px 0 4px}
+  .rankline .arm{margin:0 2px}
+  .bars{margin:10px 0 4px}
+  .bar-row{display:flex; align-items:center; gap:12px; margin:8px 0}
+  .bar-label{width:180px; font-size:13.5px}
+  .bar-track{flex:1; background:#eee; border-radius:6px; height:22px; position:relative; overflow:hidden}
+  .bar-fill{height:100%; border-radius:6px; display:flex; align-items:center; padding-left:10px; color:#fff; font-size:12.5px; font-weight:600}
+  .verdict{background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin:14px 0}
+  .verdict .big{font-size:17px; font-weight:600; margin-bottom:6px}
+  .rec{background:#f4f7f4; border:1px solid #d9e6dc; border-radius:12px; padding:22px 24px}
+  .rec .tag{display:inline-block; background:var(--armA); color:#fff; font-weight:600; font-size:12px; padding:3px 10px; border-radius:999px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:12px}
+  .pass{color:var(--pass); font-weight:600}
+  .foot{color:var(--muted); font-size:12.5px; margin-top:40px; border-top:1px solid var(--line); padding-top:16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.bar-label{width:120px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Google Developer Documentation Style: blind A/B eval</h1>
+  <p class="sub">Does a Google-DevDocs writing standard improve toolkit output, alone or stacked with Dense-Complete? Three arms, three prompts, one blind judge.</p>
+  <p class="date">2026-08-17</p>
+</header>
+
+<h2>Setup</h2>
+<p>Each prompt was written three ways. A separate judge then ranked the three outputs per prompt with the arm labels hidden and the label order randomized per prompt, judging from text alone.</p>
+<table>
+  <tr><th>Arm</th><th>Guidance loaded before writing</th></tr>
+  <tr><td><span class="arm A">A</span></td><td>Google DevDocs style guide only</td></tr>
+  <tr><td><span class="arm B">B</span></td><td>Baseline, no extra guide</td></tr>
+  <tr><td><span class="arm C">C</span></td><td>Google DevDocs guide, then Dense-Complete (the real deployment config: Google wins on construction, Dense-Complete governs length)</td></tr>
+</table>
+
+<h2>Test prompts</h2>
+<h3>Prompt 1: user-facing how-to</h3>
+<div class="prompt-box">A "Getting started" doc section walking a first-time developer through connecting the flowctl CLI to a hosted API: install the binary, create an API token in the web console under Settings &gt; API tokens, export it as FLOWCTL_TOKEN, run flowctl ping. Include exact commands; note token creation is one-time and revocable. Reader may be reading in a second language.</div>
+<h3>Prompt 2: internal skill instruction</h3>
+<div class="prompt-box">The "## Workflow" section of an internal skill telling an AI agent how to run a DB migration safely: (1) back up first, (2) run on a staging copy, (3) verify row counts match old vs new schema, (4) apply to production only after staging passes, (5) keep the backup until a human confirms production is healthy. Each phase actionable, with a one-clause reason where it helps.</div>
+<h3>Prompt 3: short explanatory reply</h3>
+<div class="prompt-box">A reply to a user whose CI fails with 'permission denied' pushing a Docker image, though it works on their laptop. Explain the likely cause (CI runs as a different identity / service account lacking push permission or with expired credentials) and the fix (grant the CI service account push access, or refresh the credentials CI uses). Understandable to a non-expert.</div>
+
+<!-- PROMPT 1 -->
+<h2>Prompt 1 results</h2>
+<p class="rankline">Ranking (best first): <span class="arm C">C</span> &gt; <span class="arm A">A</span> &gt; <span class="arm B">B</span></p>
+<div class="grid">
+  <div class="out tC first"><div class="cap"><span class="arm C">C</span> <span class="rank">1st</span></div><div class="body"># Get started with flowctl
+
+To use `flowctl`, connect it to the hosted API. This is a one-time setup.
+
+1. Install the binary:
+
+   curl -sSL https://get.flowctl.io | sh
+
+2. In the web console, go to Settings &gt; API tokens, then click Create token. Copy the token. You create a token only once.
+
+3. Export the token as an environment variable:
+
+   export FLOWCTL_TOKEN="your-token-here"
+
+4. Confirm the connection:
+
+   flowctl ping
+
+   If the connection works, flowctl prints pong.
+
+To revoke a token later, return to Settings &gt; API tokens in the web console.</div></div>
+  <div class="out tA"><div class="cap"><span class="arm A">A</span> <span class="rank">2nd</span></div><div class="body"># Get started with flowctl
+
+To use `flowctl`, you connect the CLI to the hosted API with an API token. You create the token once. You can revoke it later from the same page.
+
+1. Install the binary:
+
+   curl -sSL https://get.flowctl.dev | sh
+
+2. In the web console, go to Settings &gt; API tokens, then click Create token.
+
+3. Copy the token and export it as an environment variable:
+
+   export FLOWCTL_TOKEN=your-token-here
+
+4. Confirm the connection:
+
+   flowctl ping
+
+   A successful connection prints pong.
+
+To stop a token from working, return to Settings &gt; API tokens and click Revoke next to the token.</div></div>
+  <div class="out tB"><div class="cap"><span class="arm B">B</span> <span class="rank">3rd</span></div><div class="body"># Getting started
+
+Follow these steps to connect `flowctl` to the hosted API.
+
+1. Install the binary.
+   curl -fsSL https://get.flowctl.io/install.sh | sh
+   Check that it worked: flowctl version
+
+2. Create an API token.
+   Open the web console. Go to Settings &gt; API tokens and click Create token. Copy the token now, as it is shown only once. You do this only one time. You can revoke the token later from the same page.
+
+3. Save the token.
+   export FLOWCTL_TOKEN="paste-your-token-here"
+
+4. Confirm the connection.
+   flowctl ping
+   If the connection works: OK: connected to the API
+   If you see an error, check that the token is correct and that you exported it in the same terminal.</div></div>
+</div>
+<div class="reason"><b>Judge (text only):</b> Output ranked 1st states the one-time nature up front ("This is a one-time setup"), gives every exact command, tells the reader what success looks like ("flowctl prints pong"), and closes with revocation. Every requirement met with no filler. Second place is nearly as good and its revoke step is more precise, but it drops the quotes in the export line (fragile for a non-native reader pasting special characters) and never says the token is shown only once. Third place is helpful and adds a version check and a troubleshooting note, but it repeats itself ("shown only once. You do this only one time.") and its expected output ("OK: connected to the API") contradicts the pong convention; bold-heading steps scan worse than clean numbered lists.</div>
+
+<!-- PROMPT 2 -->
+<h2>Prompt 2 results</h2>
+<p class="rankline">Ranking (best first): <span class="arm B">B</span> &gt; <span class="arm A">A</span> &gt; <span class="arm C">C</span></p>
+<div class="grid">
+  <div class="out tB first"><div class="cap"><span class="arm B">B</span> <span class="rank">1st</span></div><div class="body">## Workflow
+
+1. Back up the target database and confirm the backup completes before touching any schema, so you can roll back if a later step fails.
+2. Run the migration against a fresh staging copy first, never production, to catch errors without customer impact.
+3. Verify row counts match between the old and new schema on staging; a mismatch means data was lost or duplicated, so stop and report.
+4. Apply the migration to production only after staging passes every check; do not proceed on partial success.
+5. Keep the backup until a human confirms production is healthy, then delete it only on their explicit go-ahead.</div></div>
+  <div class="out tA"><div class="cap"><span class="arm A">A</span> <span class="rank">2nd</span></div><div class="body">## Workflow
+
+1. Before you touch the target database, take a full backup so you can restore if the migration fails.
+2. Restore the backup to a staging copy, then run the migration there first so production stays untouched while you test.
+3. After staging migrates, compare row counts between the old and new schema. If any table's count differs unexpectedly, stop and investigate.
+4. Once staging passes verification, apply the same migration to production. Do not apply to production before staging passes.
+5. Keep the backup until a human confirms production is healthy, so a rollback path stays available.</div></div>
+  <div class="out tC"><div class="cap"><span class="arm C">C</span> <span class="rank">3rd</span></div><div class="body">## Workflow
+
+1. Before touching the target database, back it up so you can restore it if the migration fails.
+2. Run the migration against a staging copy first, so failures surface off production.
+3. Compare row counts between the old and new schema. If counts differ, stop and report the mismatch.
+4. After staging passes, apply the migration to production.
+5. Keep the backup until a human confirms production is healthy, so a rollback path stays open.</div></div>
+</div>
+<div class="reason"><b>Judge (text only):</b> First place is the most complete against the five points and pairs each action with a one-clause reason. It uniquely nails "apply to production only after staging passes every check; do not proceed on partial success" and is the only one to fully honor step 5 ("then delete it only on their explicit go-ahead"). Slightly long sentences cost it one concision point. Second place adds a useful operational detail (how the staging copy is created: "Restore the backup to a staging copy") and restates the gate, but its step 5 stops at the human-confirm hold without the delete condition. Third place is the cleanest and most concise prose, every step still actionable, but the least complete: its production step is bare with no no-partial-success guard, so it lands last on a strong field.</div>
+
+<!-- PROMPT 3 -->
+<h2>Prompt 3 results</h2>
+<p class="rankline">Ranking (best first): <span class="arm A">A</span> &gt; <span class="arm C">C</span> &gt; <span class="arm B">B</span></p>
+<div class="grid">
+  <div class="out tA first"><div class="cap"><span class="arm A">A</span> <span class="rank">1st</span></div><div class="body">Your CI runs as a different identity than your laptop. On your machine, you push with your personal login, which has permission. In CI, the push uses a service account (or a stored token) instead. If that account lacks push access to the registry, or its token has expired, the registry rejects the push with `permission denied`.
+
+To fix this, do one of the following:
+
+- Grant the CI service account push access to the target registry or repository.
+- Refresh the credentials CI uses, then update the secret or token stored in your CI configuration.
+
+To confirm which account CI uses, check the login step in your pipeline logs. Then verify that account's permissions in your registry's access settings.</div></div>
+  <div class="out tC"><div class="cap"><span class="arm C">C</span> <span class="rank">2nd</span></div><div class="body">Your CI and your laptop push as different identities. On your laptop, you push with your personal login, which has access. In CI, the pipeline pushes with a service account. That account either lacks push permission on the registry or uses credentials that have expired, so the registry rejects it with `permission denied`.
+
+To fix it, pick one:
+
+- Grant the CI service account push access to the target registry or repository. Check the registry's access control settings for who can push.
+- Refresh the credentials CI uses. If the pipeline authenticates with a token, key, or password stored as a CI secret, rotate it and update the secret.
+
+To confirm which account CI uses, check the login step in your pipeline config.</div></div>
+  <div class="out tB"><div class="cap"><span class="arm B">B</span> <span class="rank">3rd</span></div><div class="body">The most likely cause is identity. On your laptop you push using your own personal login, which has permission. In CI, the job runs as a separate service account — not you. If that account was never granted push access to the registry, or the credentials it uses (a token, key, or password stored in your CI secrets) have expired or were never set, the push is denied even though yours works.
+
+To fix it, do one of two things:
+
+1. Grant the CI service account push (write) permission on the target registry or repository. Check the registry's access or IAM settings for the account CI authenticates as.
+2. Refresh the credentials CI uses. Generate a new token or key with push rights and update the secret in your CI config.
+
+Confirm which identity CI logs in as, then apply whichever fits.</div></div>
+</div>
+<div class="reason"><b>Judge (text only):</b> All three diagnose the same root cause and offer the two-branch fix. First place wins on clarity for a non-expert: it opens with the plain thesis ("Your CI runs as a different identity than your laptop"), contrasts the two cases cleanly, lists both fixes, and adds an actionable diagnostic ("check the login step in your pipeline logs. Then verify that account's permissions"). Second place is nearly identical and slightly more concrete on the refresh step ("rotate it and update the secret"), edging below only because its diagnostic tail is thinner. Third place is the most thorough on the fix (names "push (write) permission" and "IAM settings") but opens more abstractly ("The most likely cause is identity") and is the wordiest, so it reads denser and less crisp.</div>
+
+<h2>Overall tally</h2>
+<div class="bars">
+  <div class="bar-row"><div class="bar-label"><span class="arm A">A</span> Google only</div><div class="bar-track"><div class="bar-fill A" style="width:33.3%">1 first place</div></div></div>
+  <div class="bar-row"><div class="bar-label"><span class="arm B">B</span> Baseline</div><div class="bar-track"><div class="bar-fill B" style="width:33.3%">1 first place</div></div></div>
+  <div class="bar-row"><div class="bar-label"><span class="arm C">C</span> Combined</div><div class="bar-track"><div class="bar-fill C" style="width:33.3%">1 first place</div></div></div>
+</div>
+<p>First-place finishes split evenly, one each. No arm swept. There was no tie within any single prompt; the judge produced a strict 1/2/3 order each time.</p>
+
+<div class="verdict">
+  <div class="big">Decisive question: does combined (C) beat Google-only (A)?</div>
+  <p><b>No. A edged C, 2 prompts to 1.</b> A placed above C on prompts 2 and 3; C placed above A only on prompt 1. On this small sample, stacking Dense-Complete on top of the Google guide did not raise quality over the Google guide alone, and on the two instruction/reply prompts the extra compression pressure left C the shortest and, by the judge's read, the least complete ("its production step is bare," "lands last on a strong field"). That is the conflict rule biting: length pressure trimmed required nuance. The friendly-filler cap worked; the compression went one step past it.</p>
+</div>
+
+<h2>Validation gates</h2>
+<table>
+  <tr><th>Gate</th><th>Command</th><th>Exit</th><th>Result</th></tr>
+  <tr><td>Do-pair framing</td><td><code>python3 scripts/validate-references.py --check-do-framing</code></td><td>0</td><td class="pass">PASS</td></tr>
+  <tr><td>Joy-check framing</td><td><code>joy-check</code> (instruction mode) on the pattern file</td><td>n/a</td><td class="pass">PASS (100, zero primary negatives; ✗ cells are paired examples)</td></tr>
+  <tr><td>Path-leak grep</td><td><code>grep -rnE '/tmp|/home|/Users' google-devdocs-style.md</code></td><td>1 (no match)</td><td class="pass">PASS</td></tr>
+  <tr><td>Frontmatter / index validators</td><td>skipped</td><td>n/a</td><td>Not applicable: shared-pattern files carry no routing frontmatter, so <code>validate-skill-frontmatter.py</code> and <code>generate-skill-index.py</code> do not apply</td></tr>
+</table>
+
+<h2>Recommendation</h2>
+<div class="rec">
+  <span class="tag">Hold: do not wire in yet</span>
+  <p>The blind A/B does not justify wiring this into the <code>/do</code> injection or <code>CLAUDE.md</code>. The Google guide alone (A) won one prompt of three and never lost to bare baseline in a way that separates it decisively; baseline (B) also took a first place, on the very prompt (the migration workflow) where completeness mattered most. Across nine outputs the quality differences the judge cited were real but small, and they cut in every direction.</p>
+  <p>The combined config (C), which is what shipping would actually deploy, came third on two of three prompts. That is the load-bearing result: stacking the two standards did not beat the Google guide alone here, and the compression half trimmed required detail on instruction and reply tasks. Wiring in a standard that, in its real deployment shape, placed last more often than first would add system-prompt surface for no measured gain.</p>
+  <p>Honest read: this is close to a wash with a mild lean against the combined config. Before any wiring, harden the eval. The prompts were near ceiling (all nine outputs were competent), which is exactly the condition under which an A/B returns a null verdict on the treatment, not a real negative. Re-run with harder prompts (longer, more constraints, more chances to drop a required point) and a larger N per arm. Keep the file as a documented candidate; let evidence, not preference, decide the wiring.</p>
+</div>
+
+<p class="foot">Blind protocol: arm→label mapping randomized per prompt and withheld from the judge; the judge received only the three anonymized outputs plus a text-only rubric, and justified every pick from quoted phrases. Un-blinding mapped the judge's slot picks back through the recorded true mapping. Attribution: writing rules adapted from the Google Developer Documentation Style Guide (developers.google.com/style), CC BY 4.0.</p>
+</div>
+</body>
+</html>

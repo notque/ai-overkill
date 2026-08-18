@@ -100,6 +100,18 @@ INJ_DENSE_COMPLETE = (
     "Full rules: `skills/shared-patterns/dense-complete-writing.md`."
 )
 
+INJ_GOOGLE_DEVDOCS = (
+    "Also write to the Google Developer Documentation Style standard, alongside Dense-Complete. "
+    "Precedence, highest first: "
+    "(1) completeness floor — never drop a required instruction, rule, condition, or decision to "
+    "shorten or soften; if cutting would remove a required point, keep the point; "
+    '(2) Google construction — active voice, second person ("you"), conditions/context/goal before '
+    "the instruction, imperative steps, sentence-case headings, serial commas, code font, "
+    'descriptive link text, no "please", no exclamation marks, write for a global audience; '
+    "(3) Dense-Complete length, after the floor holds. "
+    "Full rules: `skills/shared-patterns/google-devdocs-style.md`."
+)
+
 INJ_BASE_INSTRUCTIONS = "Before starting work, also load `agents/base-instructions.md` for universal operational rules."
 
 # Route-fit banner. The router has no outcome signal today: 285 of 287 recorded
@@ -594,6 +606,7 @@ def build_preamble(decision: dict, settings_path: Path = SETTINGS_PATH) -> str:
         INJ_REFERENCE_LOADING,
         INJ_COMPLETENESS,
         INJ_DENSE_COMPLETE,
+        INJ_GOOGLE_DEVDOCS,
         INJ_BASE_INSTRUCTIONS,
         INJ_ROUTE_FIT,
         WORKTREE_RULES if flags.get("worktree") else "",
