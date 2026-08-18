@@ -1201,3 +1201,151 @@ class TestMainInnerWorktreeEndToEnd:
         support_link = user_claude / "skills" / "support-notes"
         assert support_link.is_symlink(), "symlink into main repo must survive"
         assert (main / "skills" / "support-notes" / "pattern.md").exists()
+
+
+class TestCleanCodexOrphanCategories:
+    """Tests for _clean_codex_orphan_categories.
+
+    Reproduces the Codex duplicate-skill bug: an earlier mirror strategy copied
+    the nested category structure (a category dir holding each skill), then the
+    strategy switched to a flat layout (one dir per skill at the top level).
+    Codex scans recursively, so both copies list the skill twice. Cleanup must
+    remove the orphaned category dir while preserving flat skills and foreign
+    entries.
+    """
+
+    def _make_repo_skills(self, root: Path) -> Path:
+        """Repo skills tree: one category (content) holding one skill."""
+        repo_skills = root / "skills"
+        skill = repo_skills / "content" / "create-voice"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("---\nname: create-voice\n---\nbody\n")
+        return repo_skills
+
+    def test_removes_orphan_category_dir(self, tmp_path: Path) -> None:
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        # Flat (current strategy) — must survive.
+        flat = codex / "create-voice"
+        flat.mkdir(parents=True)
+        (flat / "SKILL.md").write_text("flat")
+        # Orphan nested category dir (old strategy) — must be removed.
+        orphan = codex / "content" / "create-voice"
+        orphan.mkdir(parents=True)
+        (orphan / "SKILL.md").write_text("nested")
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 1
+        assert not (codex / "content").exists(), "orphan category dir must be removed"
+        assert flat.exists(), "flat skill must be preserved"
+        assert (flat / "SKILL.md").exists()
+
+    def test_preserves_foreign_skill(self, tmp_path: Path) -> None:
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        # A user/Codex-created skill whose name is NOT a repo category.
+        foreign = codex / "my-own-skill"
+        foreign.mkdir(parents=True)
+        (foreign / "SKILL.md").write_text("mine")
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 0
+        assert foreign.exists(), "foreign skill must never be removed"
+
+    def test_ignores_category_symlink(self, tmp_path: Path) -> None:
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        codex.mkdir(parents=True)
+        # A symlink named like a category must not be followed or removed.
+        real = tmp_path / "elsewhere"
+        real.mkdir()
+        (codex / "content").symlink_to(real)
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 0
+        assert (codex / "content").is_symlink(), "symlink must be left untouched"
+
+    def test_noop_when_clean(self, tmp_path: Path) -> None:
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        flat = codex / "create-voice"
+        flat.mkdir(parents=True)
+        (flat / "SKILL.md").write_text("flat")
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 0
+        assert flat.exists()
+
+    def test_missing_dirs_return_zero(self, tmp_path: Path) -> None:
+        assert sync_mod._clean_codex_orphan_categories(tmp_path / "nope", tmp_path / "gone") == 0
+
+    def test_removes_renamed_or_removed_category(self, tmp_path: Path) -> None:
+        # A category the repo no longer has (e.g. opensearch/ folded into
+        # engineering/). Structural rule must still remove it.
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        orphan = codex / "opensearch" / "opensearch-detection-engineer"
+        orphan.mkdir(parents=True)
+        (orphan / "SKILL.md").write_text("stale")
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 1
+        assert not (codex / "opensearch").exists()
+
+    def test_preserves_marked_foreign_tree(self, tmp_path: Path) -> None:
+        # Codex's own .system/ tree (marker file + nested skills) must survive,
+        # even though it holds nested SKILL.md. Guarded by dot-prefix and marker.
+        repo_skills = self._make_repo_skills(tmp_path)
+        codex = tmp_path / "codex-skills"
+        system = codex / ".system" / "imagegen"
+        system.mkdir(parents=True)
+        (system / "SKILL.md").write_text("codex-native")
+        (codex / ".system" / ".codex-system-skills.marker").write_text("owned")
+
+        removed = sync_mod._clean_codex_orphan_categories(repo_skills, codex)
+
+        assert removed == 0
+        assert (codex / ".system" / "imagegen" / "SKILL.md").exists()
+
+
+class TestCopyIfChanged:
+    """Tests for _copy_if_changed — robust to broken symlinks on both ends."""
+
+    def test_copies_new_file(self, tmp_path: Path) -> None:
+        src = tmp_path / "a.md"
+        src.write_text("hello")
+        dst = tmp_path / "out" / "a.md"
+        dst.parent.mkdir()
+        assert sync_mod._copy_if_changed(src, dst) is True
+        assert dst.read_text() == "hello"
+
+    def test_skips_identical_file(self, tmp_path: Path) -> None:
+        src = tmp_path / "a.md"
+        src.write_text("same")
+        dst = tmp_path / "a-copy.md"
+        dst.write_text("same")
+        assert sync_mod._copy_if_changed(src, dst) is False
+
+    def test_skips_dangling_source_symlink(self, tmp_path: Path) -> None:
+        # Source is a symlink whose target is missing (e.g. a private-voices
+        # reference absent on this machine). Must skip without raising.
+        src = tmp_path / "link.md"
+        src.symlink_to(tmp_path / "missing-target.md")
+        dst = tmp_path / "out.md"
+        assert sync_mod._copy_if_changed(src, dst) is False
+        assert not dst.exists()
+
+    def test_replaces_dangling_dest_symlink(self, tmp_path: Path) -> None:
+        # Destination is a broken symlink from an earlier sync. Must replace it.
+        src = tmp_path / "a.md"
+        src.write_text("fresh")
+        dst = tmp_path / "out.md"
+        dst.symlink_to(tmp_path / "gone.md")
+        assert sync_mod._copy_if_changed(src, dst) is True
+        assert not dst.is_symlink()
+        assert dst.read_text() == "fresh"
