@@ -1,0 +1,18 @@
+{
+  "template": "business-review",
+  "shape": "report",
+  "description": "Business performance review: KPIs, segment results, strategic priorities, decisions, outlook.",
+  "slots": [
+    { "name": "TITLE", "required": true, "description": "Report title, plain text." },
+    { "name": "KICKER", "required": false, "description": "Small uppercase label above the title (e.g. 'Q3 2026 Business Review')." },
+    { "name": "SUBTITLE", "required": true, "description": "One-line summary shown under the title." },
+    { "name": "META", "required": false, "description": "Inline meta spans, e.g. '<span>Period: Q3</span><span>Owner: Ops</span>'." },
+    { "name": "SUMMARY", "required": true, "description": "TL;DR block: one or more <p> paragraphs." },
+    { "name": "KPIS", "required": true, "description": "One or more .kpi cards: '<div class=\"kpi\"><div class=\"label\">Revenue</div><div class=\"value\">$4.2M</div><div class=\"delta\">+12%</div></div>'." },
+    { "name": "SEGMENTS", "required": true, "description": "Segment results as an HTML <table> or paragraphs." },
+    { "name": "PRIORITIES", "required": true, "description": "Strategic priorities as an <ul> or <ol>." },
+    { "name": "DECISIONS", "required": true, "description": "Decisions made/needed as a list or table." },
+    { "name": "OUTLOOK", "required": true, "description": "Forward outlook: <p> paragraphs, optionally a .callout." },
+    { "name": "FOOTER", "required": false, "description": "Footer line: source, date, author." }
+  ]
+}

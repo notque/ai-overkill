@@ -1,0 +1,19 @@
+{
+  "template": "system-design",
+  "shape": "report",
+  "description": "System design doc: overview, requirements, architecture diagram, components, data flow, tradeoffs, operational considerations.",
+  "slots": [
+    { "name": "TITLE", "required": true, "description": "System/design name, plain text." },
+    { "name": "KICKER", "required": false, "description": "Small uppercase label (e.g. 'RFC 012 · System Design')." },
+    { "name": "SUBTITLE", "required": true, "description": "One-line description of what the system does." },
+    { "name": "META", "required": false, "description": "Inline meta spans: author, status, date." },
+    { "name": "OVERVIEW", "required": true, "description": "TL;DR overview: one or more <p> paragraphs." },
+    { "name": "REQUIREMENTS", "required": true, "description": "Functional and non-functional requirements as a list or table." },
+    { "name": "DIAGRAM", "required": true, "description": "Inline SVG or ASCII architecture diagram. Sits inside a .diagram box." },
+    { "name": "COMPONENTS", "required": true, "description": "Components as an HTML <table>: name, responsibility, tech." },
+    { "name": "DATA_FLOW", "required": true, "description": "Data flow: ordered <ol> or paragraphs describing request/event path." },
+    { "name": "TRADEOFFS", "required": true, "description": "Design tradeoffs and rejected alternatives, as a table or list." },
+    { "name": "OPERATIONS", "required": true, "description": "Operational considerations: scaling, failure modes, monitoring, rollback." },
+    { "name": "FOOTER", "required": false, "description": "Footer: source, date, author." }
+  ]
+}

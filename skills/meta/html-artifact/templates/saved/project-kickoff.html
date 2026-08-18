@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>{{TITLE}}</title>
+<style>
+/* vexjoy-artifact: shape=report theme=birchline contrast=n/a template=project-kickoff */
+:root {
+  --bg: #faf8f3; --surface: #ffffff; --ink: #2b2b27; --ink-soft: #57534e;
+  --line: #e7e2d8; --accent: #7c5e3c; --accent-soft: #f0e9dd;
+  --good: #4f7a4f; --good-bg: #eaf2ea; --warn: #a9791f; --warn-bg: #f7efdc;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 48px 28px 96px; }
+header.hero { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 32px; }
+.kicker { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+h1 { font-size: 32px; line-height: 1.15; margin: 8px 0 6px; }
+.sub { color: var(--ink-soft); font-size: 17px; margin: 0; }
+.meta-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--ink-soft); }
+.tldr { background: var(--accent-soft); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 18px 22px; margin: 26px 0; }
+.tldr h2 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+h2.section { font-size: 23px; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; background: var(--surface); }
+th, td { text-align: left; padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 700; }
+tbody tr:nth-child(even) td { background: #fcfaf6; }
+.gate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0; }
+.gate { border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 8px; padding: 16px; background: var(--surface); }
+.gate .g-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; }
+.gate h4 { margin: 4px 0 8px; }
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; background: var(--surface); }
+code { font-family: var(--mono); background: #f1ece3; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); }
+</style>
+</head>
+<body data-shape="report">
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">{{KICKER}}</div>
+    <h1>{{TITLE}}</h1>
+    <p class="sub">{{SUBTITLE}}</p>
+    <div class="meta-row">{{META}}</div>
+  </header>
+
+  <div class="tldr">
+    <h2>Kickoff agenda</h2>
+    {{AGENDA}}
+  </div>
+
+  <h2 class="section">Foundation — what's already proven</h2>
+  {{FOUNDATION}}
+
+  <h2 class="section">Scope &amp; success criteria</h2>
+  {{SCOPE}}
+
+  <h2 class="section">Workstreams &amp; owners</h2>
+  {{WORKSTREAMS}}
+
+  <h2 class="section">Milestones &amp; gates</h2>
+  <div class="gate-grid">{{GATES}}</div>
+
+  <h2 class="section">Open decisions</h2>
+  {{DECISIONS}}
+
+  <h2 class="section">Risks</h2>
+  {{RISKS}}
+
+  <footer>{{FOOTER}}</footer>
+</div>
+</body>
+</html>
