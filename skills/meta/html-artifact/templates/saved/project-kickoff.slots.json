@@ -1,0 +1,19 @@
+{
+  "template": "project-kickoff",
+  "shape": "report",
+  "description": "Project kickoff: agenda, proven foundation, scope and success criteria, workstreams and owners, milestone gates, open decisions, risks. Structure adapted from a proven kickoff information architecture.",
+  "slots": [
+    { "name": "TITLE", "required": true, "description": "Project name, plain text." },
+    { "name": "KICKER", "required": false, "description": "Small uppercase label (e.g. 'Issue #907 · KICKOFF')." },
+    { "name": "SUBTITLE", "required": true, "description": "One-line project goal." },
+    { "name": "META", "required": false, "description": "Inline meta spans: DRI, date, phase." },
+    { "name": "AGENDA", "required": true, "description": "Kickoff agenda as an <ol> or <ul>." },
+    { "name": "FOUNDATION", "required": true, "description": "What is already delivered/proven: <p> or list, optionally 'Now in scope' contrast." },
+    { "name": "SCOPE", "required": true, "description": "Scope and success criteria. Table or list; state parity/coverage/behavior/operations." },
+    { "name": "WORKSTREAMS", "required": true, "description": "Workstreams with owners (DRIs) as an HTML <table>: name, description, owner." },
+    { "name": "GATES", "required": true, "description": "One or more .gate cards: '<div class=\"gate\"><div class=\"g-label\">Gate 1</div><h4>Design locked</h4><p>...</p></div>'." },
+    { "name": "DECISIONS", "required": true, "description": "Open decisions to resolve at kickoff, as a list or table." },
+    { "name": "RISKS", "required": false, "description": "Risks and mitigations as a table or list." },
+    { "name": "FOOTER", "required": false, "description": "Footer: source issue link, snapshot date." }
+  ]
+}

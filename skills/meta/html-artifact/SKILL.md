@@ -51,6 +51,27 @@ Generate single self-contained `.html` files that replace markdown when the outp
 
 ---
 
+### Phase 0: CHECK SAVED TEMPLATE (clone-first)
+
+Before detecting a shape, check whether the request names or matches a saved template. A saved template is a frozen, human-authored layout; cloning it beats regenerating structure because the layout cannot drift.
+
+Run: `python3 skills/meta/html-artifact/scripts/fill-template.py --list`
+
+If the request names a listed template (e.g. "project kickoff", "business review", "system design") or clearly matches one:
+
+1. Read `templates/saved/<name>.slots.json` to learn the slots.
+2. Generate ONLY the slot content — never the layout, CSS, or chrome.
+3. Write the slot values to a JSON file and run `fill-template.py --template <name> --slots <file> --out <artifact>`.
+4. Skip Phases 1–3 (shape detection, assembly, generation). Go to Phase 4 VALIDATE.
+
+The fill script fails loud on a missing required slot, an undeclared slot name, or a leftover marker. Fix the slot JSON; do not edit the template.
+
+If no saved template matches, continue to Phase 1.
+
+**See "Fidelity & Authority" below for the content-vs-layout rule that governs clone mode.**
+
+---
+
 ### Phase 1: DETECT SHAPE
 
 Classify the user's request into one of 8 artifact shapes.
@@ -403,8 +424,32 @@ This skill uses:
 
 ## Saved Templates
 
-Pre-built, reusable artifact templates for recurring requests. Each pairs a self-contained HTML template (with placeholder tokens and a sample dataset for standalone testing) with a deterministic renderer script that fills in live data.
+Pre-built, reusable artifact templates for recurring requests. Two renderer patterns:
+
+- **Specialized renderer** — a script that fetches live data and fills a bespoke template (`github-issues`).
+- **Generic slot filler** — `scripts/fill-template.py` clones any frozen template in `templates/saved/` and substitutes caller-supplied slot values. One skill, many template files: add a layout, not a skill.
 
 | Template | Renderer | Use For |
 |---|---|---|
 | `templates/saved/github-issues.html` | `scripts/render-github-issues.py` | "show me my GitHub issues" / "show me my tickets" — assigned + mentioned + review-requested across all repos, with per-issue discussion expanders and 5 client-side sort modes |
+| `templates/saved/business-review.html` | `scripts/fill-template.py` | "business review" — KPIs, segment results, priorities, decisions, outlook |
+| `templates/saved/project-kickoff.html` | `scripts/fill-template.py` | "project kickoff" — agenda, foundation, scope, workstreams + owners, milestone gates, decisions, risks |
+| `templates/saved/system-design.html` | `scripts/fill-template.py` | "system design" — requirements, architecture, components, data flow, tradeoffs, operations |
+
+See `templates/saved/README.md` to add a template.
+
+---
+
+## Fidelity & Authority
+
+Governs clone mode (Phase 0). Adapted from the OpenAI curated-template skills, which keep on-brand output by cloning a fixed reference instead of regenerating it.
+
+**Clone, don't regenerate.** When a saved template applies, clone its layout unchanged and fill only the content slots. Do not rebuild the structure, restyle the CSS, or "improve" the chrome. Regeneration is where visual drift and AI slop enter; a frozen template removes that risk.
+
+**Content-vs-layout authority.** One rule resolves every "should I restyle this?" question:
+
+> User instructions control requested content and explicit deviations. The retained template controls layout and formatting where the user has not requested a change.
+
+So: change layout only when the user asks for a layout change. Otherwise the template wins. `fill-template.py` enforces this mechanically — it substitutes slot values and touches nothing else.
+
+**Fail loud, don't degrade.** If a required slot has no content, stop and get the content — do not silently ship a half-filled template. The fill script exits non-zero on a missing required slot, an undeclared slot, or a leftover marker.

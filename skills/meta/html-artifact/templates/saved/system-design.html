@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>{{TITLE}}</title>
+<style>
+/* vexjoy-artifact: shape=report theme=birchline contrast=n/a template=system-design */
+:root {
+  --bg: #faf8f3; --surface: #ffffff; --ink: #2b2b27; --ink-soft: #57534e;
+  --line: #e7e2d8; --accent: #7c5e3c; --accent-soft: #f0e9dd;
+  --good: #4f7a4f; --warn: #a9791f; --bad: #9c4a3c;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 48px 28px 96px; }
+header.hero { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 32px; }
+.kicker { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+h1 { font-size: 32px; line-height: 1.15; margin: 8px 0 6px; }
+.sub { color: var(--ink-soft); font-size: 17px; margin: 0; }
+.meta-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--ink-soft); }
+.tldr { background: var(--accent-soft); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 18px 22px; margin: 26px 0; }
+.tldr h2 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+h2.section { font-size: 23px; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; background: var(--surface); }
+th, td { text-align: left; padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 700; }
+tbody tr:nth-child(even) td { background: #fcfaf6; }
+code { font-family: var(--mono); background: #f1ece3; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.diagram { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; margin: 18px 0; background: var(--surface); text-align: center; }
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 18px 0; background: var(--surface); }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); }
+</style>
+</head>
+<body data-shape="report">
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">{{KICKER}}</div>
+    <h1>{{TITLE}}</h1>
+    <p class="sub">{{SUBTITLE}}</p>
+    <div class="meta-row">{{META}}</div>
+  </header>
+
+  <div class="tldr">
+    <h2>Overview</h2>
+    {{OVERVIEW}}
+  </div>
+
+  <h2 class="section">Requirements</h2>
+  {{REQUIREMENTS}}
+
+  <h2 class="section">Architecture</h2>
+  <div class="diagram">{{DIAGRAM}}</div>
+
+  <h2 class="section">Components</h2>
+  {{COMPONENTS}}
+
+  <h2 class="section">Data flow</h2>
+  {{DATA_FLOW}}
+
+  <h2 class="section">Tradeoffs</h2>
+  {{TRADEOFFS}}
+
+  <h2 class="section">Operational considerations</h2>
+  {{OPERATIONS}}
+
+  <footer>{{FOOTER}}</footer>
+</div>
+</body>
+</html>
