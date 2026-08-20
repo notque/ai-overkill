@@ -115,7 +115,6 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
     except (OSError, SyntaxError):
         return False
 
-    target_tokens = {script_name, script_name.removesuffix(".py").replace("-", "_")}
     target_names = _target_path_names(tree, script_name)
     target_modules = _target_module_names(tree, script_name)
 
@@ -134,7 +133,7 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
                 ):
                     target_call = value.value
                 if target_call is not None and _call_executes_target(
-                    target_call, target_tokens, target_names, target_modules
+                    target_call, script_name, target_names, target_modules
                 ):
                     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                     executed.update(t.id for t in targets if isinstance(t, ast.Name))
@@ -152,7 +151,7 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
                         continue
                     if any(
                         isinstance(child, ast.Call)
-                        and _call_executes_target(child, target_tokens, target_names, target_modules)
+                        and _call_executes_target(child, script_name, target_names, target_modules)
                         for stmt in node.body
                         for child in ast.walk(stmt)
                     ):
@@ -183,11 +182,22 @@ def _target_path_names(tree: ast.AST, script_name: str) -> set[str]:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
             continue
         value = node.value
-        if script_name not in ast.unparse(value):
+        if _static_path_tail(value) != script_name:
             continue
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         names.update(target.id for target in targets if isinstance(target, ast.Name))
     return names
+
+
+def _static_path_tail(node: ast.AST) -> str | None:
+    """Return the exact basename contributed by a static path expression's tail."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return Path(node.value).name
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        return _static_path_tail(node.right) or _static_path_tail(node.left)
+    if isinstance(node, ast.Call) and node.args:
+        return _static_path_tail(node.args[-1])
+    return None
 
 
 def _target_module_names(tree: ast.AST, script_name: str) -> set[str]:
@@ -204,7 +214,7 @@ def _target_module_names(tree: ast.AST, script_name: str) -> set[str]:
 
 def _call_executes_target(
     node: ast.Call,
-    target_tokens: set[str],
+    script_name: str,
     target_names: set[str],
     target_modules: set[str],
 ) -> bool:
@@ -226,10 +236,47 @@ def _call_executes_target(
     if not is_subprocess_run:
         return False
 
-    rendered = ast.unparse(node)
-    if any(token in rendered for token in target_tokens):
+    if not node.args or not isinstance(node.args[0], (ast.List, ast.Tuple)):
+        return False
+    argv = node.args[0].elts
+    if not argv:
+        return False
+    script_pos = 1 if _is_python_interpreter_operand(argv[0]) else 0
+    if script_pos >= len(argv):
+        return False
+    return _is_exact_script_operand(argv[script_pos], script_name, target_names)
+
+
+def _is_python_interpreter_operand(node: ast.AST) -> bool:
+    """Recognize only explicit Python interpreter argv operands."""
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+        and node.attr == "executable"
+    ):
         return True
-    return any(isinstance(child, ast.Name) and child.id in target_names for arg in node.args for child in ast.walk(arg))
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and Path(node.value).name in {"python", "python3"}
+    )
+
+
+def _is_exact_script_operand(node: ast.AST, script_name: str, target_names: set[str]) -> bool:
+    """Match only the argv element executed as the script, by exact basename."""
+    if isinstance(node, ast.Name):
+        return node.id in target_names
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return Path(node.value).name == script_name
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"str", "Path"}
+        and len(node.args) == 1
+    ):
+        return _is_exact_script_operand(node.args[0], script_name, target_names)
+    return False
 
 
 def _is_pytest_raises_nonzero_systemexit(node: ast.Call) -> bool:

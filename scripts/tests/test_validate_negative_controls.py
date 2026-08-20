@@ -553,6 +553,19 @@ def test_skipped_negative_control_not_detected(tmp_path):
             result = fake_runner("scripts/validate-fake.py")
             assert result.returncode == 1
         """,
+        """\
+        import subprocess
+        def test_target_as_unrelated_argument():
+            result = subprocess.run(["scripts/completely-different.py", "validate-fake.py"])
+            assert result.returncode == 1
+        """,
+        """\
+        import subprocess, sys
+        SCRIPT = "scripts/validate-fake.py.backup"
+        def test_backup_name_is_not_target():
+            result = subprocess.run([sys.executable, SCRIPT])
+            assert result.returncode == 1
+        """,
     ],
 )
 def test_fake_or_mismatched_execution_not_detected(tmp_path, body):

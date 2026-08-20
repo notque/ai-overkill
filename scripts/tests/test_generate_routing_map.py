@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "generate-routing-map.py"
 
@@ -210,3 +212,31 @@ class TestRealRepo:
         assert "## AGENTS (1)" in rendered
         assert "## SKILLS (1)" in rendered
         assert "## PIPELINES (1)" in rendered
+
+    @pytest.mark.parametrize(
+        "bad_content",
+        [b"{", b"[]", b'{"skills":[]}', b'{"skills":{"bad":[]}}', b"\xff"],
+        ids=["malformed-json", "wrong-root-shape", "wrong-surface-shape", "wrong-entry-shape", "invalid-utf8"],
+    )
+    def test_invalid_required_index_fails_closed_without_overwrite(self, tmp_path, bad_content: bytes) -> None:
+        repo = tmp_path / "repo"
+        (repo / "skills").mkdir(parents=True)
+        (repo / "agents").mkdir()
+        pipeline_index = repo / "skills" / "workflow" / "references" / "pipeline-index.json"
+        pipeline_index.parent.mkdir(parents=True)
+        (repo / "skills" / "INDEX.json").write_bytes(bad_content)
+        (repo / "agents" / "INDEX.json").write_text('{"agents":{}}', encoding="utf-8")
+        pipeline_index.write_text('{"pipelines":{}}', encoding="utf-8")
+        map_file = repo / "docs" / "routing-map.md"
+        map_file.parent.mkdir()
+        map_file.write_text("preserve me\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--repo-root", str(repo)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "required skills index" in result.stderr
+        assert map_file.read_text(encoding="utf-8") == "preserve me\n"

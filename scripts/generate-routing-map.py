@@ -94,14 +94,16 @@ def load_all_entries(repo_root: Path = REPO_ROOT) -> dict[str, list[dict]]:
     for index_type, tracked in _index_paths(repo_root).items():
         try:
             raw = json.loads(tracked.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            raw = {}
-        items = raw.get(index_type, {})
+        except (FileNotFoundError, UnicodeError, json.JSONDecodeError, OSError) as exc:
+            raise RuntimeError(f"required {index_type} index is unreadable or malformed: {tracked}: {exc}") from exc
+        if not isinstance(raw, dict):
+            raise RuntimeError(f"required {index_type} index root must be an object: {tracked}")
+        items = raw.get(index_type)
         if not isinstance(items, dict):
-            items = {}
+            raise RuntimeError(f"required {index_type} index must contain an object at '{index_type}': {tracked}")
         for name, data in items.items():
             if not isinstance(data, dict):
-                continue
+                raise RuntimeError(f"required {index_type} index entry '{name}' must be an object: {tracked}")
             entry: dict = {
                 "name": name,
                 "description": data.get("description") or data.get("short_description", ""),

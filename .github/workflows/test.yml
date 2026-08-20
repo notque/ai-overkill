@@ -39,7 +39,8 @@ jobs:
       # pairs_with. Enforcement date: 2026-08-15. --check is the strict command.
       - run: python scripts/generate-routing-map.py --check
       # Advisory until 2026-10-01: new hard gates must carry a collected
-      # CLI-level negative control or explicit debt. Promotion command:
+      # CLI-level negative control or explicit debt. On 2026-10-01, remove
+      # continue-on-error and change the command to:
       # python scripts/validate-negative-controls.py --strict
       - run: python scripts/validate-negative-controls.py
         continue-on-error: true
