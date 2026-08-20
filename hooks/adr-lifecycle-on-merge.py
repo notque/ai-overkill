@@ -27,7 +27,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
-from hook_utils import context_output, empty_output
+from hook_utils import context_output, empty_output, get_tool_input
 from stdin_timeout import read_stdin
 
 DEBUG_LOG = Path("/tmp/claude_hook_debug.log")
@@ -277,7 +277,7 @@ def main() -> None:
     if tool_name != "Bash":
         empty_output(EVENT_NAME).print_and_exit()
 
-    tool_input = event.get("tool_input", {})
+    tool_input = get_tool_input(event)
     command = tool_input.get("command", "")
 
     tool_output = event.get("tool_output", {})

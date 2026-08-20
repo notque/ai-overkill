@@ -30,6 +30,11 @@ def test_get_tool_result_neither_key():
     assert get_tool_result(event) == {}
 
 
+def test_get_tool_result_preserves_content_blocks():
+    blocks = [{"type": "text", "text": "hello"}]
+    assert get_tool_result({"tool_response": blocks}) == blocks
+
+
 # ===== get_tool_output =====
 
 
@@ -47,6 +52,10 @@ def test_get_tool_output_neither_key():
 
 def test_get_tool_output_both_keys_output_wins():
     assert get_tool_output({"output": "output wins", "stdout": "stdout"}) == "output wins"
+
+
+def test_get_tool_output_flattens_content_blocks():
+    assert get_tool_output([{"type": "text", "text": "one"}, {"type": "text", "text": "two"}]) == "one\ntwo"
 
 
 # ===== get_tool_error =====

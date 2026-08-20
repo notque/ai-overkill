@@ -1,0 +1,15 @@
+# Negative-control allowlist: scripts that lack a test proving they can fail.
+# Format: script-name.py: reason
+# A stale entry (script now has a negative test, or is no longer in CI) is itself a finding.
+check-routing-drift.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-do-references.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-doc-commands.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-doc-counts.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-doc-links.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-hook-health.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-index-integrity.py: coverage is split across named tests; collected CLI exit proof pending
+validate-merged-index.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-pipeline-index.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-promoted-successors.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-references.py: function-level negative coverage exists; collected CLI exit proof pending
+validate-workflow-conformance.py: function-level negative coverage exists; collected CLI exit proof pending

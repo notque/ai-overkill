@@ -188,6 +188,8 @@ Use this format for consistency checks, audits, and multi-file operations. Singl
 | frontmatter audit, `allowed-tools` review, YAML parse errors | [frontmatter-compliance.md](toolkit-governance-engineer/references/frontmatter-compliance.md) | Required fields, ADR-063 tool restrictions, detection commands |
 | hook registration, event types, timeout config, exit code review | [hook-standardization.md](toolkit-governance-engineer/references/hook-standardization.md) | settings.json format, advisory vs blocking exit codes |
 | routing table edits, `pairs_with` validation, trigger conflicts, INDEX.json | [routing-table-patterns.md](toolkit-governance-engineer/references/routing-table-patterns.md) | Phantom route detection, trigger conflict checks, index validation |
+| routing change, measurement change, gate change | [what-didnt-work.md](../docs/what-didnt-work.md) and [router-ab-runbook.md](../docs/router-ab-runbook.md) | Past reversals and their root causes; A/B protocol and corpus requirements |
+| validator, hook, or CI-gate work | [adversarial-methodology.md](../skills/process/verification-before-completion/references/adversarial-methodology.md) | L1 EXISTS / L3 WIRED / L4 DATA FLOWS verification layers |
 
 ## Agent Reference File Validation
 

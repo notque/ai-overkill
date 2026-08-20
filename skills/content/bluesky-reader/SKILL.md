@@ -15,7 +15,7 @@ routing:
     - "bsky"
   category: research
   pairs_with:
-    - content-engine
+    - content-calendar
 ---
 
 # Bluesky Reader Skill

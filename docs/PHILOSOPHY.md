@@ -204,7 +204,9 @@ A gate is a hard stop; a safeguard is an observable alert. Most checks should be
 
 This is how the system is built, not an aspiration. `hooks/stop-drift-guard.py` detects toolkit drift and re-wakes the session async — it never blocks. The post-merge sync hook is add-only: it adds new items, never overwrites. That invariant is enforced by `TestSupportDirSurvivesCleanup` in `hooks/tests/test_sync_to_user_claude.py` (PR #762), added after stale cleanup repeatedly removed a support-directory link. The add-only intent dates to commit 8d7c8b00 in `install.sh`; the invariant held only once a test enforced it — which is why this document cites tests, not intentions. `hooks/session-learning-recorder.py` warns when a substantive session captured zero learnings, then exits clean. When PR #747 weighed a blocking re-run check for the negative-results registry, it deferred to a future ADR with a documented escalation path rather than ship a hard stop.
 
-**Test:** Does this check stop work on failure? If the failure is advisory, make it warn and exit 0; reserve blocking for gates that earned an ADR.
+**Counterweight: advisory gates require a promotion plan.** An advisory gate must carry (a) an enforcement date in the CI step comment and (b) the `--strict` command that will be run on that date. An advisory gate with no date is a gate with an infinite proof-test interval -- it will never graduate, and the check it guards will drift unchecked. Two current instances: `validate-merged-index.py` ("Gate later with --strict", no date) and `check-index-colocation.py` (`continue-on-error: true` and `|| true`, no date). Both are advisory gates whose proof-test interval is unbounded.
+
+**Test:** Does this check stop work on failure? If the failure is advisory, make it warn and exit 0; reserve blocking for gates that earned an ADR. Does this advisory gate name the date and the `--strict` command? If not, it is a gate that will never graduate.
 
 ---
 

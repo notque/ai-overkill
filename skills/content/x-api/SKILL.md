@@ -24,7 +24,7 @@ routing:
     - publish to X
     - publish to twitter
   pairs_with:
-    - content-engine
+    - content-calendar
   complexity: Medium
   category: content-publishing
 ---

@@ -44,7 +44,7 @@ routing:
     - phaser-gamedev
     - threejs-builder
     - python-general-engineer
-    - motion-pipeline
+    - game-pipeline
 ---
 
 # Game Sprite Pipeline

@@ -16,7 +16,7 @@ routing:
     - "check reports"
   category: process
   pairs_with:
-    - content-engine
+    - content-calendar
 ---
 
 # Reddit Moderate

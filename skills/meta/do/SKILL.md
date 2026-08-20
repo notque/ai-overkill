@@ -68,6 +68,8 @@ Parallel FIRST: 2+ failures / 3+ subtasks → multiple Agent tools. Research→r
 
 **Step 0: Semantic self-route (PRIMARY — runs first)**
 
+The routing manifest (`scripts/routing-manifest.py`) is the runtime form; `docs/routing-map.md` is the human-readable committed form of the same data. Both are generated from frontmatter, so frontmatter is the single source of truth. CI checks staleness via `scripts/generate-routing-map.py --check`.
+
 Resolve SDIR (this probe also identifies the harness for Phase 4 Model Selection), then read the manifest (hash-gated cache or regenerate):
 
 ```bash
@@ -153,7 +155,7 @@ Use the `agent` and `skill` fields directly. Low confidence → verify against t
 
 **Skill-greediness gate (HARD — non-negotiable for Simple+).** Null skill → pick: review→systematic-code-review, debug→workflow (systematic-debugging), refactor→workflow (systematic-refactoring), audit→systematic-code-review (whole-repo→full-repo-review), explain→codebase-overview, compare→decision-helper (agent A/Bs→agent-comparison), plan→planning, loop→objective-loop. Fallback: `objective-loop`.
 
-**Agent-greediness gate (HARD — non-negotiable for Simple+).** `general-purpose` is the last resort, not the default. Measured share of dispatches: 42.5% (128/301, `evidence_route_decisions` 2026-08-15). Target band: 10-15%. A null `agent` works this table before `general-purpose` is permitted:
+**Agent-greediness gate (HARD — non-negotiable for Simple+).** `general-purpose` is the last resort, not the default. Measured share of dispatches: 42.5% (128/301, `evidence_route_decisions` 2026-08-15). Target band: unmeasured -- see the `learning-db.py` route health report for the current band and its provenance. A null `agent` works this table before `general-purpose` is permitted:
 
 | Domain signal in the request | Agent |
 |---|---|

@@ -1,5 +1,7 @@
 # Semantic-First Routing: Blind A/B Results
 
+**STATUS: UNRUN.** `scripts/routing-ab-results/answers/README.md` states the Haiku run "has not been executed yet." The numbers below are a protocol and projected scoring, not observed results. The 89.8% strict / 92.8% lenient figures were never measured. Treat them as unvalidated.
+
 Evidence behind the Phase 2 semantic-first contract in `../SKILL.md`. Raw artifacts in `scripts/routing-ab-results/`.
 
 ## Thesis

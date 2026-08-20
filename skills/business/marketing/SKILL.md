@@ -11,11 +11,11 @@ routing:
     - "brand review"
     - "competitive analysis"
     - "marketing performance"
-  not_for: "executive strategy, build-vs-buy calls, or growth positioning decisions (use csuite) — this is tactical marketing execution, not C-suite decision support"
+  not_for: "executive strategy, build-vs-buy calls, or growth positioning decisions (use business-ops) — this is tactical marketing execution, not C-suite decision support"
   category: business
   force_route: false
   pairs_with:
-    - csuite
+    - business-ops
 user-invocable: true
 ---
 
@@ -23,7 +23,7 @@ user-invocable: true
 
 Umbrella skill for marketing workflows: SEO audits, campaign planning, content strategy, email sequences, competitive analysis, brand review, and performance reporting. Each mode loads its own reference files on demand -- this skill detects the mode, loads the right references, and executes the appropriate framework.
 
-**Scope**: Marketing strategy, content, and analysis. Use csuite for executive-level growth decisions, voice-writer for voice-calibrated content, publish for blog pipeline mechanics, and research-pipeline for formal multi-source research.
+**Scope**: Marketing strategy, content, and analysis. Use business-ops for executive-level growth decisions, voice-writer for voice-calibrated content, publish for blog pipeline mechanics, and research-pipeline for formal multi-source research.
 
 ---
 

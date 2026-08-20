@@ -28,7 +28,6 @@ routing:
     - "poke holes in this"
   not_for: "speaking to a person, a meeting, or pushing back in a conversation — that is professional-communication. This critiques an artifact, not interpersonal messaging."
   pairs_with:
-    - roast
     - decision-helper
   complexity: Complex
   category: analysis

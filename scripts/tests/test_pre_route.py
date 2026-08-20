@@ -500,3 +500,53 @@ class TestLocalIndexMerge:
         tracked.write_text(json.dumps({"skills": {"tracked-skill": {"triggers": ["t"]}}}))
         items = pre_route._load_index_items(tracked, "INDEX.local.json", "skills")
         assert set(items) == {"tracked-skill"}
+
+
+# ---------------------------------------------------------------------------
+# Pipeline FORCE-route tests (regression: pre-route reads pipelines too)
+# ---------------------------------------------------------------------------
+
+
+class TestPipelineForceRoute:
+    """FORCE pipelines get the same deterministic guard as FORCE skills.
+
+    Regression test for the asymmetry where pre-route.py read skills only,
+    leaving 4 FORCE pipelines (de-ai-pipeline, pr-pipeline,
+    skill-creation-pipeline, voice-writer) with no deterministic idiom guard.
+    """
+
+    def test_voice_article_matches_voice_writer_pipeline(self, pre_route, real_entries) -> None:
+        """'write an article about kubernetes in my voice' matches voice-writer pipeline."""
+        result = pre_route.route("write an article about kubernetes in my voice", entries=real_entries)
+        assert result["matched"] is True
+        assert result.get("pipeline") == "voice-writer"
+
+    def test_voice_metaphor_guard_suppresses_pipeline(self, pre_route, real_entries) -> None:
+        """'remove voice artifacts' must NOT match voice-writer pipeline."""
+        result = pre_route.route("remove voice artifacts from this recording", entries=real_entries)
+        if result["matched"]:
+            assert result.get("pipeline") != "voice-writer"
+
+    def test_de_ai_matches_pipeline(self, pre_route, real_entries) -> None:
+        """'de-ai these docs' matches de-ai-pipeline."""
+        result = pre_route.route("de-ai these docs", entries=real_entries)
+        assert result["matched"] is True
+        assert result.get("pipeline") == "de-ai-pipeline"
+
+    def test_skill_creation_pipeline_matches(self, pre_route, real_entries) -> None:
+        """'create a new skill formally with gates' matches skill-creation-pipeline."""
+        result = pre_route.route("create a new skill formally with gates", entries=real_entries)
+        assert result["matched"] is True
+        assert result.get("pipeline") == "skill-creation-pipeline"
+
+    def test_fallthrough_has_pipeline_none(self, pre_route, real_entries) -> None:
+        """Fallthrough results include pipeline: None."""
+        result = pre_route.route("tell me about quantum physics", entries=real_entries)
+        assert result.get("pipeline") is None
+
+    def test_skill_only_match_has_pipeline_none(self, pre_route, real_entries) -> None:
+        """A match on a skill-only force-route (no pipeline counterpart) has pipeline: None."""
+        result = pre_route.route("configure my fish shell", entries=real_entries)
+        assert result["matched"] is True
+        assert result["skill"] == "shell-config"
+        assert result.get("pipeline") is None
