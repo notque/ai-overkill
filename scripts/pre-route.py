@@ -473,6 +473,11 @@ SEMANTIC_GUARD_PHRASES: dict[str, set[str]] = {
     },
 }
 
+# FORCE pipelines inherit the mature semantic guards of the domain skill that
+# owns the same external action. Otherwise a pipeline synonym can bypass the
+# skill guard while selecting the same workflow.
+GUARD_POLICY_ALIASES = {"pr-pipeline": "pr-workflow"}
+
 
 @dataclass
 class MatchEntry:
@@ -646,7 +651,8 @@ def _is_semantically_guarded(
     # Phrase-level guard: if any disqualifying phrase appears as a whole-word
     # match anywhere in the request, this is not a domain match. Word-boundary
     # match prevents "fish for" suppressing "selfish forum" etc.
-    phrase_guards = SEMANTIC_GUARD_PHRASES.get(skill_name)
+    guard_name = GUARD_POLICY_ALIASES.get(skill_name, skill_name)
+    phrase_guards = SEMANTIC_GUARD_PHRASES.get(guard_name)
     if phrase_guards:
         for phrase in phrase_guards:
             if re.search(rf"\b{re.escape(phrase)}\b", request_lower):
@@ -657,14 +663,14 @@ def _is_semantically_guarded(
     #   - dict[str, set[str]] : per-trigger; pick the set for the matched idiom
     #                           so a guard scoped to one trigger does not
     #                           over-suppress an unrelated trigger.
-    guard_spec = SEMANTIC_GUARDS.get(skill_name)
+    guard_spec = SEMANTIC_GUARDS.get(guard_name)
     guards: set[str] | None = None
     if isinstance(guard_spec, dict):
         guards = guard_spec.get(matched_trigger)
     elif guard_spec:
         guards = guard_spec
 
-    companion_spec = SEMANTIC_REQUIRE_COMPANION.get(skill_name, {})
+    companion_spec = SEMANTIC_REQUIRE_COMPANION.get(guard_name, {})
     required_companions = companion_spec.get(matched_trigger)
 
     if not guards and not required_companions:

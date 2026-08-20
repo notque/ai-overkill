@@ -676,7 +676,12 @@ def get_tool_input(event: dict) -> dict:
     Callers can safely do ``get_tool_input(event).get("command", "")``
     without an isinstance guard.
     """
-    raw = event.get("tool_input", event.get("input"))
+    raw: object = None
+    for key in ("tool_input", "input"):
+        candidate = event.get(key)
+        if isinstance(candidate, (dict, str)):
+            raw = candidate
+            break
     if isinstance(raw, dict):
         return raw
     if isinstance(raw, str):

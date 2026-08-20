@@ -64,7 +64,7 @@ Experiments recorded after the seed set. Same four bold fields; `###` headings k
 
 - **Expectation**: the semantic-first ordering A/B would produce measured accuracy numbers.
 - **What happened**: `skills/meta/do/references/semantic-first-ab-results.md` reports 89.8% strict / 92.8% lenient. `scripts/routing-ab-results/answers/README.md` states "the live Haiku run requires an agent-dispatch capability and has not been executed yet." The `answers/` directory contains only the README, no answer files. The numbers were projected from protocol design, not observed from execution.
-- **Evidence**: `scripts/routing-ab-results/answers/README.md`; `skills/meta/do/references/semantic-first-ab-results.md`, lines 20 and 33.
+- **Evidence**: `scripts/routing-ab-results/answers/README.md`; `skills/meta/do/references/semantic-first-ab-results.md` now records only the unrun protocol.
 - **Decision**: rejected. Marking the reference file as UNRUN. Numbers from an unexecuted A/B are projections, not evidence.
 
 ### 2026-07-04 same-context fixing vs fresh-agent fixing (quality-loop Phase 7)

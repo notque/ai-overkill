@@ -116,6 +116,8 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
         return False
 
     target_tokens = {script_name, script_name.removesuffix(".py").replace("-", "_")}
+    target_names = _target_path_names(tree, script_name)
+    target_modules = _target_module_names(tree, script_name)
 
     for test in (n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))):
         if not test.name.startswith("test_") or _is_skipped_test(test):
@@ -131,7 +133,9 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
                     and isinstance(value.value, ast.Call)
                 ):
                     target_call = value.value
-                if target_call is not None and _call_names_target(target_call, target_tokens):
+                if target_call is not None and _call_executes_target(
+                    target_call, target_tokens, target_names, target_modules
+                ):
                     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                     executed.update(t.id for t in targets if isinstance(t, ast.Name))
 
@@ -147,7 +151,8 @@ def _has_negative_test(test_path: Path, script_name: str) -> bool:
                     if not _is_pytest_raises_nonzero_systemexit(item.context_expr):
                         continue
                     if any(
-                        isinstance(child, ast.Call) and _call_names_target(child, target_tokens)
+                        isinstance(child, ast.Call)
+                        and _call_executes_target(child, target_tokens, target_names, target_modules)
                         for stmt in node.body
                         for child in ast.walk(stmt)
                     ):
@@ -171,10 +176,60 @@ def _is_skipped_test(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     )
 
 
-def _call_names_target(node: ast.Call, target_tokens: set[str]) -> bool:
-    """Return True when a call expression names the gate under audit."""
+def _target_path_names(tree: ast.AST, script_name: str) -> set[str]:
+    """Return variables statically assigned a path to the exact target script."""
+    names: set[str] = set()
+    for node in getattr(tree, "body", []):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if script_name not in ast.unparse(value):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        names.update(target.id for target in targets if isinstance(target, ast.Name))
+    return names
+
+
+def _target_module_names(tree: ast.AST, script_name: str) -> set[str]:
+    """Return aliases that import the exact target module."""
+    module_name = script_name.removesuffix(".py").replace("-", "_")
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == module_name:
+                    names.add(alias.asname or alias.name)
+    return names
+
+
+def _call_executes_target(
+    node: ast.Call,
+    target_tokens: set[str],
+    target_names: set[str],
+    target_modules: set[str],
+) -> bool:
+    """Return True only for a real subprocess execution of the target script."""
+    func = node.func
+    if (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in target_modules
+        and func.attr == "main"
+    ):
+        return True
+    is_subprocess_run = (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "subprocess"
+        and func.attr == "run"
+    )
+    if not is_subprocess_run:
+        return False
+
     rendered = ast.unparse(node)
-    return "SCRIPT" in rendered or any(token in rendered for token in target_tokens)
+    if any(token in rendered for token in target_tokens):
+        return True
+    return any(isinstance(child, ast.Name) and child.id in target_names for arg in node.args for child in ast.walk(arg))
 
 
 def _is_pytest_raises_nonzero_systemexit(node: ast.Call) -> bool:
@@ -310,6 +365,8 @@ def validate(
     workflow_path: Path,
     tests_dir: Path,
     allowlist_path: Path,
+    *,
+    strict: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """Run the validation. Returns (gates, findings).
 
@@ -337,7 +394,7 @@ def validate(
         test_files = _find_test_files(g["script"], tests_dir)
         g["has_test_file"] = len(test_files) > 0
         g["has_negative_test"] = any(_has_negative_test(tf, g["script"]) for tf in test_files)
-        g["allowlisted"] = g["script"] in allowlist
+        g["allowlisted"] = g["script"] in allowlist and not strict
 
     # Check hard gates without negative tests.
     for g in deduped:
@@ -345,7 +402,7 @@ def validate(
             continue
         if g["has_negative_test"]:
             continue
-        if g["script"] in allowlist:
+        if g["script"] in allowlist and not strict:
             continue
         kind = "missing-test-file" if not g["has_test_file"] else "no-negative-test"
         findings.append(
@@ -477,6 +534,11 @@ def main() -> int:
         dest="json_output",
         help="Output JSON instead of human-readable table",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat allowlisted debt as findings (promotion target mode).",
+    )
     args = parser.parse_args()
 
     repo_root = args.repo_root or REPO_ROOT
@@ -488,7 +550,7 @@ def main() -> int:
         print(f"ERROR: workflow not found: {workflow}", file=sys.stderr)
         return 1
 
-    gates, findings = validate(workflow, tests_dir, allowlist)
+    gates, findings = validate(workflow, tests_dir, allowlist, strict=args.strict)
 
     if args.json_output:
         _print_json(gates, findings)

@@ -161,3 +161,52 @@ class TestRealRepo:
         )
         assert result.returncode == 1, result.stdout + result.stderr
         assert "stale" in result.stderr
+
+    def test_missing_indexes_fail_closed_without_overwriting_map(self, tmp_path) -> None:
+        repo = tmp_path / "fresh-clone"
+        map_file = repo / "docs" / "routing-map.md"
+        map_file.parent.mkdir(parents=True)
+        map_file.write_text("preserve me\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--repo-root", str(repo)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "cannot be generated" in result.stderr
+        assert map_file.read_text(encoding="utf-8") == "preserve me\n"
+
+    def test_missing_generated_indexes_are_regenerated_before_render(self, tmp_path) -> None:
+        repo = tmp_path / "fresh-clone"
+        scripts = repo / "scripts"
+        scripts.mkdir(parents=True)
+        (scripts / "generate-skill-index.py").write_text(
+            'from pathlib import Path\nPath("skills").mkdir(exist_ok=True)\n'
+            'Path("skills/INDEX.json").write_text(\'{"skills":{"s":{"description":"S","triggers":["s"]}}}\')\n',
+            encoding="utf-8",
+        )
+        (scripts / "generate-agent-index.py").write_text(
+            'from pathlib import Path\nPath("agents").mkdir(exist_ok=True)\n'
+            'Path("agents/INDEX.json").write_text(\'{"agents":{"a":{"description":"A","triggers":["a"]}}}\')\n',
+            encoding="utf-8",
+        )
+        pipeline_index = repo / "skills" / "workflow" / "references" / "pipeline-index.json"
+        pipeline_index.parent.mkdir(parents=True)
+        pipeline_index.write_text(
+            '{"pipelines":{"p":{"description":"P","triggers":["p"]}}}',
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--repo-root", str(repo)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        rendered = (repo / "docs" / "routing-map.md").read_text(encoding="utf-8")
+        assert "## AGENTS (1)" in rendered
+        assert "## SKILLS (1)" in rendered
+        assert "## PIPELINES (1)" in rendered

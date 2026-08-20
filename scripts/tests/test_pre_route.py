@@ -539,6 +539,24 @@ class TestPipelineForceRoute:
         assert result["matched"] is True
         assert result.get("pipeline") == "skill-creation-pipeline"
 
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "send my manuscript for review",
+            "send my paper for review",
+            "submit my research paper",
+            "open the manuscript for review",
+        ],
+    )
+    def test_pr_pipeline_inherits_pr_workflow_guards(self, pre_route, real_entries, query: str) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result.get("pipeline") != "pr-pipeline", result
+
+    @pytest.mark.parametrize("query", ["send my commits for review", "submit changes", "open PR"])
+    def test_pr_pipeline_guard_keeps_real_git_intent(self, pre_route, real_entries, query: str) -> None:
+        result = pre_route.route(query, entries=real_entries)
+        assert result.get("pipeline") == "pr-pipeline", result
+
     def test_fallthrough_has_pipeline_none(self, pre_route, real_entries) -> None:
         """Fallthrough results include pipeline: None."""
         result = pre_route.route("tell me about quantum physics", entries=real_entries)

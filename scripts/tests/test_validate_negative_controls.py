@@ -14,6 +14,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parent.parent / "validate-negative-controls.py"
 
 
@@ -432,6 +434,18 @@ def test_allowlist_suppresses_finding(tmp_path):
     assert "allowlisted" in result.stdout
 
 
+def test_strict_mode_rejects_allowlisted_debt(tmp_path):
+    repo = tmp_path / "repo"
+    _make_workflow(repo, [{"run": "python scripts/validate-allowed.py"}])
+    _make_allowlist(repo, ["validate-allowed.py: CLI negative control pending"])
+    (repo / "scripts" / "tests").mkdir(parents=True, exist_ok=True)
+
+    result = _run(repo, "--strict")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "validate-allowed.py" in result.stdout
+
+
 # ---------------------------------------------------------------------------
 # 11. returncode != 0 pattern detected
 # ---------------------------------------------------------------------------
@@ -507,6 +521,45 @@ def test_skipped_negative_control_not_detected(tmp_path):
             assert result.returncode == 1
         """,
     )
+
+    result = _run(repo)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        """\
+        SCRIPT = "scripts/validate-fake.py"
+        def fake_runner(_target):
+            class Result: returncode = 1
+            return Result()
+        def test_fake():
+            result = fake_runner(SCRIPT)
+            assert result.returncode == 1
+        """,
+        """\
+        import subprocess, sys
+        SCRIPT = "scripts/validate-other.py"
+        def test_mismatch():
+            result = subprocess.run([sys.executable, SCRIPT])
+            assert result.returncode == 1
+        """,
+        """\
+        def fake_runner(_target):
+            class Result: returncode = 1
+            return Result()
+        def test_literal_fake():
+            result = fake_runner("scripts/validate-fake.py")
+            assert result.returncode == 1
+        """,
+    ],
+)
+def test_fake_or_mismatched_execution_not_detected(tmp_path, body):
+    repo = tmp_path / "repo"
+    _make_workflow(repo, [{"run": "python scripts/validate-fake.py"}])
+    _make_allowlist(repo)
+    _make_test_file(repo / "scripts" / "tests", "validate-fake.py", body)
 
     result = _run(repo)
     assert result.returncode == 1, result.stdout + result.stderr

@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
-from hook_utils import get_tool_error, get_tool_output, get_tool_result, is_tool_error
+from hook_utils import get_tool_error, get_tool_input, get_tool_output, get_tool_result, is_tool_error
 
 # ===== get_tool_result =====
 
@@ -33,6 +33,16 @@ def test_get_tool_result_neither_key():
 def test_get_tool_result_preserves_content_blocks():
     blocks = [{"type": "text", "text": "hello"}]
     assert get_tool_result({"tool_response": blocks}) == blocks
+
+
+def test_get_tool_input_falls_back_when_tool_input_is_null():
+    event = {"tool_input": None, "input": {"command": "git commit -m safe"}}
+    assert get_tool_input(event) == {"command": "git commit -m safe"}
+
+
+def test_get_tool_input_falls_back_when_tool_input_shape_is_unsupported():
+    event = {"tool_input": [], "input": '{"command":"git commit -m safe"}'}
+    assert get_tool_input(event) == {"command": "git commit -m safe"}
 
 
 # ===== get_tool_output =====
