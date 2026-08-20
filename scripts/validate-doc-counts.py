@@ -141,7 +141,11 @@ def ground_truth() -> dict[str, int]:
 def collect_markdown_files() -> list[Path]:
     files = []
     if DOCS_DIR.is_dir():
-        files.extend(sorted(DOCS_DIR.rglob("*.md")))
+        files.extend(
+            path
+            for path in sorted(DOCS_DIR.rglob("*.md"))
+            if "<!-- Auto-generated" not in path.read_text(encoding="utf-8", errors="replace")[:200]
+        )
     for name in ROOT_MARKDOWN:
         p = REPO_ROOT / name
         if p.is_file():

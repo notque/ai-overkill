@@ -29,7 +29,7 @@ import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
-from hook_utils import deny_tool_use, hook_error, record_governance
+from hook_utils import deny_tool_use, get_tool_input, hook_error, record_governance
 from stdin_timeout import read_stdin
 
 _BYPASS_ENV = "BRANCH_SAFETY_BYPASS"
@@ -89,7 +89,7 @@ def main() -> None:
     # tool_name filter removed — matcher "Bash" in settings.json prevents
     # this hook from spawning for non-Bash tools.
 
-    command = event.get("tool_input", {}).get("command", "")
+    command = get_tool_input(event).get("command", "")
     if "git commit" not in command:
         sys.exit(0)
 

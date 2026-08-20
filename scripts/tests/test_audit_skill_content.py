@@ -407,12 +407,35 @@ def test_discover_skills_orders_results(tmp_path: Path) -> None:
     assert names == ["a-skill", "m-skill", "z-skill"]
 
 
-def test_discover_skills_ignores_nested_skills(tmp_path: Path) -> None:
-    """Only direct `*/SKILL.md` children count; deeper SKILL.md files are skipped."""
+def test_discover_skills_finds_nested_depth_two(tmp_path: Path) -> None:
+    """SKILL.md at depth 2 (e.g., skills/meta/do/SKILL.md) must be discovered."""
+    # Create depth-1 skill
+    make_skill(tmp_path, "top-level", CLEAN_SKILL)
+    # Create depth-2 skill (the real repo structure)
+    nested = tmp_path / "meta" / "do"
+    nested.mkdir(parents=True)
+    (nested / "SKILL.md").write_text(CLEAN_SKILL, encoding="utf-8")
+
+    results = audit.discover_skills(tmp_path)
+    names = sorted(p.parent.name for p in results)
+    assert "do" in names, f"depth-2 SKILL.md not found; got {names}"
+    assert len(results) == 2, f"expected 2 skills, got {len(results)}: {names}"
+
+
+def test_discover_skills_ignores_depth_three_and_deeper(tmp_path: Path) -> None:
+    """Depth-1 and depth-2 SKILL.md are found; depth-3+ are ignored."""
     make_skill(tmp_path, "top", CLEAN_SKILL)
+    # Depth-2 skill -- should be found
+    depth2 = tmp_path / "meta" / "do"
+    depth2.mkdir(parents=True)
+    (depth2 / "SKILL.md").write_text(CLEAN_SKILL, encoding="utf-8")
+    # Depth-3 skill inside references -- should be ignored
     nested = tmp_path / "top" / "references" / "nested-skill"
     nested.mkdir(parents=True)
     (nested / "SKILL.md").write_text(CLEAN_SKILL, encoding="utf-8")
     results = audit.discover_skills(tmp_path)
-    assert len(results) == 1
-    assert results[0].parent.name == "top"
+    names = sorted(p.parent.name for p in results)
+    assert len(results) == 2, f"expected 2 skills, got {len(results)}: {names}"
+    assert "top" in names
+    assert "do" in names
+    assert "nested-skill" not in names

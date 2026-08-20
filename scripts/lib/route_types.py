@@ -40,6 +40,7 @@ class PreRouteResult(TypedDict, total=False):
     matched: bool
     agent: str | None
     skill: str | None
+    pipeline: str | None
     confidence: Literal["high", "medium", "low"]
     match_type: Literal["fallthrough", "force_route", "trigger_keyword"]
     reasoning: str

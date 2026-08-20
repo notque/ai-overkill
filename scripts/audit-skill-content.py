@@ -360,12 +360,15 @@ def audit_skill_file(path: Path, root: Path) -> list[Violation]:
 
 
 def discover_skills(root: Path) -> list[Path]:
-    """Return every `SKILL.md` directly under `root/*/`."""
+    """Return every `SKILL.md` at depth 1 or 2 under *root*."""
     if not root.exists():
         raise RuntimeError(f"skills root does not exist: {root}")
     if not root.is_dir():
         raise RuntimeError(f"skills root is not a directory: {root}")
-    return sorted(p for p in root.glob("*/SKILL.md") if p.is_file())
+    hits: set[Path] = set()
+    for pattern in ("*/SKILL.md", "*/*/SKILL.md"):
+        hits.update(p for p in root.glob(pattern) if p.is_file())
+    return sorted(hits)
 
 
 # ---------------------------------------------------------------------------

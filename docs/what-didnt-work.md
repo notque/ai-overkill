@@ -32,6 +32,41 @@ Query it: read this file, run `grep -c '^## 2026' docs/what-didnt-work.md`, or r
 
 Experiments recorded after the seed set. Same four bold fields; `###` headings keep the seed-count checks in `scripts/tests/test_negative_results_registry.py` stable. Newest on top.
 
+### 2026-08-15 Deterministic pre-router promoted and demoted 9 times without a corpus null-model score
+
+- **Expectation**: each pre-route.py change would improve routing accuracy.
+- **What happened**: 9 promotion/demotion cycles between 2026-03-23 and 2026-08-15 (commits `82d3cb15`, `3ad11088`, `2e8b9e71`, `869a786b`, `f8e6187c`, `97cc2d4d`, `3479fa02`, `52847a9f`, `7b09fc3c`, `7152afb1`). No cycle published the corpus null-model baseline score, so each change was evaluated against the previous change rather than against a standing baseline. The reversals compounded.
+- **Evidence**: git log of `scripts/pre-route.py` between 2026-03-23 and 2026-08-15; commits listed above.
+- **Decision**: rejected. A change to routing behavior needs a corpus whose null-model score is published, or it will be reversed.
+
+### 2026-08-15 /do SKILL.md halved twice by blind A/B PROMOTE on a 79.8% null corpus
+
+- **Expectation**: reducing SKILL.md size would improve routing via shorter context.
+- **What happened**: PRs #860 and #861 each promoted a variant that halved SKILL.md. The evaluation corpus was 79.8% `expected_agent: null`, so most test cases accepted any route. The smaller skill lost routing information that mattered for the 20.2% with real expectations. Restored to larger form in PR #911.
+- **Evidence**: PRs #860, #861 (PROMOTE), PR #911 (restore); `scripts/routing-ab-corpus.json` null-rate.
+- **Decision**: rejected. A corpus where 80% of cases have no expected answer cannot validate a reduction.
+
+### 2026-08-15 F821 disabled on untested false-positive claim, re-enabled with 2 real findings
+
+- **Expectation**: F821 (undefined name) ruff check was producing false positives.
+- **What happened**: F821 was disabled 2026-03-17 (commit `a739987b`) on the claim of false positives, with no evidence of actual false positives recorded. Re-enabled 2026-08-15 (commit `b4b05ee8`); 2 findings surfaced, both real.
+- **Evidence**: commit `a739987b` (disable), commit `b4b05ee8` (re-enable); ruff output on re-enable.
+- **Decision**: rejected. Disabling a lint rule requires evidence of false positives, not a claim.
+
+### 2026-04-15 Routing telemetry wrote nothing for 21 days
+
+- **Expectation**: routing-decision-recorder hook would capture route decisions to learning.db.
+- **What happened**: from 2026-03-25 to 2026-04-15, the hook used `--category routing-decision` (commit `90304c3a`), which was an invalid category. Every record exited with code 2. Zero rows written for 21 days.
+- **Evidence**: commit `90304c3a`; `hooks/routing-decision-recorder.py` exit code 2 on invalid category.
+- **Decision**: rejected. Telemetry that writes nothing is invisible without a liveness check. A write-then-read probe on first use would have caught this on day 1.
+
+### 2026-08-15 semantic-first A/B cited at 89.8/92.8 while answers/README.md says it was never executed
+
+- **Expectation**: the semantic-first ordering A/B would produce measured accuracy numbers.
+- **What happened**: `skills/meta/do/references/semantic-first-ab-results.md` reports 89.8% strict / 92.8% lenient. `scripts/routing-ab-results/answers/README.md` states "the live Haiku run requires an agent-dispatch capability and has not been executed yet." The `answers/` directory contains only the README, no answer files. The numbers were projected from protocol design, not observed from execution.
+- **Evidence**: `scripts/routing-ab-results/answers/README.md`; `skills/meta/do/references/semantic-first-ab-results.md` now records only the unrun protocol.
+- **Decision**: rejected. Marking the reference file as UNRUN. Numbers from an unexecuted A/B are projections, not evidence.
+
 ### 2026-07-04 same-context fixing vs fresh-agent fixing (quality-loop Phase 7)
 
 - **Expectation**: the Lovable-article claim (the agent that evaluated a finding fixes it best in the same context, with no re-discovery cost) beats Phase 7's fresh-agent design on fix correctness or latency.

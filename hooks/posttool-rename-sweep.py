@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
-from hook_utils import get_tool_result, hook_error, is_tool_error
+from hook_utils import get_tool_input, get_tool_result, hook_error, is_tool_error
 from stdin_timeout import read_stdin
 
 
@@ -107,7 +107,7 @@ def main():
         if is_tool_error(tool_result):
             return
 
-        tool_input = data.get("tool_input", {})
+        tool_input = get_tool_input(data)
         command = tool_input.get("command", "")
 
         if "git mv" not in command:

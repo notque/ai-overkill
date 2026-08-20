@@ -22,7 +22,7 @@ routing:
     - side scroller
   pairs_with:
     - typescript-frontend-engineer
-    - game-asset-generator
+    - game-pipeline
   complexity: Medium
   category: game-development
 ---

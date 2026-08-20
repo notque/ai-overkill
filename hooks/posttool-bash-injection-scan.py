@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
-from hook_utils import context_output, empty_output, hook_error
+from hook_utils import context_output, empty_output, get_tool_input, hook_error
 from injection_patterns import scan_content
 from stdin_timeout import read_stdin
 
@@ -98,7 +98,7 @@ def main() -> None:
     if tool_name not in ("Bash", "run_shell_command"):
         empty_output(EVENT_NAME).print_and_exit()
 
-    tool_input = event.get("tool_input", event.get("input", {}))
+    tool_input = get_tool_input(event)
     command = tool_input.get("command", "")
     if not command:
         empty_output(EVENT_NAME).print_and_exit()

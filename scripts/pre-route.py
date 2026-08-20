@@ -90,6 +90,10 @@ def _ensure_index(index_type: str, path: Path) -> None:
 INDEX_PATHS = {
     "skills": (REPO_ROOT / "skills" / "INDEX.json", "INDEX.local.json"),
     "agents": (REPO_ROOT / "agents" / "INDEX.json", "INDEX.local.json"),
+    "pipelines": (
+        REPO_ROOT / "skills" / "workflow" / "references" / "pipeline-index.json",
+        None,
+    ),
 }
 
 # Verbs/nouns that signal working ON a site (build, edit, debug, discuss) rather
@@ -469,6 +473,11 @@ SEMANTIC_GUARD_PHRASES: dict[str, set[str]] = {
     },
 }
 
+# FORCE pipelines inherit the mature semantic guards of the domain skill that
+# owns the same external action. Otherwise a pipeline synonym can bypass the
+# skill guard while selecting the same workflow.
+GUARD_POLICY_ALIASES = {"pr-pipeline": "pr-workflow"}
+
 
 @dataclass
 class MatchEntry:
@@ -496,10 +505,35 @@ class ScoredMatch:
 
 
 def load_entries() -> list[dict]:
-    """Load all INDEX entries into a flat list."""
+    """Load all INDEX entries into a flat list.
+
+    Skills, agents, and FORCE pipelines are loaded. Non-force pipeline entries
+    are skipped: build_match_table filters on force_route anyway, and loading
+    24 non-force pipelines only to discard them wastes cycles.
+    """
     entries: list[dict] = []
 
     for index_type, (tracked, local_name) in INDEX_PATHS.items():
+        if index_type == "pipelines":
+            items = _load_index_items(tracked, local_name, index_type)
+            for name, data in items.items():
+                if not isinstance(data, dict):
+                    continue
+                if not data.get("force_route", False):
+                    continue
+                triggers = list(data.get("triggers", []))
+                triggers.extend(t for t in SUPPLEMENTAL_TRIGGERS.get(name, ()) if t not in triggers)
+                entries.append(
+                    {
+                        "name": name,
+                        "type": "pipeline",
+                        "triggers": triggers,
+                        "agent": data.get("agent"),
+                        "force_route": True,
+                    }
+                )
+            continue
+
         # Auto-regenerate a missing (untracked) tracked index before reading.
         # Fail-safe.
         _ensure_index(index_type, tracked)
@@ -617,7 +651,8 @@ def _is_semantically_guarded(
     # Phrase-level guard: if any disqualifying phrase appears as a whole-word
     # match anywhere in the request, this is not a domain match. Word-boundary
     # match prevents "fish for" suppressing "selfish forum" etc.
-    phrase_guards = SEMANTIC_GUARD_PHRASES.get(skill_name)
+    guard_name = GUARD_POLICY_ALIASES.get(skill_name, skill_name)
+    phrase_guards = SEMANTIC_GUARD_PHRASES.get(guard_name)
     if phrase_guards:
         for phrase in phrase_guards:
             if re.search(rf"\b{re.escape(phrase)}\b", request_lower):
@@ -628,14 +663,14 @@ def _is_semantically_guarded(
     #   - dict[str, set[str]] : per-trigger; pick the set for the matched idiom
     #                           so a guard scoped to one trigger does not
     #                           over-suppress an unrelated trigger.
-    guard_spec = SEMANTIC_GUARDS.get(skill_name)
+    guard_spec = SEMANTIC_GUARDS.get(guard_name)
     guards: set[str] | None = None
     if isinstance(guard_spec, dict):
         guards = guard_spec.get(matched_trigger)
     elif guard_spec:
         guards = guard_spec
 
-    companion_spec = SEMANTIC_REQUIRE_COMPANION.get(skill_name, {})
+    companion_spec = SEMANTIC_REQUIRE_COMPANION.get(guard_name, {})
     required_companions = companion_spec.get(matched_trigger)
 
     if not guards and not required_companions:
@@ -782,6 +817,7 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
             "matched": False,
             "agent": None,
             "skill": None,
+            "pipeline": None,
             "confidence": "low",
             "match_type": "fallthrough",
             "reasoning": "no trigger keywords matched",
@@ -796,29 +832,54 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
     if go_operand and not protected and "skill:go-patterns" in candidates:
         candidates["skill:go-patterns"].score += 100
 
-    ranked = sorted(candidates.values(), key=lambda m: (-m.score, m.name))
-    top = ranked[0]
+    # Skill/agent and pipeline are orthogonal slots (COMBINATION DOCTRINE):
+    # pick the best non-pipeline match for skill/agent and the best pipeline
+    # match for pipeline independently.
+    non_pipeline = sorted(
+        (c for c in candidates.values() if c.entry_type != "pipeline"),
+        key=lambda m: (-m.score, m.name),
+    )
+    pipeline_candidates = sorted(
+        (c for c in candidates.values() if c.entry_type == "pipeline"),
+        key=lambda m: (-m.score, m.name),
+    )
+
+    # The "top" drives matched/confidence; prefer skill/agent over pipeline
+    # when both exist, since skill matches are the established contract.
+    top = non_pipeline[0] if non_pipeline else (pipeline_candidates[0] if pipeline_candidates else None)
+    if top is None:
+        # Defensive: candidates was non-empty above, so unreachable.
+        top = next(iter(sorted(candidates.values(), key=lambda m: (-m.score, m.name))))
+
     confidence = determine_confidence(top)
 
     if confidence == "low":
+        best_pipe = pipeline_candidates[0] if pipeline_candidates else None
         return {
             "matched": False,
             "agent": top.agent,
             "skill": top.name if top.entry_type == "skill" else None,
+            "pipeline": best_pipe.name if best_pipe and determine_confidence(best_pipe) != "low" else None,
             "confidence": "low",
             "match_type": "fallthrough",
             "reasoning": f"weak match on {top.matched_triggers!r} for {top.name} (score={top.score:.2f})",
             "stack": [],
         }
 
-    # Determine agent and skill from the match
+    # Determine agent and skill from the top non-pipeline match
     agent = top.agent
     skill = top.name if top.entry_type == "skill" else None
 
-    # If matched entry is an agent (not skill), set agent from name
     if top.entry_type == "agent":
         agent = top.name
         skill = None
+
+    # Pipeline slot: best pipeline candidate, if it also passes confidence
+    pipeline: str | None = None
+    if pipeline_candidates:
+        best_pipe = pipeline_candidates[0]
+        if determine_confidence(best_pipe) != "low":
+            pipeline = best_pipe.name
 
     match_type = "force_route"  # only force entries reach the match table
     triggers_str = ", ".join(f"'{t}'" for t in top.matched_triggers)
@@ -827,6 +888,7 @@ def route(request: str, entries: list[dict] | None = None) -> dict:
         "matched": True,
         "agent": agent,
         "skill": skill,
+        "pipeline": pipeline,
         "confidence": confidence,
         "match_type": match_type,
         "reasoning": f"matched triggers [{triggers_str}] for {top.name}",

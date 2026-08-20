@@ -23,7 +23,7 @@ routing:
   pairs_with:
     - condition-based-waiting
     - service-health-check
-    - cron-job-auditor
+    - cron-automation
   category: process
 ---
 

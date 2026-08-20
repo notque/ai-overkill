@@ -11,7 +11,7 @@ AI agents skip steps.
 Harnesses have a second problem: given only a skill list, they do not route eagerly enough, or correctly enough. Good skills sit unused. So this toolkit connects the skills, agents, and workflows we want directly into the harness, automatically. You don't have to understand what is here. Say what you want in plain English and you get all the value we have put into it: the right specialist with the right methodology, behind gates that demand exit codes, not assertions.
 
 <!-- Counts here must match the Four Layers table (~line 143). Verify both: python3 scripts/validate-doc-counts.py -->
-44 domain agents, 120 workflow skills, 86 hooks, 133 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
+44 domain agents, 120 workflow skills, 86 hooks, 135 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
 
 Works across Claude Code (`/do`), Codex (`$do`), Factory (`/do`), Reasonix (`/do`).
 
@@ -65,7 +65,7 @@ The same routing serves knowledge work. The content engine researches, drafts in
 
 ## It Proves Its Own Changes
 
-Changes to the toolkit itself ship with evidence. New skills get blind A/B tests against a no-skill baseline before merge. Routing and writing-standard decisions carry measured verdicts; [PHILOSOPHY.md](docs/PHILOSOPHY.md) cites the numbers. Experiments that lost go into the negative-results registry, [what-didnt-work.md](docs/what-didnt-work.md), so no future session re-runs a known-dead path.
+Changes to the toolkit itself ship with evidence. New skills get blind A/B tests against a no-skill baseline before merge. Routing and writing-standard decisions carry measured verdicts; [PHILOSOPHY.md](docs/PHILOSOPHY.md) cites the numbers. Experiments that lost go into the negative-results registry, [what-didnt-work.md](docs/what-didnt-work.md); the registry now covers routing reversals, unvalidated A/B citations, and disabled lint rules alongside the original program refutations.
 
 The automated nightly evolution loop (`/evolve`, writes to `evolution-reports/`) ran regularly through mid-May 2026. It is currently dormant; recent evidence has come from manual PRs instead.
 
@@ -150,7 +150,7 @@ Strips built-in tool-use instructions. The toolkit's agents, skills, hooks, and 
 | Agents | 44 | Domain knowledge: idiom tables, failure mode catalogs, error-to-fix mappings |
 | Skills | 120 | Phased methodology with gates. Can't skip steps. Each phase has exit criteria requiring evidence. |
 | Hooks | 86 | Fire on lifecycle events. Block incomplete work. Zero LLM cost. |
-| Scripts | 133 | Determinism: test runners, linters, validators. No LLM judgment. |
+| Scripts | 135 | Determinism: test runners, linters, validators. No LLM judgment. |
 
 Full skill catalog: [docs/skills.md](docs/skills.md).
 

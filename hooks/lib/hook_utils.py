@@ -642,20 +642,63 @@ def deny_tool_use(event_name: str, reason: str) -> None:
 # ===== Schema-Compatibility Helpers (PostToolUse) =====
 
 
-def get_tool_result(event: dict) -> dict:
-    """Return the tool result dict from a PostToolUse event.
+def get_tool_result(event: dict) -> object:
+    """Return the normalized tool result from a PostToolUse event.
 
     Handles both Claude/Codex ('tool_result') and Factory CLI
     ('tool_response') schemas. Returns {} if neither key is present.
+    When the value is a string (observed in production), wraps it as
+    {"output": value} so downstream callers like is_tool_error() and
+    get_tool_output() work without isinstance guards.
     """
-    if "tool_result" in event:
-        return event["tool_result"] or {}
-    if "tool_response" in event:
-        return event["tool_response"] or {}
+    for key in ("tool_result", "tool_response"):
+        if key in event:
+            val = event[key]
+            if isinstance(val, (dict, list)):
+                return val
+            if isinstance(val, str):
+                return {"output": val}
+            if val is None:
+                return {}
+            return {}
     return {}
 
 
-def get_tool_output(result: dict) -> str:
+def get_tool_input(event: dict) -> dict:
+    """Return the tool input as a dict from a hook event.
+
+    Handles three observed payload shapes:
+      1. dict  -- the normal case (returned as-is)
+      2. JSON string -- the string is parsed and returned as a dict
+      3. bare string -- returned as {"command": value} for Bash compat
+      4. missing/None/other -- returns {}
+
+    Callers can safely do ``get_tool_input(event).get("command", "")``
+    without an isinstance guard.
+    """
+    raw: object = None
+    for key in ("tool_input", "input"):
+        candidate = event.get(key)
+        if isinstance(candidate, (dict, str)):
+            raw = candidate
+            break
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Bare string (e.g. a command) -- wrap so .get("command") works
+        return {"command": raw}
+    return {}
+
+
+def get_tool_output(result: object) -> str:
     """Return the tool's stdout/output string.
 
     Claude/Codex use 'output'; Factory uses 'stdout'.
@@ -663,19 +706,31 @@ def get_tool_output(result: dict) -> str:
     Note: key presence, not truthiness, determines the field — an empty
     'output' key returns '' without falling through to 'stdout'.
     """
+    if isinstance(result, str):
+        return result
+    if isinstance(result, list):
+        return "\n".join(filter(None, (get_tool_output(item) for item in result)))
+    if not isinstance(result, dict):
+        return ""
     if "output" in result:
         return result["output"] or ""
     if "stdout" in result:
         return result["stdout"] or ""
+    if isinstance(result.get("text"), str):
+        return result["text"]
+    if "content" in result:
+        return get_tool_output(result["content"])
     return ""
 
 
-def get_tool_error(result: dict) -> str:
+def get_tool_error(result: object) -> str:
     """Return the tool's error/stderr string when an error occurred.
 
     Claude/Codex surface 'error'; Factory uses 'stderr' (and exitCode != 0
     indicates failure). Returns empty string when no error.
     """
+    if not isinstance(result, dict):
+        return ""
     if result.get("error"):
         return result["error"]
     if result.get("exitCode", 0) != 0:
@@ -683,11 +738,15 @@ def get_tool_error(result: dict) -> str:
     return ""
 
 
-def is_tool_error(result: dict) -> bool:
+def is_tool_error(result: object) -> bool:
     """Detect tool failure across schemas.
 
     Claude/Codex set is_error=True; Factory exposes exitCode (non-zero = error).
     """
+    if isinstance(result, list):
+        return any(is_tool_error(item) for item in result)
+    if not isinstance(result, dict):
+        return False
     if "is_error" in result:
         return bool(result["is_error"])
     return result.get("exitCode", 0) != 0
