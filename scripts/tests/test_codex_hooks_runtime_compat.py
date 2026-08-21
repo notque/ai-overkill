@@ -470,6 +470,10 @@ def _prepare_case(
         scripts_dir = cwd / "scripts"
         hooks_dir.mkdir()
         scripts_dir.mkdir()
+        # The guard runs only when cwd is the toolkit repo, identified by the
+        # intrinsic pyproject.toml [project] name marker (hook 1.1.0+). Stamp it
+        # so the drift path is exercised instead of the non-toolkit no-op.
+        (cwd / "pyproject.toml").write_text('[project]\nname = "vexjoy-agent"\n', encoding="utf-8")
         changed_hook = hooks_dir / "runtime.py"
         changed_hook.write_text("VALUE = 'before'\n", encoding="utf-8")
         (scripts_dir / "smoke-test-hooks.py").write_text(
