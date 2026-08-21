@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.1.0
 """
 Stop-event drift guard (ADR: adr/stop-event-drift-guards.md)
 
@@ -8,6 +8,12 @@ regression the moment they're introduced — at Stop, not at CI. It computes the
 session's working-tree diff, decides which component classes changed, runs ONLY
 the relevant existing check script, and re-wakes the session ADVISORY- only (it
 never blocks) when a check actually REPORTS drift.
+
+Toolkit-repo identity gate:
+  - The whole hook no-ops unless the session cwd IS the toolkit repo itself,
+    identified intrinsically by cwd/pyproject.toml declaring [project] name ==
+    "vexjoy-agent" (clone-portable: not a path, remote, or env var). In any
+    other repo the hook silently exits 0 before any check runs.
 
 Relevance gate (diff file paths -> which check to run):
   - hooks/** changed                          -> smoke-test-hooks.py --ci
@@ -53,6 +59,7 @@ Module seams (patched by hooks/tests/test_stop_drift_guard.py):
 
 import json
 import os
+import re
 import subprocess
 import sys
 import traceback
@@ -247,6 +254,28 @@ def _target_is_trusted_root(cwd: str | None) -> bool:
         return False
 
 
+# Intrinsic toolkit-repo marker: pyproject.toml declaring [project] name.
+# A minimal line scan (Python 3.10 here — no tomllib, no 3rd-party toml lib).
+_TOOLKIT_NAME_RE = re.compile(r"""^\s*name\s*=\s*["']vexjoy-agent["']\s*$""", re.MULTILINE)
+
+
+def _is_toolkit_repo(cwd: str | None) -> bool:
+    """Is `cwd` the toolkit repo itself?
+
+    True IFF `cwd` is non-empty AND `cwd/pyproject.toml` exists AND that file
+    declares a project name of "vexjoy-agent". Clone-portable: keys on an
+    intrinsic committed marker, not a path/remote/env var. Fail-open: ANY
+    IOError / parse issue -> False (treated as "not the toolkit repo" -> no-op).
+    """
+    if not cwd:
+        return False
+    try:
+        text = (Path(cwd) / "pyproject.toml").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return _TOOLKIT_NAME_RE.search(text) is not None
+
+
 def _run_script(script: str, args: list[str], cwd: str | None, timeout: int = 30):
     """Run scripts/<script> with args; return CompletedProcess or None on failure."""
     path = _script_path(script)
@@ -391,6 +420,13 @@ def handle_stop(event: dict) -> None:
         sys.exit(0)
 
     cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR")
+
+    # Toolkit-repo identity gate: run drift checks ONLY when the session's repo
+    # IS the toolkit itself. Any other repo (or an unreadable/absent marker)
+    # short-circuits before diff parsing or any check runs. Clone-portable.
+    if not _is_toolkit_repo(cwd):
+        sys.exit(0)
+
     diff = _working_tree_diff(cwd)
 
     # Front gate: nothing reviewable -> short-circuit before any check runs.
