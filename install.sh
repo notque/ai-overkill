@@ -1197,7 +1197,7 @@ install_component() {
                 [ -e "$item" ] || [ -L "$item" ] || continue
                 item_name=$(basename "$item")
                 if [ "$filtered" = true ] && _profile_disabled "$name" "$item_name"; then
-                    echo -e "${YELLOW}  Skipping ${item_name} (disabled by profile)${NC}"
+                    echo -e "${YELLOW}  Skipping ${item_name} (not selected)${NC}"
                     continue
                 fi
                 if [ "$name" = "hooks" ] && [ "$item_name" = "lib" ]; then
@@ -1289,10 +1289,9 @@ install_component() {
 # The repo skills/ tree is category/skill (e.g. skills/business/csuite), plus a
 # few top-level entries that are skills themselves (a dir holding SKILL.md) or
 # loose files (INDEX.json). To let users drop their own skills alongside ours at
-# any level, we mirror it the same way ~/.codex does: each category
-# is a REAL directory containing per-skill symlinks, while top-level skill dirs
-# and files are symlinked directly. This is add-only — existing external entries
-# are preserved, never overwritten.
+# any level, we retain category links and add a root alias for every nested
+# skill. Runtimes that scan one level deep can therefore discover every skill.
+# This is add-only — existing external entries are preserved, never overwritten.
 link_skills_nested() {
     local source=$1
     local target=$2
@@ -1324,7 +1323,7 @@ link_skills_nested() {
         # link the whole thing at the top level.
         if [ ! -d "$entry" ] || [ -f "$entry/SKILL.md" ]; then
             if [ -d "$entry" ] && _profile_disabled skills "$entry_name"; then
-                echo -e "${YELLOW}  Skipping ${entry_name} (disabled by profile)${NC}"
+                echo -e "${YELLOW}  Skipping ${entry_name} (not selected)${NC}"
                 continue
             fi
             if [ -e "$target/$entry_name" ] || [ -L "$target/$entry_name" ]; then
@@ -1347,7 +1346,7 @@ link_skills_nested() {
             [ -e "$child" ] || [ -L "$child" ] || continue
             child_name=$(basename "$child")
             if [ -d "$child" ] && _profile_disabled skills "$child_name"; then
-                echo -e "${YELLOW}  Skipping ${entry_name}/${child_name} (disabled by profile)${NC}"
+                echo -e "${YELLOW}  Skipping ${entry_name}/${child_name} (not selected)${NC}"
                 continue
             fi
             # Skip skills folded into a parent via promoted_to: frontmatter,
@@ -1372,6 +1371,11 @@ link_skills_nested() {
                 continue  # external/existing entry; keep it
             fi
             ln -s "$child" "$target/$entry_name/$child_name"
+            # Expose nested skills to one-level runtime scanners as well. Keep
+            # an external root skill when a name collision exists.
+            if [ -f "$child/SKILL.md" ] && [ ! -e "$target/$child_name" ] && [ ! -L "$target/$child_name" ]; then
+                ln -s "$child" "$target/$child_name"
+            fi
         done
         echo -e "${GREEN}  ✓ Nested ${entry_name}/${NC}"
     done
@@ -1693,13 +1697,25 @@ if [ "$MIRROR_CODEX" = true ]; then
     for item in "${SCRIPT_DIR}/skills/"*; do
         [ -e "$item" ] || continue
         if [ -d "$item" ] && [ -f "$item/SKILL.md" ] && _profile_disabled skills "$(basename "$item")"; then
-            echo -e "${YELLOW}  Skipping $(basename "$item") (disabled by profile)${NC}"
+            echo -e "${YELLOW}  Skipping $(basename "$item") (not selected)${NC}"
             continue
         fi
         target="${CODEX_SKILLS_DIR}/$(basename "$item")"
         sync_codex_entry "$item" "$target"
         CODEX_ENTRY_COUNT=$((CODEX_ENTRY_COUNT + 1))
     done
+
+    # Public skills live under category directories in the repository. Codex
+    # scans its skills root, so mirror each nested skill by its stable name.
+    while IFS= read -r skill_file; do
+        skill_src=$(dirname "$skill_file")
+        skill_name=$(basename "$skill_src")
+        if _profile_disabled skills "$skill_name"; then
+            continue
+        fi
+        sync_codex_entry "$skill_src" "${CODEX_SKILLS_DIR}/${skill_name}"
+        CODEX_ENTRY_COUNT=$((CODEX_ENTRY_COUNT + 1))
+    done < <(find "${SCRIPT_DIR}/skills" -mindepth 3 -maxdepth 3 -name SKILL.md | sort)
 
     if [ -d "${SCRIPT_DIR}/private-voices" ]; then
         for voice_dir in "${SCRIPT_DIR}/private-voices/"*; do
@@ -1728,7 +1744,7 @@ if [ "$MIRROR_CODEX" = true ]; then
     for item in "${SCRIPT_DIR}/agents/"*; do
         [ -e "$item" ] || continue
         if _profile_disabled agents "$(basename "$item")"; then
-            echo -e "${YELLOW}  Skipping $(basename "$item") (disabled by profile)${NC}"
+            echo -e "${YELLOW}  Skipping $(basename "$item") (not selected)${NC}"
             continue
         fi
         target="${CODEX_AGENTS_DIR}/$(basename "$item")"
@@ -1807,7 +1823,7 @@ if [ "$MIRROR_CODEX" = true ]; then
             filename="${rest%% *}"
 
             if _profile_disabled hooks "$filename"; then
-                echo -e "${YELLOW}  Skipping ${filename} (disabled by profile)${NC}"
+                echo -e "${YELLOW}  Skipping ${filename} (not selected)${NC}"
                 continue
             fi
 
@@ -2060,10 +2076,25 @@ echo -e "${YELLOW}Syncing Hermes skills mirror...${NC}"
 HERMES_ENTRY_COUNT=0
 for item in "${SCRIPT_DIR}/skills/"*; do
     [ -e "$item" ] || continue
+    if [ -d "$item" ] && [ -f "$item/SKILL.md" ] && _profile_disabled skills "$(basename "$item")"; then
+        echo -e "${YELLOW}  Skipping $(basename "$item") (not selected)${NC}"
+        continue
+    fi
     target="${HERMES_SKILLS_DIR}/$(basename "$item")"
     sync_mirror_entry "$item" "$target" "Hermes"
     HERMES_ENTRY_COUNT=$((HERMES_ENTRY_COUNT + 1))
 done
+
+# Hermes also scans one level deep, so mirror category skills by stable name.
+while IFS= read -r skill_file; do
+    skill_src=$(dirname "$skill_file")
+    skill_name=$(basename "$skill_src")
+    if _profile_disabled skills "$skill_name"; then
+        continue
+    fi
+    sync_mirror_entry "$skill_src" "${HERMES_SKILLS_DIR}/${skill_name}" "Hermes"
+    HERMES_ENTRY_COUNT=$((HERMES_ENTRY_COUNT + 1))
+done < <(find "${SCRIPT_DIR}/skills" -mindepth 3 -maxdepth 3 -name SKILL.md | sort)
 
 if [ -d "${SCRIPT_DIR}/private-voices" ]; then
     for voice_dir in "${SCRIPT_DIR}/private-voices/"*; do
@@ -2196,6 +2227,10 @@ fi
 while IFS= read -r skill_md; do
     [ -n "$skill_md" ] || continue
     skill_dir=$(dirname "$skill_md")
+    if _profile_disabled skills "$(basename "$skill_dir")"; then
+        echo -e "${YELLOW}  Skipping $(basename "$skill_dir") (not selected)${NC}"
+        continue
+    fi
     reasonix_install_skill "$skill_dir" "$(basename "$skill_dir")"
 done < <(find "${SCRIPT_DIR}/skills" -name SKILL.md | sort)
 

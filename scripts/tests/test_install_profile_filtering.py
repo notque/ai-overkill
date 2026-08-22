@@ -23,7 +23,15 @@ if shutil.which("bash") is None:
 
 
 def _run_install(fake_home: Path, args: list[str], profile: Path | None = None) -> subprocess.CompletedProcess:
-    env = {**os.environ, "HOME": str(fake_home), "TERM": "dumb"}
+    # The installer may attempt an advisory dependency install. Keep these
+    # integration tests offline so they exercise installation behavior only.
+    env = {
+        **os.environ,
+        "HOME": str(fake_home),
+        "TERM": "dumb",
+        "PIP_NO_INDEX": "1",
+        "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+    }
     if profile is not None:
         env["VEXJOY_INSTALL_PROFILE"] = str(profile)
     else:
@@ -95,7 +103,9 @@ def test_no_profile_installs_everything(fake_home: Path) -> None:
     assert (fake_home / ".claude" / "agents" / f"{agent}.md").exists()
     assert (fake_home / ".claude" / "hooks" / hook).exists()
     assert (fake_home / ".claude" / "skills" / skill).exists()
+    assert (fake_home / ".claude" / "skills" / "game-design" / "SKILL.md").exists()
     assert (fake_home / ".codex" / "hooks" / hook).exists()
+    assert (fake_home / ".codex" / "skills" / "game-design" / "SKILL.md").exists()
 
 
 def test_profile_filters_per_item_install(fake_home: Path, tmp_path: Path) -> None:

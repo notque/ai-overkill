@@ -69,6 +69,7 @@ SKILL_MAPPING: dict[str, str] = {
     "webgl-card-effects": "frontend",
     # game/
     "game-asset-generator": "game",
+    "game-design": "game",
     "game-pipeline": "game",
     "game-sprite-pipeline": "game",
     "phaser-gamedev": "game",

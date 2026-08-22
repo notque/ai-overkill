@@ -1005,6 +1005,19 @@
       "notes": "Explicit RED-phase intent must surface the TDD skill."
     },
     {
+      "request": "Retention is falling; inspect this game and improve the player experience",
+      "expected_agent": "ui-design-engineer",
+      "expected_skill": "game-design",
+      "category": "game-design",
+      "routing_tier": "candidate",
+      "notes": "Repository-aware game improvement: diagnose the whole player path, route companion skills, and execute safe fixes.",
+      "provenance": {
+        "source": "catalog-derived",
+        "workload": null,
+        "sample": "Written from game-design skill semantics; no machine telemetry."
+      }
+    },
+    {
       "request": "deploy to dev to test my hermes stack change in a lab before merging to master",
       "expected_agent": null,
       "expected_skill": "dev-branch-deploy",
