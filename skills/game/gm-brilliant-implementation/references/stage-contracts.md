@@ -4,6 +4,9 @@ Every runtime stage consumes versioned artifacts and emits one checkpoint. This
 file defines orchestration schemas only; domain methods stay in their owning
 skills and target-repository instructions.
 
+`pipeline-spec.json` is the machine authority for field sets, closed values,
+and rejection rules. Examples below explain that schema and never redefine it.
+
 ## Checkpoint schema
 
 ```json
@@ -194,12 +197,14 @@ Human or volume-dependent rows use exactly these fields:
   "threshold_registry_hash": "sha256:<64 lowercase hex>",
   "evidence_kind": "unprompted_human or privacy_safe_volume",
   "observed_threshold": "integer >= 0",
+  "observed_window_count": "integer >= 0",
   "eligible_denominator": "integer >= 0 or null",
   "protocol_hash": "sha256:<64 lowercase hex>",
   "privacy_guard": "none_needed or small_cell_suppressed",
   "status": "evidence_blocked or threshold_met",
   "allowed_actions": ["measure", "recruit", "run_protocol", "reproduce"],
   "product_change_authorized": false,
+  "scoped_decision_hash": "sha256:<64 lowercase hex> or null",
   "owner": "one evidence owner",
   "next_evaluation": "explicit condition, not a speculative date"
 }
@@ -225,17 +230,21 @@ IDs, unsorted rows, malformed values, consumer hash drift, or a threshold confli
 
 ## Canonical completion snapshot
 
-S34 emits exactly one current snapshot:
+S34 emits a canonical scope plus a snapshot manifest with one current pointer.
+Each snapshot has this shape:
 
 ```json
 {
+  "schema_version": 1,
+  "snapshot_hash": "sha256:<hash of every other field>",
   "scope_hash": "sha256:<64 lowercase hex>",
   "scope_count": 86,
   "release_sha": "40 lowercase hex",
   "status_counts": {"done_live": 69, "valid_unfinished_implementation": 0, "superseded_refused": 17, "missing_unbound_evidence": 0},
+  "row_dispositions": [{"row_id": "stable scope row", "status": "one closed status"}],
   "row_disposition_hash": "sha256:<64 lowercase hex>",
   "evidence_registry_hash": "sha256:<64 lowercase hex>",
-  "supersedes": ["sha256:<prior snapshot hash>"],
+  "predecessor_hash": "sha256:<prior snapshot hash> or null",
   "verifier_receipt": "artifact path or sha256 hash"
 }
 ```
@@ -251,5 +260,5 @@ supersedes. Historical prose and file position have no authority.
 
 Validate structured registries, dispositions, and snapshots with
 `scripts/validate-gm-governance.py --registry <path> --dispositions <path>
---snapshot <path> --exact-live <sha>`. The command exits nonzero on threshold
+--scope <path> --snapshot-manifest <path> --exact-live <sha>`. The command exits nonzero on threshold
 drift, incomplete scope, hash mismatch, or an exact-live mismatch.

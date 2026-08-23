@@ -1,6 +1,6 @@
 ---
 name: gm-brilliant-implementation
-version: 1.0.0
+version: 1.1.0
 description: "Run the full evidence-to-live implementation workflow for large, multi-system, multi-wave, or CPU-delegated 5 Star Booker GM programs."
 agent: project-coordinator-engineer
 user-invocable: true
@@ -246,6 +246,8 @@ to that source instead of copying numbers. Before closure, emit one canonical
 completion snapshot after the append-only history and validate that its row
 counts exhaust the scope exactly. A later release replaces the current snapshot
 and links the prior snapshot; it does not add another competing authority block.
+Runs resumed from a pre-1.1 checkpoint must rerun S34 and emit the 1.1 registry,
+scope, disposition, and snapshot-manifest artifacts before completion.
 
 **Gate**: The ledger is complete, narrow, hash-linked, honest about every
 unfinished or unmeasured claim, and every conditional row has a machine-checkable

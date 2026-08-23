@@ -54,7 +54,8 @@ def test_threshold_registry_is_single_source_and_hash_bound():
 def test_completion_snapshot_has_one_authority_and_exhaustive_counts():
     schema = _spec()["completion_snapshot_schema"]
     assert schema["additional_fields"] is False
-    assert schema["current_snapshot_count"] == 1
+    assert "row_dispositions" in schema["required_fields"]
+    assert _spec()["snapshot_manifest_schema"]["current_snapshot_count"] == 1
     assert set(schema["status_fields"]) == {
         "done_live",
         "valid_unfinished_implementation",
@@ -63,5 +64,18 @@ def test_completion_snapshot_has_one_authority_and_exhaustive_counts():
     }
     rejection = " ".join(schema["reject_when"])
     assert "status counts do not sum to scope_count" in rejection
-    assert "more than one current snapshot exists" in rejection
     assert "release_sha differs from exact live" in rejection
+
+
+def test_s34_requires_the_governance_validator_and_all_inputs():
+    node = next(row for row in _spec()["runtime_dag"]["nodes"] if row["id"] == "S34")
+    validator = node["required_validator"]
+    assert validator["script"] == "scripts/validate-gm-governance.py"
+    assert validator["inputs"] == [
+        "evidence-gate-registry",
+        "evidence-dispositions",
+        "canonical-scope",
+        "snapshot-manifest",
+        "exact-live-sha",
+    ]
+    assert validator["receipt"] == "gm-governance-validation-receipt"
