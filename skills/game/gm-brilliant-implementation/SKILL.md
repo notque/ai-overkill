@@ -173,8 +173,14 @@ with the declared false predicate and a complete audit record.
 
 Before S26 completes, the integration owner rereads the live SHA, inventories
 every ready wave commit, and rebases or cherry-picks the accepted set into one
-clean candidate. Record included and deferred commits. A ready parallel wave
-cannot start a competing release from the same or an older live base.
+clean candidate. Record included and deferred commits, then validate the
+complete ready-artifact closure. A commit name or cherry-picked tip is not
+closure proof. For every ready artifact, compare the candidate with its
+declared prerequisite commit closure and either its exact file-set/content hash
+or its full source-diff hash. Reject a candidate that omits a prerequisite
+parent's files or state, even when a later child commit applies cleanly. A ready
+parallel wave cannot start a competing release from the same or an older live
+base.
 
 **Gate**: The integrated commit implements the accepted envelope, preserves the
 CPU-ignore path and project doctrine, and contains no unrelated files.
@@ -204,7 +210,9 @@ live SHA, collects all ready accepted commits, rebuilds one clean integration
 candidate when the base changed, and broadcasts the candidate SHA and lease.
 Only that owner may run staging or production while the lease is active.
 Reject concurrent attempts, a stale base, an unlisted ready commit, a candidate
-SHA mismatch, an expired lease, or a lock the project cannot prove it holds.
+SHA mismatch, an expired lease, an incomplete ready-artifact/file-set closure,
+or a lock the project cannot prove it holds. Recompute the candidate closure
+after any integration conflict resolution and immediately before staging.
 Release the lease only after exact-live verification or completed rollback.
 
 Explicit owner authorization or a valid fast-development approval record can

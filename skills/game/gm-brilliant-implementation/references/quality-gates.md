@@ -50,11 +50,19 @@ asset, or route guards.
   staging and production.
 - Immediately before acquisition, reread live SHA and every ready wave commit.
 - Rebase or cherry-pick the accepted ready set into one clean integration
-  candidate; record included and explicitly deferred commits.
+  candidate; record included and explicitly deferred artifacts and commits.
+- Validate every included artifact's complete prerequisite closure using its
+  declared exact path-set/content-tree hashes or full normalized source-diff
+  hash. A present top commit, matching subject, or clean cherry-pick is not
+  proof that its parent prerequisites landed.
+- Recompute the aggregate candidate closure after conflict resolution and
+  immediately before staging. Reject missing paths, unexpected deletions,
+  undeclared overlap, or a closure hash that differs from the lease record.
 - Broadcast the active owner, live base, candidate SHA, environments, and lease
   expiry to every active lane.
 - Reject a second staging/production attempt, stale base, changed candidate,
-  unlisted ready commit, missing lock proof, or non-owner deploy.
+  unlisted ready artifact, incomplete prerequisite/file-set/diff closure,
+  missing lock proof, or non-owner deploy.
 - Keep the lease through exact-live verification or rollback, then release it
   with the corresponding receipt.
 

@@ -33,7 +33,9 @@ architecture, UI, tests, release, and feedback.
    soft failure, truthful receipts, control transfer, and a CPU-ignore path.
 7. Implementation uses single-writer lanes, one integration convergence, and
    one deploy lease held by the named integration owner through live proof or
-   rollback.
+   rollback. The lease proves complete ready-artifact closure by exact
+   file-set/content hashes or a full source-diff hash; commit-tip presence alone
+   is never sufficient.
 8. Authorization answers only the approval question; all safety guards run.
 9. Completion requires exact live evidence and an honest feedback ledger.
 
@@ -47,7 +49,8 @@ architecture, UI, tests, release, and feedback.
   in `references/pipeline-spec.json`.
 - Deploy-lease validation rejects a stale live base, multiple owners, missing
   coordinator/lock proof, unlisted ready commit, changed candidate, expired
-  lease, and non-owner staging or production.
+  lease, non-owner staging or production, missing prerequisite commit content,
+  mismatched file-set/content hashes, and mismatched full source-diff closure.
 - Frontmatter, references, indexes, pipeline index, routing map, and mirrors pass
   deterministic validation.
 - Structural evaluation earns grade B or higher.

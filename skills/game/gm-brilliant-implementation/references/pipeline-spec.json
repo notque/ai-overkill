@@ -49,7 +49,7 @@
   "deploy_lease_schema": {
     "required_before_node": "S30",
     "held_through_node": "S33",
-    "required_fields": ["repository", "environment_scope", "integration_owner", "coordinator_or_lock", "acquired_at", "expires_at", "live_sha_at_acquire", "candidate_sha", "included_commits", "deferred_ready_commits", "broadcast_receipt", "status"],
+    "required_fields": ["repository", "environment_scope", "integration_owner", "coordinator_or_lock", "acquired_at", "expires_at", "live_sha_at_acquire", "candidate_sha", "included_commits", "ready_artifacts", "ready_artifact_manifest_hash", "candidate_closure_hash", "deferred_ready_commits", "broadcast_receipt", "status"],
     "additional_fields": false,
     "environment_scope": ["staging", "production"],
     "active_status": "active",
@@ -63,6 +63,12 @@
       "candidate_sha is absent from included_commits or changes after staging",
       "a ready accepted wave commit is neither included nor explicitly deferred with a wave-ledger stop reason",
       "included commit is not present in the clean integration candidate",
+      "ready artifact record is missing artifact_id, source base/head, prerequisite closure, closure mode, or required hashes",
+      "file_set closure path-set or content-tree hash does not recompute against the candidate",
+      "full_diff closure hash does not recompute from source base through every prerequisite to source head",
+      "ready artifact prerequisite content is absent even though a child or top commit is present",
+      "ready artifact manifest or aggregate candidate closure hash differs after conflict resolution",
+      "ready artifacts overlap paths without an approved aggregate resolution record",
       "non-owner staging or production caller differs from integration_owner",
       "lease terminates without exact-live or rollback receipt"
     ]

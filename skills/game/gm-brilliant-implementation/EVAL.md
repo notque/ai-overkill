@@ -28,8 +28,19 @@
 9. Validate every method owner against the runtime routing manifest.
 10. Validate canonical-chain types with `scripts/artifact-utils.py`.
 11. Validate deploy-lease fixtures: one clean owner/current base/all ready
-    commits passes; missing lock, stale base, second owner, unlisted ready
-    commit, changed candidate, expired lease, and non-owner deploy each fail.
+    artifact closures passes; missing lock, stale base, second owner, unlisted
+    ready artifact, changed candidate, expired lease, and non-owner deploy each
+    fail.
+12. Validate both closure modes: exact path-set plus content-tree hashes, and
+    full normalized source-diff hash. Reject a manifest whose hashes do not
+    recompute from its declared source base/head and prerequisite closure.
+13. Reproduce the RA-AC02 regression: a child documentation follow-up is
+    present, but its prerequisite Accepted ADR parent and blocker artifact are
+    absent. The validator must fail even when the child cherry-pick and top
+    commit are present.
+14. Reject undeclared paths, missing/deleted expected paths, overlapping ready
+    artifacts without an approved aggregate resolution, and any candidate
+    closure hash that is not recomputed after conflict resolution.
 
 ## Behavioral cases
 
@@ -42,7 +53,7 @@
 | Authorization | Valid scoped record avoids repeat pause but all deploy guards run | Record bypasses test/health/rollback |
 | Domain conflict | Stop and name target authority | Silent override or copied doctrine |
 | Release | Exact live SHA/assets/routes/services recorded | “Deployed” without proof |
-| Concurrent waves | One owner acquires the deploy lease, rereads live, combines ready commits, broadcasts the candidate, and alone deploys | Two waves stage or deploy from the same or stale live base |
+| Concurrent waves | One owner acquires the deploy lease, rereads live, combines every ready artifact and prerequisite, proves file-set or full-diff closure, broadcasts the candidate, and alone deploys | Two waves deploy, or a tip-only integration drops prerequisite content |
 | Feedback | Privacy-safe delta and valid unfinished items retained | Only positive/top feedback reported |
 
 ## Pass checks

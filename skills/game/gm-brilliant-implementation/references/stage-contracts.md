@@ -106,18 +106,44 @@ Before S30, emit one record with exactly these fields:
   "live_sha_at_acquire": "40 lowercase hex",
   "candidate_sha": "40 lowercase hex",
   "included_commits": ["40 lowercase hex"],
+  "ready_artifacts": [{
+    "artifact_id": "stable wave artifact ID",
+    "source_base_sha": "40 lowercase hex",
+    "source_head_sha": "40 lowercase hex",
+    "prerequisite_commits": ["40 lowercase hex"],
+    "closure_mode": "file_set or full_diff",
+    "path_set_hash": "sha256:<64 lowercase hex> or null",
+    "content_tree_hash": "sha256:<64 lowercase hex> or null",
+    "source_diff_hash": "sha256:<64 lowercase hex> or null"
+  }],
+  "ready_artifact_manifest_hash": "sha256:<64 lowercase hex>",
+  "candidate_closure_hash": "sha256:<64 lowercase hex>",
   "deferred_ready_commits": [],
   "broadcast_receipt": "artifact path or sha256 hash",
   "status": "active"
 }
 ```
 
+`file_set` sorts repository-relative paths bytewise, hashes that path list into
+`path_set_hash`, and hashes each path plus its candidate blob or deletion marker
+into `content_tree_hash`. `full_diff` hashes the normalized binary-capable diff
+from `source_base_sha` through the full prerequisite closure to
+`source_head_sha`. Exactly one mode's hash set is non-null. The manifest hash
+covers every artifact record in stable `artifact_id` order. The candidate
+closure hash covers the recomputed results for all included artifacts plus the
+aggregate live-base-to-candidate diff, so conflict resolutions cannot reuse a
+pre-resolution receipt.
+
 The validator rejects missing or extra fields, multiple owners, an unproved
 coordinator/lock, expiry at or before acquisition, a candidate absent from the
 included set, duplicate commits, a live SHA that differs from the last read,
 an unlisted ready commit, a deferred ready commit without an explicit stop
-reason in the wave ledger, a candidate that changes after staging, or any
-staging/production attempt by a non-owner. `status` may move from `active` only
+reason in the wave ledger, a ready artifact with a missing prerequisite commit
+or path, any recomputed file-set/content/diff/manifest/candidate hash mismatch,
+undeclared overlapping artifact paths without an approved aggregate resolution,
+a candidate that changes after staging, or any staging/production attempt by a
+non-owner. A top commit or commit subject never satisfies these checks by
+itself. `status` may move from `active` only
 to `released_after_live` or `released_after_rollback`, with the S33 or rollback
 receipt. Approval and deploy lease are separate records.
 
