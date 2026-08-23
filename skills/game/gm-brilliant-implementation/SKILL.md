@@ -1,6 +1,6 @@
 ---
 name: gm-brilliant-implementation
-version: 1.1.0
+version: 1.1.1
 description: "Run the full evidence-to-live implementation workflow for large, multi-system, multi-wave, or CPU-delegated 5 Star Booker GM programs."
 agent: project-coordinator-engineer
 user-invocable: true
@@ -241,8 +241,10 @@ actively observed production emergency where containment is the narrowest safe
 action and the record is completed during containment.
 
 Store every threshold once in the run's canonical evidence-gate registry.
-Disposition records cite the registry hash and row ID; narrative reports link
-to that source instead of copying numbers. Before closure, emit one canonical
+Disposition records and the bounded consumer manifest cite the registry hash
+and row IDs without copying threshold fields. Narrative reports link to a
+validated consumer receipt; the validator does not parse arbitrary prose.
+Before closure, emit one canonical
 completion snapshot after the append-only history and validate that its row
 counts exhaust the scope exactly. A later release replaces the current snapshot
 and links the prior snapshot; it does not add another competing authority block.
@@ -251,8 +253,8 @@ scope, disposition, and snapshot-manifest artifacts before completion.
 
 **Gate**: The ledger is complete, narrow, hash-linked, honest about every
 unfinished or unmeasured claim, and every conditional row has a machine-checkable
-trigger plus refusal disposition. The canonical snapshot validates and no
-copied threshold conflicts with its registry. The run is complete.
+trigger plus refusal disposition. The canonical snapshot and reference-only
+consumer manifest validate. The run is complete.
 
 ## Checkpoint and resume pattern
 

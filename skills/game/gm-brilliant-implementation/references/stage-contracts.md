@@ -223,10 +223,12 @@ The registry is the only source of threshold values. It contains one sorted row
 per evidence-gated requirement with: `row_id`, `evidence_kind`,
 `required_threshold`, `window_count`, `eligible_denominator_required`,
 `protocol_hash`, `privacy_guard`, `interpretation_trigger`, and `owner`. Hash
-the canonical serialized registry and require every disposition and narrative
-consumer to cite that hash and row ID. Secondary artifacts may explain a gate;
-they do not restate its numeric or categorical threshold. Reject duplicate row
-IDs, unsorted rows, malformed values, consumer hash drift, or a threshold conflict.
+the canonical serialized registry and require every disposition and bounded
+consumer-manifest entry to cite that hash and row IDs. Consumer entries contain
+only `consumer_id`, `artifact_hash`, and `row_ids`; the closed schema rejects
+copied numeric or categorical threshold fields. Narrative artifacts link to the
+validated consumer receipt; arbitrary prose is not scanned. Reject duplicate or
+unsorted IDs, malformed values, unknown rows, or hash drift.
 
 ## Canonical completion snapshot
 
@@ -258,7 +260,8 @@ threshold has passed and a new scoped implementation decision exists. A new
 snapshot replaces the current pointer and lists every prior current snapshot it
 supersedes. Historical prose and file position have no authority.
 
-Validate structured registries, dispositions, and snapshots with
+Validate structured registries, dispositions, consumer references, and snapshots with
 `scripts/validate-gm-governance.py --registry <path> --dispositions <path>
---scope <path> --snapshot-manifest <path> --exact-live <sha>`. The command exits nonzero on threshold
-drift, incomplete scope, hash mismatch, or an exact-live mismatch.
+--consumers <path> --scope <path> --snapshot-manifest <path> --exact-live <sha>`.
+The command exits nonzero on reference drift, copied consumer fields,
+incomplete scope, hash mismatch, or an exact-live mismatch.

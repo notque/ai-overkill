@@ -86,5 +86,5 @@ The validator must prove:
 7. Conditional evaluation satisfies the exact schema in `pipeline-spec.json`.
 8. S26 converges S24/S25, S14 converges S11-S13, and S34 is the sole terminal.
 9. S34 cannot complete until `scripts/validate-gm-governance.py` validates the
-   registry, dispositions, canonical scope, full snapshot manifest, and exact
-   live SHA and emits its receipt.
+   registry, dispositions, bounded consumer manifest, canonical scope, full
+   snapshot manifest, and exact live SHA and emits its receipt.

@@ -45,10 +45,9 @@ def test_evidence_gate_refuses_direct_or_under_threshold_product_work():
 def test_threshold_registry_is_single_source_and_hash_bound():
     schema = _spec()["evidence_gate_registry_schema"]
     assert schema["rows_sorted_by"] == "row_id bytewise"
-    assert schema["consumer_reference_fields"] == ["row_id", "threshold_registry_hash"]
-    rejection = " ".join(schema["reject_when"])
-    assert "consumer registry hash differs" in rejection
-    assert "secondary artifact threshold conflicts" in rejection
+    consumer = _spec()["evidence_consumer_manifest_schema"]
+    assert consumer["threshold_values_allowed"] is False
+    assert consumer["required_consumer_fields"] == ["consumer_id", "artifact_hash", "row_ids"]
 
 
 def test_completion_snapshot_has_one_authority_and_exhaustive_counts():
@@ -74,6 +73,7 @@ def test_s34_requires_the_governance_validator_and_all_inputs():
     assert validator["inputs"] == [
         "evidence-gate-registry",
         "evidence-dispositions",
+        "evidence-consumer-manifest",
         "canonical-scope",
         "snapshot-manifest",
         "exact-live-sha",

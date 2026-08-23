@@ -106,9 +106,10 @@ measurement remains `missing evidence`, never `done`.
   recruitment, protocol execution, or reproduction. UI, simulation, economy,
   copy, and progression changes are refused as speculative.
 - Define each threshold once in a canonical evidence-gate registry. Every
-  disposition and report cites its row ID plus registry hash. Reject copied
-  numeric or categorical thresholds in secondary artifacts when they differ;
-  resolve conflicts to the stricter verified contract before closure.
+  disposition cites its row ID plus registry hash. The bounded consumer
+  manifest contains only consumer identity, artifact hash, row IDs, and the
+  registry hash; its closed schema rejects copied threshold fields. Narrative
+  reports link to a validated consumer receipt and are not parsed as prose.
 
 ## Canonical completion snapshot
 

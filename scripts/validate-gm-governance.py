@@ -36,10 +36,11 @@ def _fields(value, required, label, errors):
     return True
 
 
-def validate(registry, dispositions, scope, manifest, exact_live, spec=None):
+def validate(registry, dispositions, consumers, scope, manifest, exact_live, spec=None):
     errors = []
     spec = spec or _load(SPEC_PATH)
     rs = spec["evidence_gate_registry_schema"]
+    cs = spec["evidence_consumer_manifest_schema"]
     ds = spec["evidence_gate_schema"]
     ss = spec["completion_snapshot_schema"]
 
@@ -141,6 +142,40 @@ def validate(registry, dispositions, scope, manifest, exact_live, spec=None):
     if disposition_ids != ids:
         errors.append("dispositions must cover registry rows once in bytewise order")
 
+    if not _fields(consumers, cs["required_fields"], "consumer manifest", errors):
+        consumers = consumers if isinstance(consumers, dict) else {}
+    consumer_rows = consumers.get("consumers")
+    if not isinstance(consumer_rows, list) or not consumer_rows:
+        errors.append("consumer manifest consumers must be a non-empty array")
+        consumer_rows = []
+    consumer_ids = []
+    for index, consumer in enumerate(consumer_rows):
+        if not _fields(consumer, cs["required_consumer_fields"], f"consumer {index}", errors):
+            continue
+        consumer_id = consumer["consumer_id"]
+        consumer_ids.append(consumer_id)
+        if not isinstance(consumer_id, str) or not consumer_id.strip():
+            errors.append(f"consumer {index}: invalid consumer_id")
+        if not HASH_RE.fullmatch(str(consumer["artifact_hash"])):
+            errors.append(f"{consumer_id}: malformed artifact hash")
+        row_ids = consumer["row_ids"]
+        if not isinstance(row_ids, list) or not row_ids:
+            errors.append(f"{consumer_id}: row_ids must be a non-empty array")
+            continue
+        if row_ids != sorted(row_ids) or len(row_ids) != len(set(row_ids)):
+            errors.append(f"{consumer_id}: row IDs must be unique and bytewise sorted")
+        if any(row_id not in by_id for row_id in row_ids):
+            errors.append(f"{consumer_id}: unknown registry row")
+    if consumer_ids != sorted(consumer_ids) or len(consumer_ids) != len(set(consumer_ids)):
+        errors.append("consumer IDs must be unique and bytewise sorted")
+    if consumers.get("threshold_registry_hash") != registry_hash:
+        errors.append("consumer registry hash drift")
+    consumer_hash = _hash(
+        {key: consumers.get(key) for key in ("schema_version", "threshold_registry_hash", "consumers")}
+    )
+    if consumers.get("consumer_manifest_hash") != consumer_hash:
+        errors.append("consumer manifest hash mismatch")
+
     if not isinstance(scope, dict) or set(scope) != {"schema_version", "row_ids", "scope_hash"}:
         errors.append("scope fields mismatch")
         scope = scope if isinstance(scope, dict) else {}
@@ -204,6 +239,8 @@ def validate(registry, dispositions, scope, manifest, exact_live, spec=None):
             errors.append(f"snapshot {index}: row disposition hash mismatch")
         if snapshot["evidence_registry_hash"] != registry_hash:
             errors.append(f"snapshot {index}: evidence registry hash drift")
+        if snapshot["evidence_consumer_manifest_hash"] != consumer_hash:
+            errors.append(f"snapshot {index}: evidence consumer manifest hash drift")
         if not SHA_RE.fullmatch(str(snapshot["release_sha"])):
             errors.append(f"snapshot {index}: malformed release SHA")
         predecessor = snapshot["predecessor_hash"]
@@ -230,6 +267,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", required=True)
     parser.add_argument("--dispositions", required=True)
+    parser.add_argument("--consumers", required=True)
     parser.add_argument("--scope", required=True)
     parser.add_argument("--snapshot-manifest", required=True)
     parser.add_argument("--exact-live", required=True)
@@ -238,6 +276,7 @@ def main():
         errors = validate(
             _load(args.registry),
             _load(args.dispositions),
+            _load(args.consumers),
             _load(args.scope),
             _load(args.snapshot_manifest),
             args.exact_live,

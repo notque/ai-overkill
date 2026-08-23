@@ -110,8 +110,15 @@
     "required_fields": ["schema_version", "rows", "registry_hash"],
     "required_row_fields": ["row_id", "evidence_kind", "required_threshold", "window_count", "eligible_denominator_required", "protocol_hash", "privacy_guard", "interpretation_trigger", "owner"],
     "rows_sorted_by": "row_id bytewise",
-    "consumer_reference_fields": ["row_id", "threshold_registry_hash"],
-    "reject_when": ["duplicate or unsorted row IDs", "missing, extra, empty, wrong-type, unknown, or malformed field", "registry hash does not match canonical serialization", "consumer registry hash differs", "secondary artifact threshold conflicts with canonical row"]
+    "reject_when": ["duplicate or unsorted row IDs", "missing, extra, empty, wrong-type, unknown, or malformed field", "registry hash does not match canonical serialization"]
+  },
+  "evidence_consumer_manifest_schema": {
+    "required_fields": ["schema_version", "threshold_registry_hash", "consumers", "consumer_manifest_hash"],
+    "required_consumer_fields": ["consumer_id", "artifact_hash", "row_ids"],
+    "additional_fields": false,
+    "rows_sorted_by": "consumer_id bytewise; each row_ids array bytewise",
+    "threshold_values_allowed": false,
+    "reject_when": ["missing, extra, empty, wrong-type, unknown, or malformed field", "duplicate or unsorted consumer IDs or row IDs", "consumer registry hash differs", "consumer cites an unknown registry row", "consumer manifest hash does not match canonical serialization", "consumer copies a numeric or categorical threshold instead of referencing the registry"]
   },
   "canonical_scope_schema": {
     "required_fields": ["schema_version", "row_ids", "scope_hash"],
@@ -126,7 +133,7 @@
     "reject_when": ["current pointer is missing or stale", "snapshot hash is duplicated", "predecessor chain is missing or cyclic", "snapshot is unlinked from the one current predecessor chain"]
   },
   "completion_snapshot_schema": {
-    "required_fields": ["schema_version", "snapshot_hash", "scope_hash", "scope_count", "release_sha", "status_counts", "row_dispositions", "row_disposition_hash", "evidence_registry_hash", "predecessor_hash", "verifier_receipt"],
+    "required_fields": ["schema_version", "snapshot_hash", "scope_hash", "scope_count", "release_sha", "status_counts", "row_dispositions", "row_disposition_hash", "evidence_registry_hash", "evidence_consumer_manifest_hash", "predecessor_hash", "verifier_receipt"],
     "status_fields": ["done_live", "valid_unfinished_implementation", "superseded_refused", "missing_unbound_evidence"],
     "additional_fields": false,
     "reject_when": ["status counts do not sum to scope_count", "scope row is missing or duplicated", "release_sha differs from exact live", "row disposition or evidence registry hash differs", "evidence-gated row is valid unfinished without a passed threshold and scoped implementation decision", "predecessor hash is omitted"]
@@ -218,7 +225,7 @@
       {"id":"S31","name":"Staging verification","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["service-health-check","verification-before-completion"],"depends_on":["S30"],"artifact":"staging-verification-evidence","applicability":"always","consumer_impact":["S32"]},
       {"id":"S32","name":"Production deployment","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["feature-lifecycle","service-health-check"],"depends_on":["S31"],"artifact":"production-release-receipt","applicability":"always","consumer_impact":["S33"]},
       {"id":"S33","name":"Exact live verification","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["service-health-check","verification-before-completion"],"depends_on":["S32"],"artifact":"exact-live-verification-evidence","applicability":"always","consumer_impact":["S34"]},
-      {"id":"S34","name":"Feedback retro and ledger","canonical_phase":"OUTPUT","owner":"project-coordinator-engineer","method_owners":["data-analysis","read-only-ops","retro"],"depends_on":["S33"],"artifact":"completion-ledger","applicability":"always","consumer_impact":["none"],"required_validator":{"script":"scripts/validate-gm-governance.py","inputs":["evidence-gate-registry","evidence-dispositions","canonical-scope","snapshot-manifest","exact-live-sha"],"receipt":"gm-governance-validation-receipt"}}
+      {"id":"S34","name":"Feedback retro and ledger","canonical_phase":"OUTPUT","owner":"project-coordinator-engineer","method_owners":["data-analysis","read-only-ops","retro"],"depends_on":["S33"],"artifact":"completion-ledger","applicability":"always","consumer_impact":["none"],"required_validator":{"script":"scripts/validate-gm-governance.py","inputs":["evidence-gate-registry","evidence-dispositions","evidence-consumer-manifest","canonical-scope","snapshot-manifest","exact-live-sha"],"receipt":"gm-governance-validation-receipt"}}
     ]
   }
 }
