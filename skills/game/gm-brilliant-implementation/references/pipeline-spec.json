@@ -1,0 +1,231 @@
+{
+  "domain": "gm-brilliant-implementation",
+  "adr_path": "adr/gm-brilliant-implementation.md",
+  "adr_hash": "sha256:ab9be2953f329f79875ba23a835e9637f1c9b8bc3dad97e2c65811951c446a4d",
+  "operator_profile": "production",
+  "reuse_agent": "project-coordinator-engineer",
+  "new_agent": null,
+  "shared_references": [
+    "workflow-dag.md",
+    "stage-contracts.md",
+    "cpu-systems-harmony.md",
+    "quality-gates.md"
+  ],
+  "subdomains": [
+    {
+      "name": "large-gm-program",
+      "task_type": "generation",
+      "description": "Coordinate a large GM implementation from evidence through exact live verification and feedback closure.",
+      "skill_name": "gm-brilliant-implementation",
+      "pairs_with_agent": "project-coordinator-engineer",
+      "references_needed": [
+        "workflow-dag.md",
+        "stage-contracts.md",
+        "cpu-systems-harmony.md",
+        "quality-gates.md"
+      ],
+      "scripts_needed": ["scripts/validate-gm-governance.py"],
+      "routing_triggers": [
+        "large GM implementation",
+        "large GM feature",
+        "multi-system GM feature",
+        "multi-wave GM program",
+        "GM systems overhaul",
+        "CPU systems harmony",
+        "Auto Book multi-system improvement"
+      ],
+      "chain": [
+        {"step": "ADR", "family": "invariant", "output_schema": "decision-record", "consumes": null, "params": {}, "profile_gate": null},
+        {"step": "RESEARCH", "family": "research-gathering", "output_schema": "research-artifact", "consumes": "decision-record", "params": {"agents": 3, "aspects": ["player-system", "implementation-system", "release-system"], "timeout_minutes": 10}, "profile_gate": null},
+        {"step": "COMPILE", "family": "structuring", "output_schema": "structured-corpus", "consumes": "research-artifact", "params": {}, "profile_gate": null},
+        {"step": "PLAN", "family": "decision-planning", "output_schema": "decision-record", "consumes": "structured-corpus", "params": {}, "profile_gate": null},
+        {"step": "EXECUTE", "family": "git-release", "output_schema": "execution-report", "consumes": "decision-record", "params": {}, "profile_gate": null},
+        {"step": "VALIDATE", "family": "validation", "output_schema": "verdict", "consumes": "execution-report", "params": {"max_refine_cycles": 3}, "profile_gate": null},
+        {"step": "OUTPUT", "family": "synthesis-reporting", "output_schema": "pipeline-summary", "consumes": "verdict", "params": {}, "profile_gate": null}
+      ]
+    }
+  ],
+  "canonical_phases": ["ADR", "RESEARCH", "COMPILE", "PLAN", "EXECUTE", "VALIDATE", "OUTPUT"],
+  "deploy_lease_schema": {
+    "required_before_node": "S30",
+    "held_through_node": "S33",
+    "required_fields": ["repository", "environment_scope", "integration_owner", "coordinator_or_lock", "acquired_at", "expires_at", "live_sha_at_acquire", "candidate_sha", "included_commits", "ready_artifacts", "ready_artifact_manifest_hash", "candidate_closure_hash", "deferred_ready_commits", "broadcast_receipt", "status"],
+    "additional_fields": false,
+    "environment_scope": ["staging", "production"],
+    "active_status": "active",
+    "terminal_statuses": ["released_after_live", "released_after_rollback"],
+    "reject_when": [
+      "missing, extra, empty, wrong-type, duplicate, unknown, or malformed field",
+      "multiple integration owners or active leases for the repository and environment scope",
+      "coordinator or project lock ownership cannot be proved",
+      "expires_at is not after acquired_at or lease is expired",
+      "live_sha_at_acquire differs from the immediately reread live SHA",
+      "candidate_sha is absent from included_commits or changes after staging",
+      "a ready accepted wave commit is neither included nor explicitly deferred with a wave-ledger stop reason",
+      "included commit is not present in the clean integration candidate",
+      "ready artifact record is missing artifact_id, source base/head, prerequisite closure, closure mode, or required hashes",
+      "file_set closure path-set or content-tree hash does not recompute against the candidate",
+      "full_diff closure hash does not recompute from source base through every prerequisite to source head",
+      "ready artifact prerequisite content is absent even though a child or top commit is present",
+      "ready artifact manifest or aggregate candidate closure hash differs after conflict resolution",
+      "ready artifacts overlap paths without an approved aggregate resolution record",
+      "non-owner staging or production caller differs from integration_owner",
+      "lease terminates without exact-live or rollback receipt"
+    ]
+  },
+  "exact_state_incident_schema": {
+    "required_fields": ["control_id", "release_sha", "state_class_hash", "environment", "reproduction_steps_hash", "expected", "observed", "severity_trigger", "evidence_hash", "independent_confirmation", "disposition", "repair_scope", "rollback_pointer", "owner", "stop_condition"],
+    "additional_fields": false,
+    "control_ids": ["FB-P06", "FB-P08"],
+    "severity_triggers": ["state_loss", "blocked_core_action", "duplicate_write", "sustained_5xx", "truth_breach", "accessibility_blocker", "none"],
+    "dispositions": ["reproduced", "not_reproduced", "monitor", "repair_now", "contain_now"],
+    "product_change_dispositions": ["repair_now"],
+    "reject_when": [
+      "missing, extra, empty, wrong-type, unknown, or malformed field",
+      "release SHA or evidence hashes do not match their declared patterns",
+      "record contains a raw save, player, worker, relationship, session, or feedback identifier",
+      "repair_now has severity_trigger none or lacks independent confirmation, bounded repair scope, rollback pointer, owner, or deterministic stop condition",
+      "contain_now is not an actively observed production emergency or expands beyond reversible containment",
+      "reproduced, not_reproduced, monitor, or contain_now is used to authorize product feature work"
+    ]
+  },
+  "evidence_gate_schema": {
+    "required_fields": ["row_id", "threshold_registry_hash", "evidence_kind", "observed_threshold", "observed_window_count", "eligible_denominator", "protocol_hash", "privacy_guard", "status", "allowed_actions", "product_change_authorized", "scoped_decision_hash", "owner", "next_evaluation"],
+    "additional_fields": false,
+    "evidence_kinds": ["unprompted_human", "privacy_safe_volume"],
+    "statuses": ["evidence_blocked", "threshold_met"],
+    "allowed_actions": ["measure", "recruit", "run_protocol", "reproduce"],
+    "product_change_authorized": false,
+    "reject_when": [
+      "missing, extra, empty, wrong-type, unknown, or malformed field",
+      "observed threshold is below required threshold but status is threshold_met",
+      "privacy_safe_volume lacks an eligible denominator or small-cell suppression",
+      "unprompted_human lacks a protocol hash",
+      "allowed actions contain product implementation, UI, copy, simulation, economy, progression, or system changes",
+      "product_change_authorized is true",
+      "next_evaluation is a speculative date rather than an explicit evidence condition"
+    ]
+  },
+  "evidence_gate_registry_schema": {
+    "required_fields": ["schema_version", "rows", "registry_hash"],
+    "required_row_fields": ["row_id", "evidence_kind", "required_threshold", "window_count", "eligible_denominator_required", "protocol_hash", "privacy_guard", "interpretation_trigger", "owner"],
+    "rows_sorted_by": "row_id bytewise",
+    "reject_when": ["duplicate or unsorted row IDs", "missing, extra, empty, wrong-type, unknown, or malformed field", "registry hash does not match canonical serialization"]
+  },
+  "evidence_consumer_manifest_schema": {
+    "required_fields": ["schema_version", "threshold_registry_hash", "consumers", "consumer_manifest_hash"],
+    "required_consumer_fields": ["consumer_id", "artifact_hash", "row_ids"],
+    "additional_fields": false,
+    "rows_sorted_by": "consumer_id bytewise; each row_ids array bytewise",
+    "threshold_values_allowed": false,
+    "reject_when": ["missing, extra, empty, wrong-type, unknown, or malformed field", "duplicate or unsorted consumer IDs or row IDs", "consumer registry hash differs", "consumer cites an unknown registry row", "consumer manifest hash does not match canonical serialization", "consumer copies a numeric or categorical threshold instead of referencing the registry"]
+  },
+  "canonical_scope_schema": {
+    "required_fields": ["schema_version", "row_ids", "scope_hash"],
+    "additional_fields": false,
+    "rows_sorted_by": "row_id bytewise",
+    "reject_when": ["duplicate or unsorted row IDs", "scope hash does not match canonical serialization", "snapshot row coverage differs"]
+  },
+  "snapshot_manifest_schema": {
+    "required_fields": ["schema_version", "current_snapshot_hash", "snapshots"],
+    "additional_fields": false,
+    "current_snapshot_count": 1,
+    "reject_when": ["current pointer is missing or stale", "snapshot hash is duplicated", "predecessor chain is missing or cyclic", "snapshot is unlinked from the one current predecessor chain"]
+  },
+  "completion_snapshot_schema": {
+    "required_fields": ["schema_version", "snapshot_hash", "scope_hash", "scope_count", "release_sha", "status_counts", "row_dispositions", "row_disposition_hash", "evidence_registry_hash", "evidence_consumer_manifest_hash", "predecessor_hash", "verifier_receipt"],
+    "status_fields": ["done_live", "valid_unfinished_implementation", "superseded_refused", "missing_unbound_evidence"],
+    "additional_fields": false,
+    "reject_when": ["status counts do not sum to scope_count", "scope row is missing or duplicated", "release_sha differs from exact live", "row disposition or evidence registry hash differs", "evidence-gated row is valid unfinished without a passed threshold and scoped implementation decision", "predecessor hash is omitted"]
+  },
+  "applicability_schema": {
+    "predicate_ids": ["always", "cpu_system_scope_present", "backend_change_required", "frontend_change_required"],
+    "skip_reasons": ["predicate_false"],
+    "record_required_fields": ["node_id", "predicate_id", "result", "evidence_hash", "evaluated_spec_hash", "owner", "consumer_impact", "status", "skip_reason"],
+    "record_additional_fields": false,
+    "statuses": ["ready", "complete", "not_applicable"],
+    "hash_pattern": "^sha256:[0-9a-f]{64}$",
+    "conditional_functions": {
+      "cpu_system_scope_present": {
+        "source_node": "S09",
+        "source_schema": "cpu-system-registry",
+        "true_when": "complete == true AND EXISTS systems[*] WHERE delegated_or_automatic == true AND change_scope IN allowed_change_scopes",
+        "false_when": "complete == true AND NOT EXISTS matching systems[*]",
+        "allowed_change_scopes": ["introduced", "materially_changed", "authority_changed", "shared_conflict_changed", "promise_or_policy_changed"],
+        "invalid_when": ["complete != true", "unknown change_scope", "duplicate system_id", "malformed system"]
+      },
+      "backend_change_required": {
+        "source_node": "S16",
+        "source_schema": "architecture-flow-map",
+        "true_when": "complete == true AND backend IN implementation_surfaces",
+        "false_when": "complete == true AND backend NOT IN implementation_surfaces",
+        "allowed_surfaces": ["backend", "frontend"],
+        "invalid_when": ["complete != true", "unknown surface", "duplicate surface", "malformed array", "no backend or frontend surface"]
+      },
+      "frontend_change_required": {
+        "source_node": "S16",
+        "source_schema": "architecture-flow-map",
+        "true_when": "complete == true AND frontend IN implementation_surfaces",
+        "false_when": "complete == true AND frontend NOT IN implementation_surfaces",
+        "allowed_surfaces": ["backend", "frontend"],
+        "invalid_when": ["complete != true", "unknown surface", "duplicate surface", "malformed array", "no backend or frontend surface"]
+      }
+    },
+    "reject_when": [
+      "missing, extra, wrong-type, empty, duplicate, unknown, or malformed field",
+      "hash shape or content mismatch",
+      "evidence_hash differs from canonical S09 or S16 artifact hash",
+      "owner differs from declared node owner",
+      "consumer_impact is empty, unknown, or incorrect",
+      "result is not Boolean",
+      "always predicate result is false",
+      "status is not_applicable while result is true",
+      "conditional result is false while status is not not_applicable",
+      "skip_reason is non-null on a true or executed node",
+      "skipped node has missing or alternate skip_reason",
+      "evaluated_spec_hash differs from envelope spec hash",
+      "incomplete or malformed source artifact is treated as false",
+      "CPU program has false cpu_system_scope_present",
+      "backend_change_required and frontend_change_required are both false"
+    ]
+  },
+  "runtime_dag": {
+    "node_count": 34,
+    "nodes": [
+      {"id":"S01","name":"Authority and current state","canonical_phase":"ADR","owner":"project-coordinator-engineer","method_owners":["feature-lifecycle","read-only-ops"],"depends_on":[],"artifact":"authority-manifest","applicability":"always","consumer_impact":["S02","S09"]},
+      {"id":"S02","name":"Player evidence","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","data-analysis"],"depends_on":["S01"],"artifact":"player-evidence-inventory","applicability":"always","consumer_impact":["S03","S04","S05","S06","S07","S08","S09"]},
+      {"id":"S03","name":"Core-loop extraction","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S02"],"artifact":"core-loop-map","applicability":"always","consumer_impact":["S06","S15","S22","S29"]},
+      {"id":"S04","name":"Player psychology and Fogg","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S02"],"artifact":"fogg-hypothesis-ledger","applicability":"always","consumer_impact":["S06","S18","S29"]},
+      {"id":"S05","name":"Attribution audit","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S02"],"artifact":"attribution-ledger","applicability":"always","consumer_impact":["S15","S22","S27","S29"]},
+      {"id":"S06","name":"Choice and stakes","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S03","S04"],"artifact":"choice-stakes-inventory","applicability":"always","consumer_impact":["S07","S15","S18"]},
+      {"id":"S07","name":"Progression and economy","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S02","S06"],"artifact":"progression-economy-contract","applicability":"always","consumer_impact":["S15","S16","S22"]},
+      {"id":"S08","name":"Era privacy and trust","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","fact-check"],"depends_on":["S02"],"artifact":"era-privacy-trust-boundary","applicability":"always","consumer_impact":["S15","S16","S17"]},
+      {"id":"S09","name":"CPU system inventory","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","architecture-deepening"],"depends_on":["S01","S02"],"artifact":"cpu-system-registry","applicability":"always","consumer_impact":["S10","S11","S12","S13","S14"]},
+      {"id":"S10","name":"CPU conflict matrix","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","architecture-deepening"],"depends_on":["S09"],"artifact":"cpu-conflict-matrix","applicability":"cpu_system_scope_present","consumer_impact":["S11","S12","S13","S14"]},
+      {"id":"S11","name":"CPU one-brain two-hands parity","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S10"],"artifact":"cpu-parity-verdict","applicability":"cpu_system_scope_present","consumer_impact":["S14","S17"]},
+      {"id":"S12","name":"CPU precedence and preservation","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","architecture-deepening"],"depends_on":["S10"],"artifact":"cpu-precedence-preservation-contract","applicability":"cpu_system_scope_present","consumer_impact":["S14","S17"]},
+      {"id":"S13","name":"CPU failure receipts and control","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S10"],"artifact":"cpu-failure-receipt-control-contract","applicability":"cpu_system_scope_present","consumer_impact":["S14","S24","S25","S27"]},
+      {"id":"S14","name":"CPU cross-system simulation","canonical_phase":"RESEARCH","owner":"project-coordinator-engineer","method_owners":["game-design","multi-persona-critique"],"depends_on":["S11","S12","S13"],"artifact":"cpu-cross-system-verdict","applicability":"cpu_system_scope_present","consumer_impact":["S15","S17","S27"]},
+      {"id":"S15","name":"ADR and version envelope","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["adr-consultation","feature-lifecycle"],"depends_on":["S03","S04","S05","S06","S07","S08","S14"],"artifact":"implementation-envelope","applicability":"always","consumer_impact":["S16","S18","S22"]},
+      {"id":"S16","name":"Architecture and data flow","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["architecture-deepening","integration-checker"],"depends_on":["S15"],"artifact":"architecture-flow-map","applicability":"always","consumer_impact":["S17","S23","S24","S25","S26"]},
+      {"id":"S17","name":"Simulation determinism and CPU ignore","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["game-design","test-driven-development"],"depends_on":["S14","S16"],"artifact":"simulation-determinism-contract","applicability":"always","consumer_impact":["S23","S24","S27"]},
+      {"id":"S18","name":"Mobile 360 information architecture","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["design","distinctive-frontend-design"],"depends_on":["S03","S04","S06","S15"],"artifact":"mobile-360-information-map","applicability":"always","consumer_impact":["S19","S20","S21","S23","S25"]},
+      {"id":"S19","name":"Distinctive visual design","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["distinctive-frontend-design"],"depends_on":["S18"],"artifact":"visual-direction-contract","applicability":"always","consumer_impact":["S20","S21","S23","S25"]},
+      {"id":"S20","name":"Accessibility and reduced motion","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["design","e2e-testing"],"depends_on":["S18","S19"],"artifact":"accessibility-motion-contract","applicability":"always","consumer_impact":["S23","S25","S27"]},
+      {"id":"S21","name":"Copy and anti-AI","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["comment-quality"],"depends_on":["S18","S19"],"artifact":"copy-verdict","applicability":"always","consumer_impact":["S23","S25","S29"]},
+      {"id":"S22","name":"Analytics and KPI guards","canonical_phase":"COMPILE","owner":"project-coordinator-engineer","method_owners":["data-analysis","game-design"],"depends_on":["S03","S05","S07","S15"],"artifact":"analytics-kpi-contract","applicability":"always","consumer_impact":["S23","S27","S33","S34"]},
+      {"id":"S23","name":"Wave and worktree plan","canonical_phase":"PLAN","owner":"project-coordinator-engineer","method_owners":["planning","feature-lifecycle","subagent-driven-development"],"depends_on":["S16","S17","S18","S19","S20","S21","S22"],"artifact":"wave-worktree-plan","applicability":"always","consumer_impact":["S24","S25","S26"]},
+      {"id":"S24","name":"Backend implementation","canonical_phase":"EXECUTE","owner":"project-coordinator-engineer","method_owners":["test-driven-development"],"depends_on":["S23"],"artifact":"backend-implementation-commit","applicability":"backend_change_required","consumer_impact":["S26"]},
+      {"id":"S25","name":"Frontend implementation","canonical_phase":"EXECUTE","owner":"project-coordinator-engineer","method_owners":["distinctive-frontend-design","test-driven-development"],"depends_on":["S23"],"artifact":"frontend-implementation-commit","applicability":"frontend_change_required","consumer_impact":["S26"]},
+      {"id":"S26","name":"Integration","canonical_phase":"EXECUTE","owner":"project-coordinator-engineer","method_owners":["integration-checker"],"depends_on":["S24","S25"],"artifact":"integrated-release-candidate","applicability":"always","consumer_impact":["S27"]},
+      {"id":"S27","name":"Focused tests","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["verification-before-completion","testing-preferred-patterns"],"depends_on":["S26"],"artifact":"focused-test-verdict","applicability":"always","consumer_impact":["S28"]},
+      {"id":"S28","name":"Adversarial reviews","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["parallel-code-review","multi-persona-critique","security-review","integration-checker"],"depends_on":["S27"],"artifact":"adversarial-review-verdict","applicability":"always","consumer_impact":["S29"]},
+      {"id":"S29","name":"Predeploy game-design gate","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["game-design"],"depends_on":["S28"],"artifact":"predeploy-game-design-verdict","applicability":"always","consumer_impact":["S30"]},
+      {"id":"S30","name":"Emergency staging","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["feature-lifecycle","service-health-check"],"depends_on":["S29"],"artifact":"staging-release-receipt","applicability":"always","consumer_impact":["S31"]},
+      {"id":"S31","name":"Staging verification","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["service-health-check","verification-before-completion"],"depends_on":["S30"],"artifact":"staging-verification-evidence","applicability":"always","consumer_impact":["S32"]},
+      {"id":"S32","name":"Production deployment","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["feature-lifecycle","service-health-check"],"depends_on":["S31"],"artifact":"production-release-receipt","applicability":"always","consumer_impact":["S33"]},
+      {"id":"S33","name":"Exact live verification","canonical_phase":"VALIDATE","owner":"project-coordinator-engineer","method_owners":["service-health-check","verification-before-completion"],"depends_on":["S32"],"artifact":"exact-live-verification-evidence","applicability":"always","consumer_impact":["S34"]},
+      {"id":"S34","name":"Feedback retro and ledger","canonical_phase":"OUTPUT","owner":"project-coordinator-engineer","method_owners":["data-analysis","read-only-ops","retro"],"depends_on":["S33"],"artifact":"completion-ledger","applicability":"always","consumer_impact":["none"],"required_validator":{"script":"scripts/validate-gm-governance.py","inputs":["evidence-gate-registry","evidence-dispositions","evidence-consumer-manifest","canonical-scope","snapshot-manifest","exact-live-sha"],"receipt":"gm-governance-validation-receipt"}}
+    ]
+  }
+}

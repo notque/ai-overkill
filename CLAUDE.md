@@ -50,3 +50,6 @@ Other hook-emitted tags (`<afk-mode>`, `[operator-context]`, `[dream]`, `[learne
 - **CI:** run `ruff check . --config pyproject.toml` AND `ruff format --check . --config pyproject.toml` before pushing. Full CI policy: `skills/process/pr-workflow/references/ci-check.md`.
 - **ADRs:** `adr/` is gitignored (local-only working documents). See `skills/process/adr-consultation/SKILL.md`.
 - **Agent reference files:** validate with `python3 scripts/validate-references.py`. See `agents/toolkit-governance-engineer.md`.
+- **GM evidence and closure:** large GM programs use the canonical registry,
+  snapshot, and validator owned by `gm-brilliant-implementation`; this file does
+  not redefine that domain contract.
