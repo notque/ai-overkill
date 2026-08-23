@@ -343,6 +343,14 @@
       "notes": "Phaser game dev — agent resolved via pairs_with (no agent field). phaser-gamedev pairs_with=['typescript-frontend-engineer', ...]. Exercises Step 2 of resolve_agent."
     },
     {
+      "request": "run a large multi-system GM feature through the full evidence-to-live implementation workflow",
+      "expected_agent": null,
+      "expected_skill": "gm-brilliant-implementation",
+      "category": "game-development",
+      "routing_tier": "force_route",
+      "notes": "Large multi-system GM program — force-route to the dedicated evidence-to-live implementation workflow."
+    },
+    {
       "request": "generate sprite sheet for AI character art",
       "expected_agent": "python-general-engineer",
       "expected_skill": "game-sprite-pipeline",

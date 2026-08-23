@@ -70,6 +70,7 @@ SKILL_MAPPING: dict[str, str] = {
     # game/
     "game-asset-generator": "game",
     "game-design": "game",
+    "gm-brilliant-implementation": "game",
     "game-pipeline": "game",
     "game-sprite-pipeline": "game",
     "phaser-gamedev": "game",
