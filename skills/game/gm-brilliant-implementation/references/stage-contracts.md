@@ -152,3 +152,62 @@ receipt. Approval and deploy lease are separate records.
 Each stage's artifact name, owner, dependencies, consumer impact, and method
 owners are in `pipeline-spec.json`. When a method-owner contract changes, update
 the binding and validation fixture, not a copied checklist here.
+
+## Exact-state incident record
+
+Conditional defect controls use exactly these fields:
+
+```json
+{
+  "control_id": "FB-P06 or FB-P08",
+  "release_sha": "40 lowercase hex",
+  "state_class_hash": "sha256:<64 lowercase hex>",
+  "environment": "production, staging, or isolated fixture",
+  "reproduction_steps_hash": "sha256:<64 lowercase hex>",
+  "expected": "non-empty bounded statement",
+  "observed": "non-empty bounded statement",
+  "severity_trigger": "state_loss, blocked_core_action, duplicate_write, sustained_5xx, truth_breach, accessibility_blocker, or none",
+  "evidence_hash": "sha256:<64 lowercase hex>",
+  "independent_confirmation": "artifact path or sha256 hash",
+  "disposition": "reproduced, not_reproduced, monitor, repair_now, or contain_now",
+  "repair_scope": "bounded scope or null",
+  "rollback_pointer": "git:<sha> or null",
+  "owner": "one incident owner",
+  "stop_condition": "non-empty deterministic condition"
+}
+```
+
+`repair_now` requires a non-`none` severity trigger, independent confirmation,
+repair scope, and rollback pointer. `contain_now` is restricted to an actively
+observed production emergency and the narrowest reversible containment; it
+cannot authorize feature work. `not_reproduced` and `monitor` forbid product
+changes. Reject raw save, worker, relationship, session, or player identifiers;
+the state-class hash describes only the minimum reproducible shape.
+
+## Evidence-gate disposition record
+
+Human or volume-dependent rows use exactly these fields:
+
+```json
+{
+  "row_id": "stable ledger row",
+  "evidence_kind": "unprompted_human or privacy_safe_volume",
+  "required_threshold": "integer >= 1",
+  "observed_threshold": "integer >= 0",
+  "eligible_denominator": "integer >= 0 or null",
+  "protocol_hash": "sha256:<64 lowercase hex>",
+  "privacy_guard": "none_needed or small_cell_suppressed",
+  "status": "evidence_blocked or threshold_met",
+  "allowed_actions": ["measure", "recruit", "run_protocol", "reproduce"],
+  "product_change_authorized": false,
+  "owner": "one evidence owner",
+  "next_evaluation": "explicit condition, not a speculative date"
+}
+```
+
+`evidence_blocked` is mandatory when `observed_threshold < required_threshold`,
+when an analytics denominator is absent, or when the declared privacy/protocol
+guard did not run. While blocked, `product_change_authorized` must be false and
+the allowed-action set may contain only the four listed values. A
+`threshold_met` record may be evaluated into a separate scoped implementation
+decision; it does not itself authorize a change.

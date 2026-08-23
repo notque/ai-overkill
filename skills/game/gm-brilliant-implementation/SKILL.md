@@ -232,8 +232,17 @@ feedback, retain every valid unfinished item, record metric and welfare guards,
 and run `retro`. Report exact live SHA, evidence, decisions, changes, tests,
 release proof, feedback window, and next wave.
 
-**Gate**: The ledger is complete, narrow, hash-linked, and honest about every
-unfinished or unmeasured claim. The run is complete.
+For conditional defects and human/volume-dependent evidence, use the binding
+incident and evidence-disposition records in `references/stage-contracts.md`.
+Never turn a zero-volume signal, an unreproduced report, or an unmet research
+threshold into speculative product work. A severe repair-now lane opens only
+after the exact-state reproduction record proves its trigger, except for an
+actively observed production emergency where containment is the narrowest safe
+action and the record is completed during containment.
+
+**Gate**: The ledger is complete, narrow, hash-linked, honest about every
+unfinished or unmeasured claim, and every conditional row has a machine-checkable
+trigger plus refusal disposition. The run is complete.
 
 ## Checkpoint and resume pattern
 

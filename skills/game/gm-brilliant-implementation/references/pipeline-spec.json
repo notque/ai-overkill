@@ -73,6 +73,39 @@
       "lease terminates without exact-live or rollback receipt"
     ]
   },
+  "exact_state_incident_schema": {
+    "required_fields": ["control_id", "release_sha", "state_class_hash", "environment", "reproduction_steps_hash", "expected", "observed", "severity_trigger", "evidence_hash", "independent_confirmation", "disposition", "repair_scope", "rollback_pointer", "owner", "stop_condition"],
+    "additional_fields": false,
+    "control_ids": ["FB-P06", "FB-P08"],
+    "severity_triggers": ["state_loss", "blocked_core_action", "duplicate_write", "sustained_5xx", "truth_breach", "accessibility_blocker", "none"],
+    "dispositions": ["reproduced", "not_reproduced", "monitor", "repair_now", "contain_now"],
+    "product_change_dispositions": ["repair_now"],
+    "reject_when": [
+      "missing, extra, empty, wrong-type, unknown, or malformed field",
+      "release SHA or evidence hashes do not match their declared patterns",
+      "record contains a raw save, player, worker, relationship, session, or feedback identifier",
+      "repair_now has severity_trigger none or lacks independent confirmation, bounded repair scope, rollback pointer, owner, or deterministic stop condition",
+      "contain_now is not an actively observed production emergency or expands beyond reversible containment",
+      "reproduced, not_reproduced, monitor, or contain_now is used to authorize product feature work"
+    ]
+  },
+  "evidence_gate_schema": {
+    "required_fields": ["row_id", "evidence_kind", "required_threshold", "observed_threshold", "eligible_denominator", "protocol_hash", "privacy_guard", "status", "allowed_actions", "product_change_authorized", "owner", "next_evaluation"],
+    "additional_fields": false,
+    "evidence_kinds": ["unprompted_human", "privacy_safe_volume"],
+    "statuses": ["evidence_blocked", "threshold_met"],
+    "allowed_actions": ["measure", "recruit", "run_protocol", "reproduce"],
+    "product_change_authorized": false,
+    "reject_when": [
+      "missing, extra, empty, wrong-type, unknown, or malformed field",
+      "observed threshold is below required threshold but status is threshold_met",
+      "privacy_safe_volume lacks an eligible denominator or small-cell suppression",
+      "unprompted_human lacks a protocol hash",
+      "allowed actions contain product implementation, UI, copy, simulation, economy, progression, or system changes",
+      "product_change_authorized is true",
+      "next_evaluation is a speculative date rather than an explicit evidence condition"
+    ]
+  },
   "applicability_schema": {
     "predicate_ids": ["always", "cpu_system_scope_present", "backend_change_required", "frontend_change_required"],
     "skip_reasons": ["predicate_false"],

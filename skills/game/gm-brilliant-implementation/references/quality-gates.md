@@ -83,3 +83,25 @@ asset, or route guards.
 Record exact live SHA, checks, review verdicts, release evidence, feedback
 baseline/window, unresolved items, and next-wave dependencies. A missing
 measurement remains `missing evidence`, never `done`.
+
+## Conditional defect and evidence gate
+
+- A reported defect enters implementation only with an exact-state
+  reproduction record: release SHA, state-class fingerprint, environment,
+  deterministic steps, expected/observed result, severity, privacy-safe
+  evidence hash, and independent confirmation.
+- `repair_now` is allowed only for reproduced state loss, blocked core action,
+  duplicate write, sustained 5xx spike, truth-boundary breach, or accessibility
+  blocker. The active incident owner, rollback pointer, bounded repair scope,
+  and stop condition are mandatory.
+- An actively observed production emergency may be contained before full
+  reproduction only when containment is narrower than continued harm. It may
+  not authorize feature work, and the incident record must be completed during
+  containment.
+- Human and volume-dependent rows remain `evidence_blocked` until their exact
+  threshold is met. Zero observations are no signal. Qualitative rows require
+  the declared unprompted protocol; analytics rows require the declared
+  eligible denominator and privacy/small-cell guard.
+- While blocked, the only allowed work is privacy-safe measurement,
+  recruitment, protocol execution, or reproduction. UI, simulation, economy,
+  copy, and progression changes are refused as speculative.

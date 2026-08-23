@@ -41,6 +41,14 @@
 14. Reject undeclared paths, missing/deleted expected paths, overlapping ready
     artifacts without an approved aggregate resolution, and any candidate
     closure hash that is not recomputed after conflict resolution.
+15. Reject an exact-state incident record with a missing state-class hash,
+    evidence hash, independent confirmation, owner, stop condition, or an
+    unknown severity/disposition; reject `repair_now` without a qualifying
+    severe trigger, bounded scope, and rollback pointer.
+16. Reject an evidence disposition that marks an under-threshold row complete,
+    lacks its eligible denominator or privacy/protocol guard, authorizes a
+    product change directly, or allows any action beyond measurement,
+    recruitment, protocol execution, and reproduction.
 
 ## Behavioral cases
 
@@ -55,6 +63,9 @@
 | Release | Exact live SHA/assets/routes/services recorded | “Deployed” without proof |
 | Concurrent waves | One owner acquires the deploy lease, rereads live, combines every ready artifact and prerequisite, proves file-set or full-diff closure, broadcasts the candidate, and alone deploys | Two waves deploy, or a tip-only integration drops prerequisite content |
 | Feedback | Privacy-safe delta and valid unfinished items retained | Only positive/top feedback reported |
+| Unreproduced defect | Record exact release/state class and monitor; refuse product edits | Guess a fix from a report or a different save |
+| Severe stop | Open repair-now only for a reproduced allowlisted severity with owner, scope, rollback, and stop condition | “Urgent” bypasses reproduction or expands scope |
+| Human/volume evidence | Keep row evidence-blocked until its declared threshold and guards pass | Zero/small sample becomes a feature request |
 
 ## Pass checks
 
