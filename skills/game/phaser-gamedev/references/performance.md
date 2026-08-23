@@ -4,6 +4,12 @@ Object pooling, GC optimization, camera culling, texture atlases, and mobile per
 
 ---
 
+To drive frame rate to a stated target rather than apply fixes blind, run the
+`hill-climb` skill: it baselines p1-low FPS, profiles, and accepts or reverts one
+change at a time. Playbook: `skills/meta/hill-climb/references/domain-playbooks.md`.
+
+---
+
 ## Object Pooling
 
 Creating and destroying game objects per-frame is the fastest path to garbage collection pauses and frame drops. The solution is **pooling**: pre-create objects, hide/show them instead of destroy/create.

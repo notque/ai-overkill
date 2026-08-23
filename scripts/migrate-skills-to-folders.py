@@ -107,6 +107,7 @@ SKILL_MAPPING: dict[str, str] = {
     "docs-sync-checker": "meta",
     "explanation-traces": "meta",
     "objective-loop": "meta",
+    "hill-climb": "meta",
     # process/ — methodologies, git, debugging
     "planning": "process",
     "session-handoff": "process",

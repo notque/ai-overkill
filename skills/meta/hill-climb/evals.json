@@ -1,0 +1,53 @@
+{
+  "skill_name": "hill-climb",
+  "queries": [
+    {
+      "query": "make the import pipeline faster - it takes 40 seconds on the 10k fixture",
+      "should_trigger": true
+    },
+    {
+      "query": "reduce peak memory usage of the worker until it fits in 512MB",
+      "should_trigger": true
+    },
+    {
+      "query": "speed up CI, the pipeline takes 22 minutes and I want it under 10",
+      "should_trigger": true
+    },
+    {
+      "query": "get p99 latency on /search under 200ms, profile it and iterate",
+      "should_trigger": true
+    },
+    {
+      "query": "cut the bundle size down, it's 1.8MB gzipped now",
+      "should_trigger": true
+    },
+    {
+      "query": "the game drops to 30fps in combat - profile and optimize until it holds 60",
+      "should_trigger": true
+    },
+    {
+      "query": "the importer crashes with a KeyError on rows missing an id field",
+      "should_trigger": false
+    },
+    {
+      "query": "keep working until all PRs are merged and CI is green",
+      "should_trigger": false
+    },
+    {
+      "query": "rename this variable to something clearer",
+      "should_trigger": false
+    },
+    {
+      "query": "make the copy on the landing page punchier",
+      "should_trigger": false
+    },
+    {
+      "query": "how many CPUs should I provision for the new service?",
+      "should_trigger": false
+    },
+    {
+      "query": "add an index on the users.email column",
+      "should_trigger": false
+    }
+  ]
+}

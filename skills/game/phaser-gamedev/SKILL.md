@@ -50,6 +50,7 @@ This skill builds complete Phaser 3 2D games using a **Phased Construction** pat
 | `references/tilemaps.md` | `tilemaps.md` | Tilemap / Tiled |
 | `references/spritesheets.md` | `spritesheets.md` | Sprites / animation |
 | `references/performance.md` | `performance.md` | Performance concern |
+| Frame rate must reach a target number | `hill-climb` skill | Measured baseline, profile, accept/revert loop on p1-low FPS |
 | `references/game-feel-patterns.md` | `game-feel-patterns.md` | Polish / juice signal |
 | `references/tilemaps-and-physics.md` | `tilemaps-and-physics.md` | Complex maps / Matter.js |
 
