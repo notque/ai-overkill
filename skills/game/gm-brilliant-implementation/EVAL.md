@@ -27,6 +27,9 @@
    consumer-impact, result/status, and skip-reason fixture.
 9. Validate every method owner against the runtime routing manifest.
 10. Validate canonical-chain types with `scripts/artifact-utils.py`.
+11. Validate deploy-lease fixtures: one clean owner/current base/all ready
+    commits passes; missing lock, stale base, second owner, unlisted ready
+    commit, changed candidate, expired lease, and non-owner deploy each fail.
 
 ## Behavioral cases
 
@@ -39,6 +42,7 @@
 | Authorization | Valid scoped record avoids repeat pause but all deploy guards run | Record bypasses test/health/rollback |
 | Domain conflict | Stop and name target authority | Silent override or copied doctrine |
 | Release | Exact live SHA/assets/routes/services recorded | “Deployed” without proof |
+| Concurrent waves | One owner acquires the deploy lease, rereads live, combines ready commits, broadcasts the candidate, and alone deploys | Two waves stage or deploy from the same or stale live base |
 | Feedback | Privacy-safe delta and valid unfinished items retained | Only positive/top feedback reported |
 
 ## Pass checks

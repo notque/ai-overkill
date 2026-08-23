@@ -45,7 +45,9 @@ Conditional nodes still participate in dependency convergence through a valid
 - S11, S12, and S13 may run after S10. S14 is their join.
 - S17, S18/S19/S20/S21, and S22 may progress after their declared inputs.
 - S24 and S25 may run in isolated worktrees after S23. They may not share a
-  writer. S26 is the only integration join.
+  writer. S26 is the only integration join. One named integration owner also
+  owns the release train; parallel waves deliver commits to that owner and do
+  not deploy.
 - S28 fans out independent perspectives, system, integration, and security
   reviews. The stage completes only after a converged verdict.
 
@@ -64,6 +66,11 @@ Resume uses the exact pipeline spec hash and node input hashes. A changed input
 invalidates that node and all descendants. Identical complete nodes are reused.
 Failed nodes retry at most three times. A deploy resumes only through the target
 repository's supported deploy or rollback command.
+
+Before S30, acquire one project deploy coordinator/lock, reread the live SHA,
+collect all ready accepted commits into one clean candidate, and broadcast the
+lease. The same owner holds it through S33 or rollback. Any concurrent deploy,
+stale base, changed candidate, or unaccounted ready commit stops the graph.
 
 ## Deterministic validation
 

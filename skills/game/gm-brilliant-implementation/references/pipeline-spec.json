@@ -46,6 +46,27 @@
     }
   ],
   "canonical_phases": ["ADR", "RESEARCH", "COMPILE", "PLAN", "EXECUTE", "VALIDATE", "OUTPUT"],
+  "deploy_lease_schema": {
+    "required_before_node": "S30",
+    "held_through_node": "S33",
+    "required_fields": ["repository", "environment_scope", "integration_owner", "coordinator_or_lock", "acquired_at", "expires_at", "live_sha_at_acquire", "candidate_sha", "included_commits", "deferred_ready_commits", "broadcast_receipt", "status"],
+    "additional_fields": false,
+    "environment_scope": ["staging", "production"],
+    "active_status": "active",
+    "terminal_statuses": ["released_after_live", "released_after_rollback"],
+    "reject_when": [
+      "missing, extra, empty, wrong-type, duplicate, unknown, or malformed field",
+      "multiple integration owners or active leases for the repository and environment scope",
+      "coordinator or project lock ownership cannot be proved",
+      "expires_at is not after acquired_at or lease is expired",
+      "live_sha_at_acquire differs from the immediately reread live SHA",
+      "candidate_sha is absent from included_commits or changes after staging",
+      "a ready accepted wave commit is neither included nor explicitly deferred with a wave-ledger stop reason",
+      "included commit is not present in the clean integration candidate",
+      "non-owner staging or production caller differs from integration_owner",
+      "lease terminates without exact-live or rollback receipt"
+    ]
+  },
   "applicability_schema": {
     "predicate_ids": ["always", "cpu_system_scope_present", "backend_change_required", "frontend_change_required"],
     "skip_reasons": ["predicate_false"],

@@ -31,7 +31,9 @@ architecture, UI, tests, release, and feedback.
 5. The short typed chain and 34-node DAG validate together.
 6. CPU systems preserve parity, deterministic precedence, promises/policies,
    soft failure, truthful receipts, control transfer, and a CPU-ignore path.
-7. Implementation uses single-writer lanes and one integration convergence.
+7. Implementation uses single-writer lanes, one integration convergence, and
+   one deploy lease held by the named integration owner through live proof or
+   rollback.
 8. Authorization answers only the approval question; all safety guards run.
 9. Completion requires exact live evidence and an honest feedback ledger.
 
@@ -43,6 +45,9 @@ architecture, UI, tests, release, and feedback.
 - All owner/skill bindings exist in the runtime manifest.
 - Applicability schema rejects every malformed or inconsistent record described
   in `references/pipeline-spec.json`.
+- Deploy-lease validation rejects a stale live base, multiple owners, missing
+  coordinator/lock proof, unlisted ready commit, changed candidate, expired
+  lease, and non-owner staging or production.
 - Frontmatter, references, indexes, pipeline index, routing map, and mirrors pass
   deterministic validation.
 - Structural evaluation earns grade B or higher.

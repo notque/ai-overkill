@@ -91,6 +91,36 @@ and envelope version. It answers only the approval question. A scope, hash, or
 environment change invalidates it. Every repository and release safeguard still
 runs.
 
+## Deploy lease record
+
+Before S30, emit one record with exactly these fields:
+
+```json
+{
+  "repository": "canonical repository identity",
+  "environment_scope": ["staging", "production"],
+  "integration_owner": "one agent or operator identity",
+  "coordinator_or_lock": "project deploy coordinator or lock receipt",
+  "acquired_at": "RFC3339 timestamp",
+  "expires_at": "RFC3339 timestamp",
+  "live_sha_at_acquire": "40 lowercase hex",
+  "candidate_sha": "40 lowercase hex",
+  "included_commits": ["40 lowercase hex"],
+  "deferred_ready_commits": [],
+  "broadcast_receipt": "artifact path or sha256 hash",
+  "status": "active"
+}
+```
+
+The validator rejects missing or extra fields, multiple owners, an unproved
+coordinator/lock, expiry at or before acquisition, a candidate absent from the
+included set, duplicate commits, a live SHA that differs from the last read,
+an unlisted ready commit, a deferred ready commit without an explicit stop
+reason in the wave ledger, a candidate that changes after staging, or any
+staging/production attempt by a non-owner. `status` may move from `active` only
+to `released_after_live` or `released_after_rollback`, with the S33 or rollback
+receipt. Approval and deploy lease are separate records.
+
 ## Artifact ownership
 
 Each stage's artifact name, owner, dependencies, consumer impact, and method

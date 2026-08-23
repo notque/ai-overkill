@@ -154,7 +154,9 @@ file. Backend and frontend applicability comes only from S16's deterministic
 surface map; at least one lane must run.
 
 **Gate**: Every task has one owner, inputs, outputs, tests, stop rule, rollback,
-and a conflict-free integration edge.
+and a conflict-free integration edge. Name exactly one integration and deploy
+coordinator for the whole active release train. Parallel waves may prepare
+commits, but they may not stage or deploy independently.
 
 ### Phase 5: EXECUTE and converge
 
@@ -168,6 +170,11 @@ Use test-driven development where behavior changes. Each lane commits only its
 owned files. Converge in one clean integration branch/worktree, preserve user
 changes, and reject stale-input checkpoints. A conditional lane may skip only
 with the declared false predicate and a complete audit record.
+
+Before S26 completes, the integration owner rereads the live SHA, inventories
+every ready wave commit, and rebases or cherry-picks the accepted set into one
+clean candidate. Record included and deferred commits. A ready parallel wave
+cannot start a competing release from the same or an older live base.
 
 **Gate**: The integrated commit implements the accepted envelope, preserves the
 CPU-ignore path and project doctrine, and contains no unrelated files.
@@ -189,6 +196,16 @@ system, integration, and `security-review` lenses, then converges findings.
 S29 applies Core Loop Extractor, Craft Critique, Attribution Audit, and Fogg
 Behavior Audit to the implemented moments and fixes concrete misses before
 release. Use only the target repository's supported deploy and rollback paths.
+
+Before S30, the named integration owner must acquire the target project's
+deploy coordinator/lock and emit the deploy-lease record defined in
+[stage-contracts.md](references/stage-contracts.md). The owner then rereads the
+live SHA, collects all ready accepted commits, rebuilds one clean integration
+candidate when the base changed, and broadcasts the candidate SHA and lease.
+Only that owner may run staging or production while the lease is active.
+Reject concurrent attempts, a stale base, an unlisted ready commit, a candidate
+SHA mismatch, an expired lease, or a lock the project cannot prove it holds.
+Release the lease only after exact-live verification or completed rollback.
 
 Explicit owner authorization or a valid fast-development approval record can
 satisfy the approval question without another pause. It never disables branch,

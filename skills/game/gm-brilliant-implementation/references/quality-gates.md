@@ -44,9 +44,24 @@ approval question. It cannot skip branch, worktree, privacy, focused tests,
 protected-repository, rollback, canonical deploy, exact-SHA, service, health,
 asset, or route guards.
 
+## Single deploy lease
+
+- One integration owner holds one target-project deploy coordinator/lock for
+  staging and production.
+- Immediately before acquisition, reread live SHA and every ready wave commit.
+- Rebase or cherry-pick the accepted ready set into one clean integration
+  candidate; record included and explicitly deferred commits.
+- Broadcast the active owner, live base, candidate SHA, environments, and lease
+  expiry to every active lane.
+- Reject a second staging/production attempt, stale base, changed candidate,
+  unlisted ready commit, missing lock proof, or non-owner deploy.
+- Keep the lease through exact-live verification or rollback, then release it
+  with the corresponding receipt.
+
 ## Staging and production proof
 
 - Use only the target repository's supported deploy path.
+- Require the valid active deploy-lease record before staging or production.
 - Staging serves the intended SHA and passes health/assets/routes/contracts.
 - Production deploys the exact staged candidate unless the repository contract
   explicitly rebuilds and proves equivalence.
