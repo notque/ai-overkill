@@ -62,7 +62,7 @@ AUDIT_IDS = sorted(
     + [f"FB-P{n:02d}" for n in range(1, 11)]
 )
 EVIDENCE_IDS = sorted(["ML-04", "ML-08", "ML-10", "ML-24", "FB-S02", "FB-S03"])
-REFUSED_IDS = {
+HISTORICAL_REFUSED_IDS = {
     "ML-12",
     "RA-M02",
     "RA-M03",
@@ -75,6 +75,7 @@ REFUSED_IDS = {
     "RA-S19",
     "RA-S21",
 }
+REFUSED_IDS = HISTORICAL_REFUSED_IDS | set(EVIDENCE_IDS)
 
 
 def _artifacts():
@@ -130,9 +131,9 @@ def _artifacts():
         "scope_count": 86,
         "release_sha": LIVE,
         "status_counts": {
-            "done_live": 75,
+            "done_live": 69,
             "valid_unfinished_implementation": 0,
-            "superseded_refused": 11,
+            "superseded_refused": 17,
             "missing_unbound_evidence": 0,
         },
         "row_dispositions": row_dispositions,
@@ -150,9 +151,19 @@ def _artifacts():
 def test_exact_86_row_closure_fixture_passes():
     assert len(AUDIT_IDS) == 86
     assert len(set(AUDIT_IDS)) == 86
-    assert set(AUDIT_IDS) >= REFUSED_IDS
+    assert HISTORICAL_REFUSED_IDS.isdisjoint(EVIDENCE_IDS)
+    assert HISTORICAL_REFUSED_IDS | set(EVIDENCE_IDS) == REFUSED_IDS
+    assert REFUSED_IDS | (set(AUDIT_IDS) - REFUSED_IDS) == set(AUDIT_IDS)
+    assert REFUSED_IDS & (set(AUDIT_IDS) - REFUSED_IDS) == set()
+    assert set(EVIDENCE_IDS) <= REFUSED_IDS
     assert {"FB-P06", "FB-P07", "FB-P08"}.isdisjoint(REFUSED_IDS)
-    assert MODULE.validate(*_artifacts(), exact_live=LIVE) == []
+    registry, dispositions, consumers, scope, manifest = _artifacts()
+    snapshot_rows = {row["row_id"]: row["status"] for row in manifest["snapshots"][0]["row_dispositions"]}
+    assert set(snapshot_rows) == set(AUDIT_IDS)
+    assert {row["row_id"] for row in registry["rows"]} == set(EVIDENCE_IDS)
+    assert all(snapshot_rows[row_id] == "superseded_refused" for row_id in EVIDENCE_IDS)
+    assert all(snapshot_rows[row_id] == "done_live" for row_id in ("FB-P06", "FB-P07", "FB-P08"))
+    assert MODULE.validate(registry, dispositions, consumers, scope, manifest, exact_live=LIVE) == []
 
 
 @pytest.mark.parametrize(
