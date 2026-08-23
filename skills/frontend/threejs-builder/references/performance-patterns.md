@@ -9,6 +9,7 @@ version_range: "Three.js r150+"
 
 > **Scope**: Three.js-specific performance patterns — instancing, buffer manipulation, draw call budgets, LOD, and memory management. Generic JavaScript optimization is out of scope.
 > **Version range**: Three.js r150+
+> **Hitting a frame-rate target?** Run the `hill-climb` skill — baseline p1-low FPS, profile, then accept or revert one change per iteration (`skills/meta/hill-climb/references/domain-playbooks.md`).
 > **Generated**: 2026-04-08
 
 ---
