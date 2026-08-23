@@ -105,3 +105,20 @@ measurement remains `missing evidence`, never `done`.
 - While blocked, the only allowed work is privacy-safe measurement,
   recruitment, protocol execution, or reproduction. UI, simulation, economy,
   copy, and progression changes are refused as speculative.
+- Define each threshold once in a canonical evidence-gate registry. Every
+  disposition and report cites its row ID plus registry hash. Reject copied
+  numeric or categorical thresholds in secondary artifacts when they differ;
+  resolve conflicts to the stricter verified contract before closure.
+
+## Canonical completion snapshot
+
+- Preserve release history as evidence, but keep exactly one current snapshot.
+- The snapshot records scope hash, exact release SHA, exhaustive status counts,
+  row-disposition hash, evidence-registry hash, superseded snapshot hashes, and
+  the verifier receipt.
+- Counts must equal the declared scope cardinality. Each row appears exactly
+  once. Evidence-gated questions retain their future trigger but cannot appear
+  as valid unfinished implementation.
+- A new release atomically replaces the current snapshot and links its
+  predecessor. Appended prose, document position, or a heading such as “final”
+  cannot override the machine-readable current snapshot.

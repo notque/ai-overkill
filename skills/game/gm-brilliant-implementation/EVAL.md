@@ -49,6 +49,12 @@
     lacks its eligible denominator or privacy/protocol guard, authorizes a
     product change directly, or allows any action beyond measurement,
     recruitment, protocol execution, and reproduction.
+17. Reject duplicate evidence-gate registry rows, unsorted rows, copied
+    threshold drift, or a disposition/report whose registry hash does not match
+    the canonical source.
+18. Reject a completion snapshot whose counts do not exhaust scope, whose rows
+    are missing/duplicated, whose release differs from exact live, whose
+    evidence hash drifts, or which leaves multiple current snapshots.
 
 ## Behavioral cases
 
@@ -66,6 +72,8 @@
 | Unreproduced defect | Record exact release/state class and monitor; refuse product edits | Guess a fix from a report or a different save |
 | Severe stop | Open repair-now only for a reproduced allowlisted severity with owner, scope, rollback, and stop condition | “Urgent” bypasses reproduction or expands scope |
 | Human/volume evidence | Keep row evidence-blocked until its declared threshold and guards pass | Zero/small sample becomes a feature request |
+| Threshold drift | One canonical registry; consumers cite row plus hash | Two runbooks carry conflicting sample/window minimums |
+| Longitudinal closure | One current snapshot exhausts scope and supersedes prior hashes | Later prose or duplicate “final” sections compete |
 
 ## Pass checks
 

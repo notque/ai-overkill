@@ -240,9 +240,17 @@ after the exact-state reproduction record proves its trigger, except for an
 actively observed production emergency where containment is the narrowest safe
 action and the record is completed during containment.
 
+Store every threshold once in the run's canonical evidence-gate registry.
+Disposition records cite the registry hash and row ID; narrative reports link
+to that source instead of copying numbers. Before closure, emit one canonical
+completion snapshot after the append-only history and validate that its row
+counts exhaust the scope exactly. A later release replaces the current snapshot
+and links the prior snapshot; it does not add another competing authority block.
+
 **Gate**: The ledger is complete, narrow, hash-linked, honest about every
 unfinished or unmeasured claim, and every conditional row has a machine-checkable
-trigger plus refusal disposition. The run is complete.
+trigger plus refusal disposition. The canonical snapshot validates and no
+copied threshold conflicts with its registry. The run is complete.
 
 ## Checkpoint and resume pattern
 

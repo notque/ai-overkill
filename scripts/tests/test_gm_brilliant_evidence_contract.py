@@ -39,3 +39,29 @@ def test_evidence_gate_refuses_direct_or_under_threshold_product_work():
     assert "eligible denominator" in rejection
     assert "small-cell suppression" in rejection
     assert "product_change_authorized is true" in rejection
+    assert "threshold_registry_hash" in schema["required_fields"]
+
+
+def test_threshold_registry_is_single_source_and_hash_bound():
+    schema = _spec()["evidence_gate_registry_schema"]
+    assert schema["rows_sorted_by"] == "row_id bytewise"
+    assert schema["consumer_reference_fields"] == ["row_id", "threshold_registry_hash"]
+    rejection = " ".join(schema["reject_when"])
+    assert "consumer registry hash differs" in rejection
+    assert "secondary artifact threshold conflicts" in rejection
+
+
+def test_completion_snapshot_has_one_authority_and_exhaustive_counts():
+    schema = _spec()["completion_snapshot_schema"]
+    assert schema["additional_fields"] is False
+    assert schema["current_snapshot_count"] == 1
+    assert set(schema["status_fields"]) == {
+        "done_live",
+        "valid_unfinished_implementation",
+        "superseded_refused",
+        "missing_unbound_evidence",
+    }
+    rejection = " ".join(schema["reject_when"])
+    assert "status counts do not sum to scope_count" in rejection
+    assert "more than one current snapshot exists" in rejection
+    assert "release_sha differs from exact live" in rejection

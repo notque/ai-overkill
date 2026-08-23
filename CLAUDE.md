@@ -50,3 +50,9 @@ Other hook-emitted tags (`<afk-mode>`, `[operator-context]`, `[dream]`, `[learne
 - **CI:** run `ruff check . --config pyproject.toml` AND `ruff format --check . --config pyproject.toml` before pushing. Full CI policy: `skills/process/pr-workflow/references/ci-check.md`.
 - **ADRs:** `adr/` is gitignored (local-only working documents). See `skills/process/adr-consultation/SKILL.md`.
 - **Agent reference files:** validate with `python3 scripts/validate-references.py`. See `agents/toolkit-governance-engineer.md`.
+- **Evidence gates:** keep each human or volume threshold in one canonical
+  registry. Other docs cite its row and hash; deterministic tests reject copied
+  thresholds that drift. An unmet gate refuses speculative implementation.
+- **Completion ledgers:** keep history append-only, but emit one canonical
+  current snapshot with an exact scope hash, release SHA, exhaustive counts,
+  and superseded-snapshot links. Historical prose never overrides the snapshot.

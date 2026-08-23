@@ -191,8 +191,8 @@ Human or volume-dependent rows use exactly these fields:
 ```json
 {
   "row_id": "stable ledger row",
+  "threshold_registry_hash": "sha256:<64 lowercase hex>",
   "evidence_kind": "unprompted_human or privacy_safe_volume",
-  "required_threshold": "integer >= 1",
   "observed_threshold": "integer >= 0",
   "eligible_denominator": "integer >= 0 or null",
   "protocol_hash": "sha256:<64 lowercase hex>",
@@ -211,3 +211,45 @@ guard did not run. While blocked, `product_change_authorized` must be false and
 the allowed-action set may contain only the four listed values. A
 `threshold_met` record may be evaluated into a separate scoped implementation
 decision; it does not itself authorize a change.
+
+## Canonical evidence-gate registry
+
+The registry is the only source of threshold values. It contains one sorted row
+per evidence-gated requirement with: `row_id`, `evidence_kind`,
+`required_threshold`, `window_count`, `eligible_denominator_required`,
+`protocol_hash`, `privacy_guard`, `interpretation_trigger`, and `owner`. Hash
+the canonical serialized registry and require every disposition and narrative
+consumer to cite that hash and row ID. Secondary artifacts may explain a gate;
+they do not restate its numeric or categorical threshold. Reject duplicate row
+IDs, unsorted rows, malformed values, consumer hash drift, or a threshold conflict.
+
+## Canonical completion snapshot
+
+S34 emits exactly one current snapshot:
+
+```json
+{
+  "scope_hash": "sha256:<64 lowercase hex>",
+  "scope_count": 86,
+  "release_sha": "40 lowercase hex",
+  "status_counts": {"done_live": 69, "valid_unfinished_implementation": 0, "superseded_refused": 17, "missing_unbound_evidence": 0},
+  "row_disposition_hash": "sha256:<64 lowercase hex>",
+  "evidence_registry_hash": "sha256:<64 lowercase hex>",
+  "supersedes": ["sha256:<prior snapshot hash>"],
+  "verifier_receipt": "artifact path or sha256 hash"
+}
+```
+
+The numeric values are illustrative shapes, not reusable GM totals. The
+validator requires status counts to sum to `scope_count`, one disposition per
+scope row, zero duplicate/missing row IDs, a release SHA matching exact live,
+and evidence-registry/hash agreement. Evidence-gated rows may be
+`superseded_refused`; they cannot be `valid_unfinished_implementation` unless a
+threshold has passed and a new scoped implementation decision exists. A new
+snapshot replaces the current pointer and lists every prior current snapshot it
+supersedes. Historical prose and file position have no authority.
+
+Validate structured registries, dispositions, and snapshots with
+`scripts/validate-gm-governance.py --registry <path> --dispositions <path>
+--snapshot <path> --exact-live <sha>`. The command exits nonzero on threshold
+drift, incomplete scope, hash mismatch, or an exact-live mismatch.

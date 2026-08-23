@@ -24,7 +24,7 @@
         "cpu-systems-harmony.md",
         "quality-gates.md"
       ],
-      "scripts_needed": [],
+      "scripts_needed": ["scripts/validate-gm-governance.py"],
       "routing_triggers": [
         "large GM implementation",
         "large GM feature",
@@ -90,7 +90,7 @@
     ]
   },
   "evidence_gate_schema": {
-    "required_fields": ["row_id", "evidence_kind", "required_threshold", "observed_threshold", "eligible_denominator", "protocol_hash", "privacy_guard", "status", "allowed_actions", "product_change_authorized", "owner", "next_evaluation"],
+    "required_fields": ["row_id", "threshold_registry_hash", "evidence_kind", "observed_threshold", "eligible_denominator", "protocol_hash", "privacy_guard", "status", "allowed_actions", "product_change_authorized", "owner", "next_evaluation"],
     "additional_fields": false,
     "evidence_kinds": ["unprompted_human", "privacy_safe_volume"],
     "statuses": ["evidence_blocked", "threshold_met"],
@@ -105,6 +105,19 @@
       "product_change_authorized is true",
       "next_evaluation is a speculative date rather than an explicit evidence condition"
     ]
+  },
+  "evidence_gate_registry_schema": {
+    "required_row_fields": ["row_id", "evidence_kind", "required_threshold", "window_count", "eligible_denominator_required", "protocol_hash", "privacy_guard", "interpretation_trigger", "owner"],
+    "rows_sorted_by": "row_id bytewise",
+    "consumer_reference_fields": ["row_id", "threshold_registry_hash"],
+    "reject_when": ["duplicate or unsorted row IDs", "missing, extra, empty, wrong-type, unknown, or malformed field", "registry hash does not match canonical serialization", "consumer registry hash differs", "secondary artifact threshold conflicts with canonical row"]
+  },
+  "completion_snapshot_schema": {
+    "required_fields": ["scope_hash", "scope_count", "release_sha", "status_counts", "row_disposition_hash", "evidence_registry_hash", "supersedes", "verifier_receipt"],
+    "status_fields": ["done_live", "valid_unfinished_implementation", "superseded_refused", "missing_unbound_evidence"],
+    "additional_fields": false,
+    "current_snapshot_count": 1,
+    "reject_when": ["status counts do not sum to scope_count", "scope row is missing or duplicated", "release_sha differs from exact live", "row disposition or evidence registry hash differs", "evidence-gated row is valid unfinished without a passed threshold and scoped implementation decision", "more than one current snapshot exists", "superseded current snapshot hash is omitted"]
   },
   "applicability_schema": {
     "predicate_ids": ["always", "cpu_system_scope_present", "backend_change_required", "frontend_change_required"],
