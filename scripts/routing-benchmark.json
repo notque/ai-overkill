@@ -1024,6 +1024,14 @@
       "category": "infrastructure",
       "routing_tier": "candidate",
       "notes": "Dev-branch deploy intent — routes to dev-branch-deploy for the Hermes/Maia Concourse dev lane."
+    },
+    {
+      "request": "get API p99 under 200ms using the same load-test dataset on every run",
+      "expected_agent": null,
+      "expected_skill": "hill-climb",
+      "category": "performance-optimization",
+      "routing_tier": "candidate",
+      "notes": "Numeric performance target with a repeatable fixture routes to the metric-driven optimization loop."
     }
   ]
 }
