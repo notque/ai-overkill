@@ -66,11 +66,11 @@ Read the identified shared-pattern files. Internalize the rationalization tables
 
 **Goal**: Run the underlying task with anti-rationalization checks at every transition.
 
-**Constraint**: This skill wraps other skills. If the task involves debugging, follow systematic-debugging methodology. If refactoring, follow systematic-refactoring. The anti-rationalization layer adds checks on top, not instead of.
+**Constraint**: This skill wraps other methods. For debugging or refactoring, use this action: Call the Skill tool with `workflow`. Run its `systematic-debugging` or `systematic-refactoring` pipeline. The anti-rationalization layer adds checks on top, not instead of them.
 
 **Step 1: Delegate to appropriate methodology**
 
-Identify what kind of work this is. If it fits an existing methodology (debugging, refactoring, testing, code review), use that skill. Anti-rationalization enforcement amplifies what they do, it does not replace it.
+Identify the work type. If an indexed skill owns the method, use the exact Skill-tool call contract. If a workflow pipeline owns it, call `workflow` and select the pipeline. Anti-rationalization enforcement amplifies the method; it does not replace it.
 
 **Step 2: At each phase transition, run gate check**
 

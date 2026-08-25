@@ -170,7 +170,7 @@ If user discards, fall to next priority level in cascade.
 **Step 1: Execute next action**
 
 Take the `next_action` from the handoff and execute it:
-- If it matches a skill trigger (e.g., "run tests" -> /vitest-runner), invoke that skill via the `/do` routing system for proper agent/skill selection
+- If it matches a skill trigger (e.g., "run tests" -> `vitest-runner`), route through `/do`; the dispatch prompt must say `Call the Skill tool with \`skill-name\`.`
 - If it describes a code change, proceed with the implementation directly
 - If it requires user input (e.g., "need clarification on threshold"), present the question
 

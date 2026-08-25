@@ -1,7 +1,7 @@
 ---
 description: "Learning system interface: stats, search, graduate learnings. Backed by learning.db (SQLite + FTS5)."
 argument-hint: "[status|list|search <term>|graduate]"
-allowed-tools: ["Bash", "Read", "Edit", "Grep", "Glob"]
+allowed-tools: ["Bash", "Read", "Edit", "Grep", "Glob", "Skill"]
 ---
 
 # Retro Knowledge System
@@ -33,7 +33,7 @@ AI-driven evaluation of mature learning entries for embedding into specific agen
 
 ## Instructions for Claude
 
-When the user invokes `/retro`, load and follow the skill at `skills/retro/SKILL.md`.
+Call the Skill tool with `retro`. Pass the command argument through to select the subcommand.
 
 Parse the argument to select the subcommand:
 - No argument or "status" → run status subcommand

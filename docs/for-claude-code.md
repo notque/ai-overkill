@@ -70,7 +70,7 @@ Router --> Agent --> Skill --> Script. The `/do` skill classifies every request 
 
 ```
 1. Parse request -> classify complexity (Trivial | Simple | Medium | Complex)
-2. Check force-route triggers -> if match, invoke that skill immediately
+2. Check force-route triggers -> if matched, emit `Call the Skill tool with \`skill-name\`.`
 3. Look up agent in agents/INDEX.json -> fallback to static routing table
 4. Pair agent with skill (domain default or task-verb override)
 5. Dispatch: agent executes with skill methodology loaded as instructions

@@ -172,10 +172,10 @@ SKILL.md --> joy-check --mode instruction --> fix flagged patterns --> re-verify
 ```
 
 **Auto-invocation points**:
-- `skill-creator` pipeline: Run `joy-check --mode instruction` after generating a new skill
-- `agent-upgrade` pipeline: Run `joy-check --mode instruction` after modifying an agent
-- `voice-writer`: Run `joy-check --mode writing` during validation
-- `doc-pipeline`: Run `joy-check --mode instruction` for toolkit documentation
+- `skill-creator` pipeline: Call the Skill tool with `joy-check`. Use instruction mode after generating a new skill.
+- `agent-upgrade` pipeline: Call the Skill tool with `joy-check`. Use instruction mode after modifying an agent.
+- `voice-writer`: Call the Skill tool with `joy-check`. Use writing mode during validation.
+- `doc-pipeline`: Call the Skill tool with `joy-check`. Use instruction mode for toolkit documentation.
 
 The joy-check can be invoked standalone via `/joy-check [file]` (auto-detects mode) or with explicit `--mode writing|instruction`.
 

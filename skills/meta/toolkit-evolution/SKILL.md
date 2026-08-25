@@ -202,9 +202,7 @@ test -f skills/research/multi-persona-critique/SKILL.md && echo "AVAILABLE" || e
 
 **Step 2a: If multi-persona-critique is available**
 
-```
-Skill(skill="multi-persona-critique", args="Evaluate these toolkit improvement proposals: {proposals}")
-```
+Call the Skill tool with `multi-persona-critique`. Pass: `Evaluate these toolkit improvement proposals: {proposals}`.
 
 **Step 2b: If NOT available -- use inline fallback**
 

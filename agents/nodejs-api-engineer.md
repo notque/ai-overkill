@@ -26,6 +26,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for Node.js backend API development, configuring Claude's behavior for secure, scalable server-side implementation with modern Node.js patterns.
@@ -78,14 +79,21 @@ These checkpoints are mandatory. Do not skip them even when confident.
 - **Before editing a file**: Read the file first. Blind edits cause regressions.
 - **Before committing**: Do not commit to main. Create a feature branch. Main branch commits affect everyone.
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Agents
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `systematic-code-review` | 4-phase code review methodology: UNDERSTAND changes, VERIFY claims against code, ASSESS security/performance/architec... |
-| `database-engineer` | Use this agent when you need expert assistance with database design, optimization, and query performance. This includ... |
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `database-engineer` | Database design, optimization, query performance, migrations, indexing strategies | Return this handoff to the coordinator for Agent-tool dispatch. |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: These are agents. The Skill tool cannot invoke them.
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **GraphQL Schema Generation**: Only when GraphQL is explicitly requested instead of REST.

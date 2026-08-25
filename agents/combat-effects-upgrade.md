@@ -149,6 +149,16 @@ Target metrics:
 | `src/components/FramedCard.tsx` | Card component with rarity glow — primary 3D transform target |
 | `src/components/CombatPopups.tsx` | Popup overlays, damage numbers, multi-hit stagger |
 
+### Companion Agents
+
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `typescript-frontend-engineer` | TypeScript frontend architecture: type-safe components, state management, build optimization | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `ui-design-engineer` | UI/UX design: design systems, responsive layouts, accessibility, animations | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `pixijs-combat-renderer` | PixiJS v8 2D WebGL combat rendering: @pixi/react hybrid canvas, normal maps, GPU particles, post-processing | Return this handoff to the coordinator for Agent-tool dispatch. |
+
+**Rule**: These are agents. The Skill tool cannot invoke them.
+
 ## Error Handling
 
 ### Animation jank after pool migration

@@ -25,7 +25,7 @@ import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
 export const meta = {
   name: "comprehensive-review-workflow",
   description:
-    "Four-wave code review as a deterministic native Workflow: tier-scaled waves (right-sizing), schema-validated typed findings per wave, parallel barriers within a wave, pipelined Wave 1 -> Wave 2 hand-off, per-finding adversarial verify before synthesis, and a budget-bounded fix loop. Each reviewer attaches its full skill stack (one Skill() per skill) plus the /do mandatory injections. Mirrors comprehensive-review.md; that markdown flow stays the fallback.",
+    "Four-wave code review as a deterministic native Workflow: tier-scaled waves (right-sizing), schema-validated typed findings per wave, parallel barriers within a wave, pipelined Wave 1 -> Wave 2 hand-off, per-finding adversarial verify before synthesis, and a budget-bounded fix loop. Each reviewer attaches its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections. Mirrors comprehensive-review.md; that markdown flow stays the fallback.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stages 0-1). This is the declared dispatch shape the conformance gate
@@ -39,13 +39,13 @@ export const meta = {
     phases: ["wave-1", "wave-2", "wave-3", "verify", "fix"],
     // Wave-1 is a FIXED barrier: a literal 4-agent roster, every run. Countable.
     // Each entry carries a `skills` LIST (the full stack the agent attaches via
-    // one Skill() per element) — the gate asserts EACH declared skill has a
-    // corresponding Skill("..") emission in source.
+    // one exact Skill-tool call per element) — the gate asserts EACH declared skill has a
+    // corresponding exact Skill-tool call in source.
     roster: [
       { agentType: "reviewer-system", skills: ["systematic-code-review", "verification-before-completion"] },
       { agentType: "reviewer-domain", skills: ["systematic-code-review", "verification-before-completion"] },
       { agentType: "reviewer-code", skills: ["systematic-code-review", "verification-before-completion"] },
-      { agentType: "reviewer-perspectives", skills: ["roast", "verification-before-completion"] },
+      { agentType: "reviewer-perspectives", skills: ["multi-persona-critique", "verification-before-completion"] },
     ],
     // The Wave-1 barrier dispatches exactly 4 agents on every run (static).
     agents: { static: 4, dynamic: false },
@@ -57,17 +57,17 @@ export const meta = {
   },
 };
 
-// Map each reviewer agent to the FULL skill stack it invokes by name (one
-// Skill() per element). Skill-attach inside a native Workflow agent() dispatch
+// Map each reviewer agent to the FULL skill stack it invokes by name (one exact
+// Skill-tool call per element). Skill attachment inside a native Workflow agent() dispatch
 // resolves by name (path-independent), proven this session. reviewer-{system,
 // domain,code} run the 4-phase systematic review; reviewer-perspectives runs
-// the roast lens; every reviewer also runs verification-before-completion
+// the multi-persona critique lens; every reviewer also runs verification-before-completion
 // (review work earns the verification gate — the /do Phase-3 stack for review).
 const AGENT_SKILLS = {
   "reviewer-system": ["systematic-code-review", "verification-before-completion"],
   "reviewer-domain": ["systematic-code-review", "verification-before-completion"],
   "reviewer-code": ["systematic-code-review", "verification-before-completion"],
-  "reviewer-perspectives": ["roast", "verification-before-completion"],
+  "reviewer-perspectives": ["multi-persona-critique", "verification-before-completion"],
 };
 
 // --- Wave rosters: the four real reviewer agents, applied through wave-specific
@@ -79,7 +79,7 @@ const AGENT_SKILLS = {
 
 // Each entry now carries BOTH `agent` (-> agentType, dispatches the real
 // specialist) AND `skills` (the full methodology stack that agent invokes by
-// name, one Skill("...") per element). `lens` still scales review depth across
+// name, one exact Skill-tool call per element). `lens` still scales review depth across
 // waves.
 const WAVE1_AGENTS = [
   { agent: "reviewer-system", skills: AGENT_SKILLS["reviewer-system"], lens: "security, input validation, error handling, API contracts" },
@@ -203,8 +203,8 @@ function dedupeFindings(findings) {
 
 function reviewPrompt(roster, scope, priorContext) {
   // roster is {agent, skills, lens}; priorContext is the typed prior-wave summary
-  // passed in-memory (no disk read). skillDirectives emits one Skill("...") per
-  // element of roster.skills (the full stack) — Skill("...") resolves path-
+  // passed in-memory (no disk read). skillDirectives emits one exact call per
+  // element of roster.skills (the full stack) — the call resolves path-
   // independent inside a native Workflow agent() dispatch (proven this session).
   // mandatoryInjections() embeds the /do completeness/density/base-instructions/
   // reference-loading block so a workflow agent gets the same context as a direct

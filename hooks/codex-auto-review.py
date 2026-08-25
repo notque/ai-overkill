@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 UserPromptSubmit hook — auto-inject Codex cross-model review for PR review operations.
 
@@ -65,9 +65,10 @@ ALREADY_HANDLED_PATTERN = re.compile(
 
 CODEX_INJECTION = (
     "[codex-auto-review] Codex CLI detected. After completing the primary review, "
-    "also invoke the pr-workflow skill (codex-review intent) to get cross-model "
+    "use the codex-review intent to get cross-model "
     "findings from OpenAI Codex (GPT-5.4 xhigh reasoning). If the codex-review intent "
-    "has already been invoked or is part of the current pipeline, skip this step."
+    "has already been invoked or is part of the current pipeline, skip this step. "
+    "Call the Skill tool with `pr-workflow`."
 )
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 PreToolUse:Write,Edit Hook: Plan Gate
 
@@ -16,7 +16,7 @@ Detection logic:
 Allow-through conditions:
 - Target file is NOT in agents/, skills/
 - task_plan.md exists in the project root
-- PLAN_GATE_BYPASS=1 env var (for use by the plans skill itself)
+- PLAN_GATE_BYPASS=1 env var (for use by the planning skill itself)
 """
 
 import json
@@ -296,10 +296,10 @@ def _target_status(file_path: str, event_cwd: object, root: Path) -> str:
     return _ALLOW
 
 
-def _deny(reason: str, *, stderr_message: str, fix_with_plans: bool = False) -> NoReturn:
+def _deny(reason: str, *, stderr_message: str, fix_with_planning: bool = False) -> NoReturn:
     print(f"[plan-gate] BLOCKED: {stderr_message}", file=sys.stderr)
-    if fix_with_plans:
-        print("[fix-with-skill] plans", file=sys.stderr)
+    if fix_with_planning:
+        print("[fix-with-skill] planning", file=sys.stderr)
     deny_tool_use("PreToolUse", reason)
     sys.exit(0)
 
@@ -326,7 +326,7 @@ def main() -> None:
     # tool_name filter removed — matcher "Write|Edit" in settings.json prevents
     # this hook from spawning for non-matching tools.
 
-    # Bypass env var — set by the plans skill itself.
+    # Bypass env var — set by the planning skill itself.
     if os.environ.get(_BYPASS_ENV) == "1":
         if debug:
             print(f"[plan-gate] Bypassed via {_BYPASS_ENV}=1", file=sys.stderr)
@@ -373,9 +373,9 @@ def main() -> None:
 
     _deny(
         "Create task_plan.md before modifying implementation code in agents/ or skills/. "
-        "Use the planning skill to create one.",
+        "[fix-with-skill] planning\nCall the Skill tool with `planning`.",
         stderr_message="Create task_plan.md before modifying implementation code.",
-        fix_with_plans=True,
+        fix_with_planning=True,
     )
 
 

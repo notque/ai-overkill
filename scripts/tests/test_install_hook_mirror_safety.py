@@ -29,7 +29,7 @@ MODES = [
 def installer_tree(tmp_path: Path) -> Path:
     """Build the smallest isolated source tree that exercises Reasonix hooks."""
     root = tmp_path / "repo with spaces"
-    for directory in ("hooks", "scripts", "skills"):
+    for directory in ("hooks", "scripts/lib", "skills/process/quick"):
         (root / directory).mkdir(parents=True)
 
     shutil.copy2(REPO_ROOT / "install.sh", root / "install.sh")
@@ -38,6 +38,10 @@ def installer_tree(tmp_path: Path) -> Path:
         REPO_ROOT / "scripts" / "generate-reasonix-settings-hooks.py",
         root / "scripts" / "generate-reasonix-settings-hooks.py",
     )
+    shutil.copy2(REPO_ROOT / "scripts" / "generate-agent-index.py", root / "scripts" / "generate-agent-index.py")
+    shutil.copy2(REPO_ROOT / "scripts" / "generate-skill-index.py", root / "scripts" / "generate-skill-index.py")
+    shutil.copy2(REPO_ROOT / "scripts" / "lib" / "frontmatter.py", root / "scripts" / "lib" / "frontmatter.py")
+    shutil.copy2(REPO_ROOT / "skills" / "process" / "quick" / "SKILL.md", root / "skills/process/quick/SKILL.md")
     (root / "scripts" / "reasonix-hooks-allowlist.txt").write_text(f"UserPromptSubmit:{HOOK_NAME}\n", encoding="utf-8")
     (root / "requirements.txt").write_text("", encoding="utf-8")
     return root
@@ -80,6 +84,8 @@ def _isolated_python_bin(tmp_path: Path, canonicalization: str = "ok") -> Path:
         "ln",
         "ls",
         "mkdir",
+        "mktemp",
+        "mv",
         "readlink",
         "rm",
         "sed",

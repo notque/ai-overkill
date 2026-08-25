@@ -30,7 +30,7 @@ This skill produces evidence-based constructive critique through 5 specialized H
 
 **Goal**: Establish guardrails before any analysis begins.
 
-Invoke the `read-only-ops` skill:
+Call the Skill tool with `read-only-ops`.
 
 ```
 skill: read-only-ops
@@ -110,7 +110,7 @@ Launch 5 general-purpose agents in parallel via Task tool. Load the full persona
    Focus: Production readiness, operational concerns
 
 **Each agent must:**
-- Invoke `read-only-ops` skill first to enforce no-modification guardrails
+- Call the Skill tool with `read-only-ops`. Do this first to enforce no-modification guardrails.
 - Follow their systematic 5-step review process
 - Tag ALL claims as `[CLAIM-N]` with specific `file:line` references
 - Provide concrete evidence for every claim — vague critiques are worthless and must be rejected during validation
@@ -245,7 +245,7 @@ Solution:
 Cause: Phase 1 skipped or `read-only-ops` skill invocation failed
 Solution:
 1. Stop all analysis immediately
-2. Invoke `read-only-ops` before proceeding
+2. Call the Skill tool with `read-only-ops`. Do this before proceeding.
 3. If skill unavailable, manually enforce: no Write, Edit, or destructive Bash
 
 ### Error: "Agent Attempts to Fix Issues"

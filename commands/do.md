@@ -10,7 +10,7 @@ Route user requests to the correct agent + skill combination.
 
 ## Instructions
 
-Read and follow the full skill file at `skills/meta/do/SKILL.md` in this repository.
+Call the Skill tool with `do`. Follow its classification, routing, enhancement, and execution phases.
 
 ```
 Base directory: $CLAUDE_PROJECT_DIR or the current working directory
@@ -20,7 +20,7 @@ Skill file: skills/meta/do/SKILL.md
 **Phase 1: CLASSIFY** — Assess complexity, check parallel patterns
 **Phase 2: ROUTE** — Select agent + skill, display routing banner
 **Phase 3: ENHANCE** — Stack retro knowledge, anti-rationalization, parallel reviewers
-**Phase 4: EXECUTE** — Create plan, invoke agent with skill
+**Phase 4: EXECUTE** — Create the plan and dispatch through `build-dispatch.py`. The builder emits `Call the Skill tool with \`skill-name\`.` once for the primary skill and each callable stack skill.
 
 Learning capture runs automatically via hooks — no router step (see "Learning Capture" in the skill).
 

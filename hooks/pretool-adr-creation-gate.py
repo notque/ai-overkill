@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.2.0
+# hook-version: 1.2.1
 """
 PreToolUse:Write Hook: ADR Creation Gate
 
@@ -273,11 +273,12 @@ def main() -> None:
         f"  Alternative: adr/{component_name}.md (project root)",
         file=sys.stderr,
     )
-    print("[fix-with-skill] plans", file=sys.stderr)
+    print("[fix-with-skill] planning", file=sys.stderr)
     deny_tool_use(
         "PreToolUse",
         f"Create ADR at {centralized_hint} (or adr/{component_name}.md in project root) "
-        "before creating this new component. Use the plans skill to draft the ADR first.",
+        "before creating this new component. [fix-with-skill] planning\n"
+        "Call the Skill tool with `planning`.",
     )
     sys.exit(0)
 

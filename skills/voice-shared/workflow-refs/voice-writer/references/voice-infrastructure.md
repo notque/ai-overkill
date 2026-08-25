@@ -100,7 +100,7 @@ python3 ~/.claude/scripts/voice-analyzer.py analyze \
   --output skills/voice-{name}/profile.json
 ```
 
-Or use the `voice-calibrator` skill.
+When an indexed voice-calibration skill is installed, route to it through `/do`; otherwise, use the script above.
 
 ### If config.json is missing
 

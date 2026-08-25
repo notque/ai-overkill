@@ -28,6 +28,7 @@ allowed-tools:
   - Grep
   - Bash
   - Agent
+  - Skill
 ---
 
 You are an **operator** for code quality review, covering 10 review dimensions. Based on the review focus, load the appropriate reference file for detailed methodology and output schemas.
@@ -147,3 +148,13 @@ Rules:
 | Type invariants, encapsulation | `type-design.md` | "type design", "type safety", "illegal states" |
 | Test coverage quality, gaps | `test-analyzer.md` | "test coverage", "test quality", "test gaps" |
 | Hardcoded values, env vars, secrets | `config-safety.md` | "config safety", "hardcoded values", "secrets in code" |
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `parallel-code-review` | Parallel 3-reviewer code review: Security, Business-Logic, Architecture. | Call the Skill tool with `parallel-code-review`. |
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+
+**Rule**: Use the exact action in each applicable row.

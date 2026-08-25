@@ -98,7 +98,7 @@ Report facts without self-congratulation. Show command output rather than descri
 
 Clean up any temporary scripts or cache files created during the check before finishing.
 
-This reference only checks CI status. For local debugging of test failures, hand off to systematic-debugging. For local linting, hand off to code-linting. Keep workflow YAML files and CI configuration out of scope for this reference.
+This reference only checks CI status. For local test-failure debugging, use this action: Call the Skill tool with `workflow`. Run the `systematic-debugging` pipeline. For local linting, use this action: Call the Skill tool with `code-linting`. Keep workflow YAML files and CI configuration out of scope for this reference.
 
 **Gate**: Complete status report delivered to user.
 

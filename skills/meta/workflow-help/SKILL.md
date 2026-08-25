@@ -124,10 +124,10 @@ Then show key workflow:
 
 After explaining, ask if the user wants to:
 - Learn about a related component
-- Actually execute a workflow (route to appropriate skill)
+- Actually execute a workflow (call the indexed `workflow` skill)
 - See more detail on a specific aspect
 
-**Constraint (Route When Appropriate)**: If user actually wants to execute a workflow, detect the execution intent and route to the correct skill instead of explaining it. For example, if user asks "how do I debug X" meaning "debug X for me", recognize the intent is execution and route to systematic-debugging, not an explanation of the debugging process.
+**Constraint (Route When Appropriate)**: If the user wants to execute a workflow, detect the execution intent and call the indexed `workflow` skill instead of explaining it. For example, if "how do I debug X" means "debug X for me," use this action: Call the Skill tool with `workflow`. Run its `systematic-debugging` pipeline.
 
 **Gate**: User's question answered with information from actual files.
 
@@ -146,8 +146,8 @@ Solution:
 Cause: User asked "how do I debug X" meaning "debug X for me"
 Solution:
 1. Recognize the intent is execution, not education
-2. Route to the appropriate skill (e.g., systematic-debugging)
-3. Do not explain the debugging process; invoke it
+2. Call the Skill tool with `workflow`.
+3. Run the `systematic-debugging` pipeline instead of explaining the debugging process.
 
 ### Error: "Stale INDEX"
 Cause: `scripts/list-capabilities.py` exited 2 with a stderr warning — source files are newer than the generated INDEX
@@ -181,4 +181,3 @@ Optional advanced modes (disabled by default):
 - Full Architecture Dump: Explain the entire Router → Agent → Skill → Script pipeline
 - Comparison Mode: Compare two skills or agents side-by-side
 - Troubleshooting Guide: Help diagnose why a skill or route isn't working as expected
-

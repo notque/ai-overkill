@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 Local Security Review Hook (ADR: adr/local-security-review.md)
 
@@ -409,7 +409,8 @@ def handle_stop(event: dict) -> None:
     diff_excerpt = diff[:max_chars]
 
     instruction = (
-        "Run the security-review pipeline on the working-tree changes below. "
+        "Call the Skill tool with `security-review`. "
+        "Review the working-tree changes below. "
         "Scope to the changed files, run the deterministic scanner "
         "(scripts/security-review-scan.py), compose the parallel-code-review "
         "Security reviewer over the diff, and report BLOCK/FIX/APPROVE. This "

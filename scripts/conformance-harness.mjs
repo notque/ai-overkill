@@ -36,10 +36,10 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
-// --- Skill("...") extraction --------------------------------------------------
-// The workflow embeds skill directives in the agent prompt as Skill("name").
-// Extract every such name from a prompt string, preserving order, de-duped.
-const SKILL_RE = /Skill\(\s*["'`]([^"'`]+)["'`]\s*\)/g;
+// --- Skill-tool call extraction ----------------------------------------------
+// The workflow embeds the exact action contract in the agent prompt. Extract
+// every called skill name from that sentence, preserving order, de-duped.
+const SKILL_RE = /Call the Skill tool with `([a-z0-9][a-z0-9-]*)`\./g;
 function extractSkills(prompt) {
   if (typeof prompt !== "string") return [];
   const out = [];
@@ -142,7 +142,7 @@ async function recordTier(modUrl, tier) {
   // roster, e.g. fan-out-workflow) run its fan-out; static-roster workflows ignore
   // these extra keys. fixThreshold bounds any budget loop. Each roster entry
   // carries a `skills` LIST (Stage 2.5: the full /do skill stack) so the workflow
-  // emits one Skill() per element — the recorded trace then shows every skill.
+  // emits one exact Skill-tool call per element, so the trace shows every skill.
   await run({
     scope: { files: ["src/a.py", "src/b.py"], packages: ["pkg"], tier },
     tier,

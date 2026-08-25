@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.1.1
 """
 PreToolUse Hook: Unified Gate (ADR-068)
 
@@ -61,16 +61,16 @@ _GIT_SUBMISSION_BYPASS = "CLAUDE_GATE_BYPASS=1"
 _GIT_PUSH_PATTERN = re.compile(r"^(?:\w+=\S+\s+)*git\s+push\b")
 
 _GIT_SUBMISSION_PATTERNS = [
-    (_GIT_PUSH_PATTERN, "pr-sync", "Use /pr-sync to push (runs review loop first)"),
+    (_GIT_PUSH_PATTERN, "pr-workflow", "Push through the PR workflow (runs review loop first)"),
     (
         re.compile(r"^(?:\w+=\S+\s+)*gh\s+pr\s+create\b"),
-        "pr-pipeline",
-        "Use /pr-pipeline to create PR (runs review loop first)",
+        "pr-workflow",
+        "Create the PR through the PR workflow (runs review loop first)",
     ),
     (
         re.compile(r"^(?:\w+=\S+\s+)*gh\s+pr\s+merge\b"),
-        "pr-pipeline",
-        "Use /pr-pipeline to merge (requires review to pass first)",
+        "pr-workflow",
+        "Merge through the PR workflow (requires review to pass first)",
     ),
 ]
 
@@ -1196,7 +1196,7 @@ def check_git_submission(command: str) -> None:
                     return
             _block(
                 f"[git-submission-gate] BLOCKED: {message}\n[fix-with-skill] {skill_name}",
-                reason=f"{message} Use the {skill_name} skill instead.",
+                reason=(f"{message}. [fix-with-skill] {skill_name}\nCall the Skill tool with `{skill_name}`."),
             )
 
 
@@ -1361,16 +1361,18 @@ def check_creation_gate(file_path: str, cwd: str = "") -> None:
 
     component_label = component or "<name>"
     _block(
-        f"[creation-gate] BLOCKED: New {component_type} must be created via skill-creator or skill-creation-pipeline.\n"
+        f"[creation-gate] BLOCKED: New {component_type} must follow the skill creation workflow.\n"
         f"[creation-gate] Path: {file_path}\n"
-        f"[creation-gate] No Task tool (worktree agent)? Invoke the skill-creator skill, write the ADR, register it:\n"
+        f"[creation-gate] No Task tool (worktree agent)? Use the skill path, write the ADR, and register it:\n"
+        f"[creation-gate] Call the Skill tool with `skill-creator`.\n"
         f"[creation-gate]   python3 scripts/adr-query.py register --adr adr/{component_label}.md\n"
         f"[creation-gate] A registered ADR named '{component_label}' unlocks this path; retry the Write after registering.\n"
         f"[fix-with-agent] skill-creator",
         reason=(
             f"New {component_type} files must be created via the skill-creator agent "
-            f"([fix-with-agent] skill-creator). Worktree agents without the Task tool: invoke "
-            f"skill-creator as a skill, write adr/{component_label}.md, run "
+            f"([fix-with-agent] skill-creator). Worktree agents without the Task tool must use the skill path. "
+            f"Call the Skill tool with `skill-creator`. Write "
+            f"adr/{component_label}.md, run "
             f"`python3 scripts/adr-query.py register --adr adr/{component_label}.md`, then retry this Write."
         ),
     )

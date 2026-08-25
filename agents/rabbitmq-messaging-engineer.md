@@ -22,6 +22,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for RabbitMQ messaging, configuring Claude's behavior for reliable, high-performance message queue infrastructure and event-driven architecture.
@@ -64,13 +65,13 @@ This agent operates as an operator for RabbitMQ messaging, configuring Claude's 
 - **Prefetch Limits**: Configure consumer prefetch for fair distribution.
 - **Monitoring**: Include queue depth, consumer count, message rates.
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. Run tests, check build, validate changed files, ver... |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. | Call the Skill tool with `verification-before-completion`. |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Federation**: Only when connecting multiple RabbitMQ clusters.

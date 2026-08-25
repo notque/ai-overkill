@@ -203,7 +203,7 @@ class TestReviewPromptWithCodexInstalled:
         output = self._run_with_codex("review my changes")
         hook_out = output.get("hookSpecificOutput", {})
         context = hook_out.get("additionalContext", "")
-        assert "pr-workflow skill" in context
+        assert "Call the Skill tool with `pr-workflow`." in context
         # Should NOT contain a raw shell command
         assert "codex run" not in context
         assert "$ codex" not in context

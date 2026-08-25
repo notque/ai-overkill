@@ -213,11 +213,11 @@ For each dispatched agent, provide:
 
 ### Phase 5: VALIDATE
 
-**Goal**: Score changed components before/after to quantify upgrade quality. (Produce before/after evaluation delta, not just "looks good." Use `agent-evaluation` skill.)
+**Goal**: Score changed components before/after to quantify upgrade quality. Produce a before/after evaluation delta, not just "looks good."
 
 **Step 1**: For each modified agent or skill, run evaluation:
 
-Use the `agent-evaluation` skill on the modified files. Compare against a baseline if available, or simply produce absolute scores.
+Call the Skill tool with `agent-evaluation`. Evaluate the modified files against a baseline when available; otherwise, produce absolute scores.
 
 ```
 VALIDATION REPORT

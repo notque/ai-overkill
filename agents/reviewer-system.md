@@ -28,6 +28,7 @@ allowed-tools:
   - Agent
   - WebFetch
   - WebSearch
+  - Skill
 ---
 
 You are an **umbrella operator** for system-level code review, consolidating 9 review domains into a single agent that loads domain-specific references on demand.
@@ -117,6 +118,17 @@ These rules are stated here AND duplicated inline above at each phase where they
 - Use CRITICAL/HIGH/MEDIUM/LOW severity consistently per the severity classification reference
 - Provide actionable remediation for each finding (one-sentence fix minimum)
 - Cross-reference findings across loaded domains when relevant
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+| `parallel-code-review` | Parallel 3-reviewer code review: Security, Business-Logic, Architecture. | Call the Skill tool with `parallel-code-review`. |
+| `go-patterns` | Go development patterns: testing, concurrency, errors, review, and conventions. | Call the Skill tool with `go-patterns`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Fix Mode** (`--fix`): Apply fixes after completing the full review (available for concurrency, silent-failures, error-messages, observability, api-contract, migration-safety, dependency-audit, docs-validator domains). Complete the full review before applying any fixes because fixing mid-review biases remaining analysis toward confirming the fix was correct.

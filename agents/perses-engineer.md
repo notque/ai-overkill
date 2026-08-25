@@ -77,3 +77,14 @@ After making changes to CRDs, Helm values, or operator configuration, STOP and a
 | dashboard, DaC, Dashboard-as-Code, percli, variable, query, datasource, PromQL, panel, timeseries, migrate Grafana | [references/dashboard.md](perses-engineer/references/dashboard.md) | Dashboard creation and DaC SDK patterns |
 | Kubernetes, CRD, operator, Helm, k8s, PersesDashboard, PersesProject, RBAC, cert-manager, manifest | [references/operator.md](perses-engineer/references/operator.md) | Kubernetes operator CRDs and deployment |
 | plugin, Module Federation, CUE schema, scaffold, panel plugin, datasource plugin, percli plugin, webpack | [references/plugin.md](perses-engineer/references/plugin.md) | Plugin development, CUE schemas, and React components |
+
+### Companion Agents
+
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `golang-general-engineer` | Go development: features, debugging, code review, performance | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `typescript-frontend-engineer` | TypeScript frontend architecture: type-safe components, state management, build optimization | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `kubernetes-helm-engineer` | Kubernetes and Helm: deployments, troubleshooting, cloud-native infrastructure | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `prometheus-grafana-engineer` | Prometheus and Grafana: monitoring, alerting, dashboard design, PromQL optimization | Return this handoff to the coordinator for Agent-tool dispatch. |
+
+**Rule**: These are agents. The Skill tool cannot invoke them.

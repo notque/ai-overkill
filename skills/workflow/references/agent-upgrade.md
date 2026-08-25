@@ -56,7 +56,7 @@ ls agents/ | grep [name]
 ls skills/ | grep [name]
 ```
 
-**Step 2**: Run `agent-evaluation` skill on the target file to get the baseline score (0–100) and grade (A/B/C/F).
+**Step 2**: Call the Skill tool with `agent-evaluation`. Evaluate the target file to get the baseline score (0–100) and grade (A/B/C/F).
 This is critical because without a baseline, there is no way to verify improvement. "Looks better" is not a quality claim.
 
 **Step 3**: Scan for retro entries targeting this agent:
@@ -228,8 +228,7 @@ Proceed with implementation? (or specify which items to include/exclude)
 
 **Step 3**: Run positive framing validation on the modified agent or skill.
 
-After applying all approved improvements, invoke `joy-check --mode instruction` on the
-target file. This ensures that new or modified content uses positive framing per ADR-127.
+After applying all approved improvements, validate the target file's framing. Call the Skill tool with `joy-check`. Use instruction mode. This ensures that new or modified content uses positive framing per ADR-127.
 Positive framing produces instructions agents act on rather than rules they work around.
 
 If joy-check flags lines in the NEW content (content that was just added/modified):
@@ -253,7 +252,7 @@ If joy-check flags lines in EXISTING content (not modified by this upgrade):
 
 **Goal**: Score the updated agent and compute quality delta.
 
-**Step 1**: Run `agent-evaluation` skill on the modified file. Record the after score and grade.
+**Step 1**: Call the Skill tool with `agent-evaluation`. Evaluate the modified file and record the after score and grade.
 
 **Step 2**: Compute delta:
 ```

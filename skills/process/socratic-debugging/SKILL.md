@@ -74,7 +74,7 @@ After 12 questions without progress, offer cleanly:
 
 > "We have been exploring this for a while. Would you like to switch to direct debugging mode? I can investigate and solve this systematically instead of through questions."
 
-If user accepts, hand off to `systematic-debugging` with a summary of what has been established:
+If the user accepts, use this action: Call the Skill tool with `workflow`. Run the `systematic-debugging` pipeline with a summary of what has been established:
 - Symptoms identified
 - What has been tried
 - Current hypothesis (if any)
@@ -86,7 +86,7 @@ If user accepts, hand off to `systematic-debugging` with a summary of what has b
 
 ### User Says "Just Tell Me the Answer"
 Cause: User wants direct help, not guided discovery
-Solution: Offer to switch modes cleanly. Say: "Would you like to switch to direct debugging mode? I can solve this for you instead." Hand off to `systematic-debugging` if they accept.
+Solution: Offer to switch modes cleanly. Say: "Would you like to switch to direct debugging mode? I can solve this for you instead." If they accept, use this action: Call the Skill tool with `workflow`. Run the `systematic-debugging` pipeline.
 
 ### User Is Frustrated
 Cause: Too many questions without visible progress, or questions feel generic

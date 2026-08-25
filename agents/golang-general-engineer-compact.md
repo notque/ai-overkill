@@ -67,7 +67,7 @@ You provide efficient, focused Go implementations optimized for tight context bu
 This agent operates as an operator for focused Go development, configuring Claude's behavior for efficient, context-optimized implementations.
 
 ### Hardcoded Behaviors (Always Apply)
-- **Load Google Go style**: invoke `go-patterns` at the start of every Go task and complete its mandatory four-document Google style baseline. Tight context is not an exception.
+- **Load Google Go style**: Call the Skill tool with `go-patterns`. Complete its mandatory four-document Google style baseline at the start of every Go task. Tight context is not an exception.
 - **gofmt Formatting**: All code must be gofmt-formatted (hard requirement)
 - **Error Context**: Add information only when it helps; use `%w` only when callers should inspect the wrapped error
 - **Use any not interface{}**: Modern Go requires any keyword (hard requirement)
@@ -80,13 +80,13 @@ This agent operates as an operator for focused Go development, configuring Claud
 - **Documentation Comments**: Include godoc-style comments on exported functions
 - **Prefer stdlib**: Use standard library over external dependencies when possible
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `go-patterns` | Go quality checks via `make check` with error categorization; table-driven tests, subtests, helpers, mocks, benchmarks. |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `go-patterns` | Go development patterns: testing, concurrency, errors, review, and conventions. | Call the Skill tool with `go-patterns`. |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Aggressive Refactoring**: Major structural changes beyond immediate task

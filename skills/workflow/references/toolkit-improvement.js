@@ -32,7 +32,7 @@ import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
 export const meta = {
   name: "toolkit-improvement",
   description:
-    "Toolkit continuous-improvement pipeline as a deterministic native Workflow: EVALUATE -> RESEARCH -> SYNTHESIZE -> CRITIQUE -> REPORT -> ADR -> IMPLEMENT -> VALIDATE -> REMEDIATE -> RECORD. EVALUATE is a mandatory parallel barrier of 10 research-subagent-executor foundation evaluators (distinct dimensions), scaling above the floor with tier-gated deep-dive + adversarial waves; the research-coordinator-engineer then researches ecosystem practice, synthesizes + de-dupes findings, applies skeptical critique, reports the decision surface, writes one ADR per cluster, dispatches domain implementers, validates skills against baseline, remediates regressions, and records learnings. Each agent attaches its full skill stack (one Skill() per skill) plus the /do mandatory injections. Mirrors toolkit-improvement.md; that markdown flow stays the cross-harness floor.",
+    "Toolkit continuous-improvement pipeline as a deterministic native Workflow: EVALUATE -> RESEARCH -> SYNTHESIZE -> CRITIQUE -> REPORT -> ADR -> IMPLEMENT -> VALIDATE -> REMEDIATE -> RECORD. EVALUATE is a mandatory parallel barrier of 10 research-subagent-executor foundation evaluators (distinct dimensions), scaling above the floor with tier-gated deep-dive + adversarial waves; the research-coordinator-engineer then researches ecosystem practice, synthesizes + de-dupes findings, applies skeptical critique, reports the decision surface, writes one ADR per cluster, dispatches domain implementers, validates skills against baseline, remediates regressions, and records learnings. Each agent attaches its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections. Mirrors toolkit-improvement.md; that markdown flow stays the cross-harness floor.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 3). STATIC validation pins the phases + the FIXED 10-agent EVALUATE
@@ -62,7 +62,7 @@ export const meta = {
     ],
     // EVALUATE is a FIXED barrier: 10 research-subagent-executor foundation
     // evaluators on every run (the prose Wave 1 of 10 dimensions). Each carries a
-    // `skills` LIST (the full evaluation stack attached via one Skill() per
+    // `skills` LIST (the full evaluation stack attached via one exact Skill-tool call per
     // element). The distinct evaluation dimension is a RUNTIME property of the
     // prompt, not the roster shape, so the static roster is ten identical-type
     // entries (the gate pins the type + skills + count).
@@ -89,8 +89,8 @@ export const meta = {
   },
 };
 
-// Map each dispatched agent to the FULL skill stack it invokes by name (one
-// Skill() per element). The foundation/deep-dive/adversarial evaluators run the
+// Map each dispatched agent to the FULL skill stack it invokes by name (one exact
+// Skill-tool call per element). The foundation/deep-dive/adversarial evaluators run the
 // evaluation methodology + earn the verification gate; the coordinator
 // synthesizes, critiques, governs ADRs, and validates with the agent-evaluation
 // + skill-eval stack. The literal skill names live in these `skills: [...]`
@@ -331,7 +331,7 @@ function enterPhase(title) {
 }
 
 // Build one evaluator's prompt for its assigned dimension + wave. skillDirectives
-// emits one Skill("...") per element of the research-subagent-executor stack
+// emits one exact Skill-tool call per element of the research-subagent-executor stack
 // (resolves path-independent inside a native Workflow agent() dispatch).
 // mandatoryInjections() embeds the /do completeness/density/base-instructions/
 // reference-loading block. Each evaluator gets a DISTINCT dimension and writes

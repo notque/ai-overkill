@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 UserPromptSubmit Hook: Pipeline Creator Context Detection
 
@@ -17,7 +17,8 @@ Detection Logic:
 
 Output Format:
 - [pipeline-creator] Detected pipeline creation request
-- [auto-skill] pipeline-scaffolder
+- [auto-skill] workflow
+- Call the Skill tool with `workflow`.
 - JSON environmental state as additional context
 
 Design Principles:
@@ -139,7 +140,7 @@ def scan_agents(base_dir: Path) -> list[dict]:
 
 def _skills_from_index(index_path: Path) -> list[dict] | None:
     """
-    Parse a skills/INDEX.json or pipeline-index.json file.
+    Parse a skills/INDEX.json file.
 
     Returns a list of {name, user_invocable, agent} dicts on success,
     or None if the file is missing or unparseable.
@@ -148,9 +149,7 @@ def _skills_from_index(index_path: Path) -> list[dict] | None:
         return None
     try:
         data = json.loads(index_path.read_text(encoding="utf-8"))
-        # Both skills/INDEX.json and pipeline-index.json store entries under
-        # a dict keyed by component name ("skills" or "pipelines" top-level key).
-        entries: dict = data.get("skills") or data.get("pipelines") or {}
+        entries: dict = data.get("skills") or {}
         if not isinstance(entries, dict):
             return None
         return [
@@ -169,8 +168,8 @@ def scan_skills(base_dir: Path) -> list[dict]:
     """
     Scan skills/ directory for existing skill definitions.
 
-    Reads skills/INDEX.json and pipeline-index.json when available (single
-    JSON parse per directory replaces ~145 + ~30 SKILL.md reads + YAML parses).
+    Reads skills/INDEX.json when available (one JSON parse replaces the
+    per-skill SKILL.md reads and YAML parses).
     Falls back to filesystem walk per directory only when INDEX.json is
     missing or unparseable.
 
@@ -182,13 +181,6 @@ def scan_skills(base_dir: Path) -> list[dict]:
     skills_dir = base_dir / "skills"
     if skills_dir.is_dir():
         index_entries = _skills_from_index(skills_dir / "INDEX.json")
-        if index_entries is not None:
-            skills.extend(index_entries)
-
-    # Pipeline INDEX (relocated into workflow skill)
-    pipeline_index = base_dir / "skills" / "workflow" / "references" / "pipeline-index.json"
-    if pipeline_index.is_file():
-        index_entries = _skills_from_index(pipeline_index)
         if index_entries is not None:
             skills.extend(index_entries)
 
@@ -370,7 +362,8 @@ def main():
         related_skills = ", ".join(state["related_skills"]) or "none"
         injection = (
             f"[pipeline-creator] Detected pipeline creation request\n"
-            f"[auto-skill] pipeline-scaffolder\n"
+            "[auto-skill] workflow\n"
+            "Call the Skill tool with `workflow`.\n"
             f"[pipeline-creator] Inventory: {state['agent_count']} agents, "
             f"{state['skill_count']} skills, {state['hook_count']} hooks\n"
             f"[pipeline-creator] Related agents: {related_agents}\n"

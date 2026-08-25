@@ -111,7 +111,7 @@ grep -n "agent-evaluation\|before.*score\|after.*score" task_plan.md
 before/after delta, regressions are invisible until users report breakage. The upgrade
 pipeline exists to *improve* quality, not maintain it.
 
-Do instead: Run `agent-evaluation` on each modified component. Report the numeric delta.
+Do instead: Call the Skill tool with `agent-evaluation`. Evaluate each modified component and report the numeric delta.
 If any component scores lower, surface it to the user and keep the modified component in place until they choose a rollback. Do not downgrade the regression as "necessary."
 
 ---
@@ -195,7 +195,7 @@ Use a single agent when:
 | Session deadlock after hook deploy | Hook deployed before syntax verification | `python3 -m py_compile hook.py` before `cp` to `~/.claude/hooks/` |
 | PR merge fails — CI checks failed | Ruff lint or format error in .py files created during upgrade | `ruff check . && ruff format --check .` before push |
 | Agent dispatch returns empty output | Dispatched specialist had insufficient context | Re-dispatch with narrower scope and explicit file paths |
-| Routing gap after upgrade | New agent not added to routing tables | Invoke `routing-table-updater` skill after every new agent |
+| Routing gap after upgrade | New agent not added to routing tables | Call the Skill tool with `routing-table-updater`. Do this after every new agent. |
 | Component scores unchanged (no improvement) | Upgrade changed names but not behavior | Verify upgrade touched functional content, not just formatting |
 
 ---

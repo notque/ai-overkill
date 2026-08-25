@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 PreToolUse:Bash Hook: Branch Safety Gate
 
@@ -131,7 +131,7 @@ def main() -> None:
         deny_tool_use(
             "PreToolUse",
             f"Cannot commit directly to {branch}. Create a feature branch first. "
-            "Use the pr-workflow skill (commit intent) to commit safely.",
+            "[fix-with-skill] pr-workflow\nCall the Skill tool with `pr-workflow`.",
         )
         sys.exit(0)
 
