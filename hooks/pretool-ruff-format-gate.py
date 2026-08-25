@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.1.0
 """
 PreToolUse:Bash Hook: Ruff Format Gate
 
-Blocks git push when ruff format --check finds formatting violations.
+Blocks git push when changed Python files fail ruff format --check.
 Forces agents to run ruff format before pushing, preventing CI failures.
 
 This is a HARD GATE — exits 0 with JSON permissionDecision:deny to block the Bash tool.
@@ -12,12 +12,14 @@ Detection logic:
 - Tool is Bash
 - Command contains 'git push'
 - pyproject.toml with [tool.ruff] exists in project root
-- ruff format --check . --config pyproject.toml exits non-zero
+- Changed .py/.pyi files are discovered in the command's actual worktree
+- ruff format --check <changed files> --config pyproject.toml exits non-zero
 
 Allow-through conditions:
 - Command does not contain 'git push'
 - No pyproject.toml with [tool.ruff] section (non-Python project)
-- ruff format --check passes (no violations)
+- No changed Python files (Markdown and other languages are ignored)
+- ruff format --check passes for the changed Python files
 - RUFF_FORMAT_GATE_BYPASS=1 env var
 
 Exit code semantics:
@@ -28,6 +30,7 @@ Exit code semantics:
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import traceback
@@ -61,6 +64,36 @@ def _find_project_root(cwd: str | None) -> Path | None:
     return None
 
 
+def _is_git_push_command(command: str) -> bool:
+    """Return whether a shell command actually executes ``git ... push``.
+
+    Shell arguments that merely contain the words (for example an ``rg`` search
+    for the text "git push") are not push commands.
+    """
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+
+    segment: list[str] = []
+    for token in [*tokens, ";"]:
+        if token and all(char in ";&|" for char in token):
+            argv = segment
+            segment = []
+            while argv and ("=" in argv[0] and not argv[0].startswith("-")):
+                argv = argv[1:]
+            if argv and argv[0] == "git":
+                # Git global options may precede the subcommand. The push
+                # token is authoritative only before a shell separator.
+                if "push" in argv[1:]:
+                    return True
+            continue
+        segment.append(token)
+    return False
+
+
 def _extract_push_cwd(command: str, default_cwd: str | None) -> str | None:
     """Extract the effective cwd from a git push command string.
 
@@ -72,23 +105,88 @@ def _extract_push_cwd(command: str, default_cwd: str | None) -> str | None:
     if m:
         p = (m.group(1) or m.group(2) or "").strip()
         if p:
-            return p
+            path = Path(p).expanduser()
+            if not path.is_absolute() and default_cwd:
+                path = Path(default_cwd) / path
+            return str(path.resolve())
 
     m = re.search(r'\bgit\s+-C\s+(?:"([^"]+)"|(\S+))', command)
     if m:
-        return m.group(1) or m.group(2)
+        p = m.group(1) or m.group(2)
+        path = Path(p).expanduser()
+        if not path.is_absolute() and default_cwd:
+            path = Path(default_cwd) / path
+        return str(path.resolve())
 
     return default_cwd
 
 
-def _run_ruff_format_check(project_root: Path) -> tuple[int, str]:
-    """Run ruff format --check in project_root.
+def _git_paths(project_root: Path, args: list[str]) -> list[str]:
+    """Run a NUL-delimited Git path query, returning no paths on failure."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(project_root),
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return []
+    if result.returncode != 0:
+        return []
+    return [path for path in result.stdout.split("\0") if path]
+
+
+def _changed_python_files(project_root: Path) -> list[Path]:
+    """Return changed, existing Python files relative to this worktree.
+
+    Include committed branch changes plus staged, unstaged, and untracked work.
+    Never pass directories or non-Python documents to Ruff.
+    """
+    paths: set[str] = set()
+
+    # Prefer the branch's upstream. New feature branches normally have none,
+    # so compare with the remote default branch, then the previous commit.
+    bases = ["@{upstream}", "origin/HEAD", "HEAD^"]
+    for base in bases:
+        changed = _git_paths(
+            project_root,
+            ["diff", "--name-only", "-z", "--diff-filter=ACMR", f"{base}...HEAD"],
+        )
+        if changed:
+            paths.update(changed)
+            break
+
+    paths.update(_git_paths(project_root, ["diff", "--name-only", "-z", "--diff-filter=ACMR"]))
+    paths.update(
+        _git_paths(
+            project_root,
+            ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"],
+        )
+    )
+    paths.update(_git_paths(project_root, ["ls-files", "--others", "--exclude-standard", "-z"]))
+
+    return sorted(
+        Path(path) for path in paths if Path(path).suffix in {".py", ".pyi"} and (project_root / path).is_file()
+    )
+
+
+def _run_ruff_format_check(project_root: Path, files: list[Path]) -> tuple[int, str]:
+    """Run ruff format --check on explicit changed files in project_root.
 
     Returns (return_code, combined_output).
     """
     try:
         result = subprocess.run(
-            ["ruff", "format", "--check", ".", "--config", "pyproject.toml"],
+            [
+                "ruff",
+                "format",
+                "--check",
+                *(str(path) for path in files),
+                "--config",
+                "pyproject.toml",
+            ],
             capture_output=True,
             text=True,
             timeout=15,
@@ -122,7 +220,7 @@ def main() -> None:
         sys.exit(0)
 
     # Only fire on git push commands
-    if not re.search(r"\bgit\s+push\b", command):
+    if not _is_git_push_command(command):
         sys.exit(0)
 
     # Bypass env var
@@ -143,7 +241,13 @@ def main() -> None:
     if debug:
         print(f"[ruff-format-gate] Running ruff format --check in {project_root}", file=sys.stderr)
 
-    returncode, output = _run_ruff_format_check(project_root)
+    changed_python = _changed_python_files(project_root)
+    if not changed_python:
+        if debug:
+            print("[ruff-format-gate] No changed Python files — allowing push", file=sys.stderr)
+        sys.exit(0)
+
+    returncode, output = _run_ruff_format_check(project_root, changed_python)
 
     if returncode == 0:
         if debug:

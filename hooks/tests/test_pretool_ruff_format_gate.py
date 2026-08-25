@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -98,6 +99,10 @@ class TestNonPushCommandsPassThrough:
         code, _ = _run_main(_make_bash_event("echo 'hello'"))
         assert code == 0
 
+    def test_search_argument_mentioning_git_push_is_not_a_push(self):
+        code, _ = _run_main(_make_bash_event("rg -n 'git push' docs/"))
+        assert code == 0
+
 
 # ---------------------------------------------------------------------------
 # No pyproject.toml — pass through
@@ -139,13 +144,71 @@ class TestBypassEnv:
 
 
 class TestRuffCheckOutcomes:
+    def test_only_changed_python_files_are_formatted(self, tmp_path):
+        """The formatter receives explicit changed Python paths, never the repository dot."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        payload = _make_bash_event("git push origin feature", cwd=str(tmp_path))
+        changed = [Path("src/changed.py"), Path("types/changed.pyi")]
+
+        mock_result = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        with (
+            patch.object(mod, "_changed_python_files", return_value=changed),
+            patch("subprocess.run", return_value=mock_result) as mock_run,
+        ):
+            code, _ = _run_main(payload)
+
+        assert code == 0
+        ruff_call = mock_run.call_args_list[-1]
+        assert ruff_call.args[0] == [
+            "ruff",
+            "format",
+            "--check",
+            "src/changed.py",
+            "types/changed.pyi",
+            "--config",
+            "pyproject.toml",
+        ]
+        assert "." not in ruff_call.args[0]
+
+    def test_no_changed_python_files_allows_clean_feature_push(self, tmp_path):
+        """A feature push with no changed Python must not invoke Ruff at all."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        payload = _make_bash_event("git push origin feature", cwd=str(tmp_path))
+
+        with (
+            patch.object(mod, "_changed_python_files", return_value=[]),
+            patch("subprocess.run") as mock_run,
+        ):
+            code, _ = _run_main(payload)
+
+        assert code == 0
+        mock_run.assert_not_called()
+
+    def test_unrelated_dirty_markdown_is_ignored(self, tmp_path):
+        """Fenced Python in Markdown can never be passed to Ruff."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        (tmp_path / "notes.md").write_text("```python\nx={'bad':1}\n```\n")
+        payload = _make_bash_event("git push origin feature", cwd=str(tmp_path))
+
+        with (
+            patch.object(mod, "_changed_python_files", return_value=[]),
+            patch("subprocess.run") as mock_run,
+        ):
+            code, _ = _run_main(payload)
+
+        assert code == 0
+        mock_run.assert_not_called()
+
     def test_ruff_check_passes_allows_push(self, tmp_path):
         """When ruff format --check exits 0, the push is allowed."""
         (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
         payload = _make_bash_event("git push origin main", cwd=str(tmp_path))
 
         mock_result = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
-        with patch("subprocess.run", return_value=mock_result):
+        with (
+            patch.object(mod, "_changed_python_files", return_value=[Path("foo.py")]),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             code, _ = _run_main(payload)
         assert code == 0
 
@@ -155,7 +218,10 @@ class TestRuffCheckOutcomes:
         payload = _make_bash_event("git push origin main", cwd=str(tmp_path))
 
         mock_result = type("R", (), {"returncode": 1, "stdout": "Would reformat: foo.py\n", "stderr": ""})()
-        with patch("subprocess.run", return_value=mock_result):
+        with (
+            patch.object(mod, "_changed_python_files", return_value=[Path("src/app.py")]),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             code, parsed = _run_main(payload)
         assert code == 2
         assert parsed is not None
@@ -190,7 +256,10 @@ class TestRuffCheckOutcomes:
 
         violation_msg = "Would reformat: src/app.py\n1 file would be reformatted"
         mock_result = type("R", (), {"returncode": 1, "stdout": violation_msg, "stderr": ""})()
-        with patch("subprocess.run", return_value=mock_result):
+        with (
+            patch.object(mod, "_changed_python_files", return_value=[Path("src/app.py")]),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             code, parsed = _run_main(payload)
         assert code == 2
         reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
@@ -229,6 +298,64 @@ class TestCwdExtraction:
         with patch("subprocess.run", return_value=mock_result):
             code, _ = _run_main(payload)
         assert code == 0
+
+    def test_relative_cd_resolves_from_event_cwd(self, tmp_path):
+        """A relative cd prefix is resolved against the Bash event's actual cwd."""
+        worktree = tmp_path / "trees" / "feature"
+        worktree.mkdir(parents=True)
+        (worktree / "pyproject.toml").write_text("[tool.ruff]\n")
+        payload = _make_bash_event("cd trees/feature && git push origin feature", cwd=str(tmp_path))
+
+        with patch.object(mod, "_changed_python_files", return_value=[]) as changed:
+            code, _ = _run_main(payload)
+
+        assert code == 0
+        changed.assert_called_once_with(worktree)
+
+
+class TestChangedPythonDiscovery:
+    def test_changed_malformed_python_is_selected_but_markdown_is_not(self, tmp_path):
+        """Discovery fail-closes on changed Python while excluding every non-Python path."""
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "bad.py").write_text("x={'bad':1}\n")
+        (tmp_path / "src" / "types.pyi").write_text("x:int\n")
+        files = "src/bad.py\0docs/example.md\0src/types.pyi\0assets/app.js\0"
+        result = type("R", (), {"returncode": 0, "stdout": files, "stderr": ""})()
+
+        with patch("subprocess.run", return_value=result):
+            selected = mod._changed_python_files(tmp_path)
+
+        assert selected == [Path("src/bad.py"), Path("src/types.pyi")]
+
+
+class TestEndToEndWorktreeScope:
+    @staticmethod
+    def _init_repo(path: Path) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+        subprocess.run(["git", "config", "user.email", "hook@example.test"], cwd=path, check=True)
+        subprocess.run(["git", "config", "user.name", "Hook Test"], cwd=path, check=True)
+        (path / "pyproject.toml").write_text("[tool.ruff]\n")
+        (path / "baseline.py").write_text("BASELINE = 1\n")
+        subprocess.run(["git", "add", "."], cwd=path, check=True)
+        subprocess.run(["git", "commit", "-qm", "baseline"], cwd=path, check=True)
+
+    def test_real_changed_malformed_python_is_blocked(self, tmp_path):
+        self._init_repo(tmp_path)
+        (tmp_path / "changed.py").write_text("result={'bad':1}\n")
+
+        code, parsed = _run_main(_make_bash_event("git push origin feature", cwd=str(tmp_path)))
+
+        assert code == 2
+        assert "changed.py" in parsed["hookSpecificOutput"]["permissionDecisionReason"]
+
+    def test_real_dirty_fenced_markdown_is_allowed(self, tmp_path):
+        self._init_repo(tmp_path)
+        (tmp_path / "notes.md").write_text("```python\nresult={'bad':1}\n```\n")
+
+        code, parsed = _run_main(_make_bash_event("git push origin feature", cwd=str(tmp_path)))
+
+        assert code == 0
+        assert parsed is None
 
 
 # ---------------------------------------------------------------------------
