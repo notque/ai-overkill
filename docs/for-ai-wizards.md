@@ -154,8 +154,6 @@ Ten event types, registered in settings.json:
 | `SessionStart` | Session begins | sync-to-user-claude, afk-mode, session-context, cross-repo-agents, fish-shell-detector, sapcc-go-detector, operator-context-detector, session-github-briefing, session-adr-health-check, hook-version-parity-check |
 | `UserPromptSubmit` | Before processing each prompt | pipeline-context-detector, user-correction-capture, codex-auto-review, prompt-capture |
 | `PreToolUse` | Before tool execution | suggest-compact, pretool-unified-gate, pretool-branch-safety, ci-merge-gate, pretool-index-sync-check, pretool-learning-injector, pretool-synthesis-gate, pretool-plan-gate, pretool-prompt-injection-scanner, pipeline-phase-gate, pretool-adr-creation-gate, pretool-file-backup, reference-loading-enforcer, pretool-subagent-warmstart, creation-protocol-enforcer |
-
-Ruff formatting is enforced by each repository's test plan and CI, not by parsing arbitrary Bash text before a push. The optional `pretool-ruff-format-gate.py` checker remains available for explicit diagnostics, but registering it as a push interceptor created both false positives across worktrees and an endless wrapper/variable bypass arms race.
 | `PostToolUse` | After tool execution | posttool-lint-hint, agent-grade-on-change, adr-enforcement, posttool-security-scan, posttool-skill-frontmatter-check, posttooluse-joy-check-warn, posttooluse-sync-skill-index, posttool-docs-drift-alert, retro-graduation-gate, adr-lifecycle-on-merge, posttool-rename-sweep, record-activation, posttool-session-reads, usage-tracker, review-capture, instruction-compliance, error-learner, record-waste, posttool-auto-test |
 | `PreCompact` | Before context compression | precompact-archive |
 | `PostCompact` | After context compression | postcompact-handler |
@@ -163,6 +161,8 @@ Ruff formatting is enforced by each repository's test plan and CI, not by parsin
 | `SubagentStop` | When a subagent exits | subagent-completion-guard |
 | `Stop` | Session ends | session-summary, confidence-decay, session-learning-recorder, knowledge-graduation-proposer, rules-distill-trigger |
 | `StopFailure` | Session ends abnormally | stop-failure-handler |
+
+Ruff formatting is enforced by each repository's test plan and CI, not by parsing arbitrary Bash text before a push. The optional `pretool-ruff-format-gate.py` checker remains available for explicit diagnostics, but registering it as a push interceptor created both false positives across worktrees and an endless wrapper/variable bypass arms race.
 
 ### Execution Model
 
