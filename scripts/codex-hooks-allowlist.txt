@@ -45,7 +45,6 @@ UserPromptSubmit:codex-auto-review.py class=adapted mode=prompt failure=open
 # Native PreToolUse Bash enforcement (5)
 PreToolUse:pretool-branch-safety.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:ci-merge-gate.py matcher=Bash class=native mode=native failure=closed
-PreToolUse:pretool-ruff-format-gate.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:pretool-private-name-leak-gate.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:security-review-hook.py matcher=Bash class=native mode=native failure=closed
 

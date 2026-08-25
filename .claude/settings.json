@@ -206,12 +206,6 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/pretool-ruff-format-gate.py\"",
-            "description": "Ruff format gate: blocks git push when ruff format --check finds violations (Python projects with pyproject.toml only)",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/pretool-private-name-leak-gate.py\"",
             "description": "Private-name leak gate: blocks git commit/push and gh pr text naming a private component from ~/private-skills (local-only by design; block messages redact the name)",
             "timeout": 5000

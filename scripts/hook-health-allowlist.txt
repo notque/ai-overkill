@@ -28,3 +28,4 @@ pretool-config-protection.py               # deferred (ADR-115): denies ANY Writ
 voice-output-gate.py                       # superseded: voice-writer skill internalizes output gating (HOOK-GATE/CLOSE-GATE phases); private-skills install registers it separately when voice stack is active
 posttool-voice-quality-check.py            # superseded: voice-writer ANTI-AI phase covers AI-pattern checks; advisory-only, not needed default-on
 pretool-voice-publish-gate.py              # superseded: voice-writer pipeline phases enforce publish-readiness; dispatches voice-pipeline-tracker.py; private voice-stack installer registers it when active
+pretool-ruff-format-gate.py  # Optional explicit changed-Python checker; not a shell interceptor because push text parsing is bypassable and caused cross-worktree false positives.

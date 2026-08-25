@@ -18,10 +18,22 @@ from unittest.mock import patch
 # ---------------------------------------------------------------------------
 
 HOOK_PATH = Path(__file__).parent.parent / "pretool-ruff-format-gate.py"
+REPO_ROOT = HOOK_PATH.parent.parent
 
 spec = importlib.util.spec_from_file_location("pretool_ruff_format_gate", HOOK_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
+
+
+def test_checker_is_not_registered_as_a_shell_interceptor():
+    """Push validation belongs to repository test plans/CI, not Bash text parsing."""
+    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+    commands = [hook.get("command", "") for group in settings["hooks"]["PreToolUse"] for hook in group.get("hooks", [])]
+    assert not any("pretool-ruff-format-gate.py" in command for command in commands)
+    assert (
+        "PreToolUse:pretool-ruff-format-gate.py"
+        not in (REPO_ROOT / "scripts" / "codex-hooks-allowlist.txt").read_text()
+    )
 
 
 # ---------------------------------------------------------------------------
