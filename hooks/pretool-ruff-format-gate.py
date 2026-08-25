@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.2.0
 """
 PreToolUse:Bash Hook: Ruff Format Gate
 
@@ -64,61 +64,94 @@ def _find_project_root(cwd: str | None) -> Path | None:
     return None
 
 
-def _push_cwd(command: str, default_cwd: str | None) -> Path | None:
-    """Return the effective cwd of the actual push segment, if one exists."""
+def _push_cwds(command: str, default_cwd: str | None) -> list[Path]:
+    """Return effective worktree contexts for every push in shell order."""
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars="();&|{}")
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
-        return None
+        return []
 
     current = Path(default_cwd).expanduser().resolve() if default_cwd else None
+    cwd_stack: list[Path | None] = []
+    pushes: list[Path] = []
     segment: list[str] = []
-    for token in [*tokens, ";"]:
-        if token and all(char in "();&|{}" for char in token):
-            argv = segment
-            segment = []
 
-            # Shell grouping and command substitutions create segments. Strip
-            # only recognized execution wrappers, never arbitrary arguments.
-            while argv and argv[0] in {"$", "command", "builtin"}:
+    def execute(argv: list[str]) -> None:
+        nonlocal current
+        while argv and argv[0] in {"$", "builtin"}:
+            argv = argv[1:]
+        if argv[:1] == ["command"]:
+            argv = argv[1:]
+            while argv and (argv[0] == "--" or argv[0] in {"-p", "-v", "-V"}):
                 argv = argv[1:]
-            if argv and argv[0] == "env":
+        if argv[:1] == ["env"]:
+            argv = argv[1:]
+            while argv and ("=" in argv[0] or argv[0].startswith("-")):
                 argv = argv[1:]
-                while argv and ("=" in argv[0] or argv[0].startswith("-")):
-                    argv = argv[1:]
-            while argv and "=" in argv[0] and not argv[0].startswith("-"):
-                argv = argv[1:]
+        while argv and "=" in argv[0] and not argv[0].startswith("-"):
+            argv = argv[1:]
 
-            if argv[:1] == ["cd"] and len(argv) >= 2:
-                path = Path(argv[1]).expanduser()
-                if not path.is_absolute() and current:
-                    path = current / path
-                current = path.resolve()
-                continue
+        if argv[:1] == ["cd"] and len(argv) >= 2:
+            path = Path(argv[1]).expanduser()
+            if not path.is_absolute() and current:
+                path = current / path
+            current = path.resolve()
+            return
+        if argv[:1] != ["git"]:
+            return
 
-            if argv[:1] != ["git"]:
-                continue
-            git_cwd = current
-            index = 1
-            while index < len(argv):
-                if argv[index] == "-C" and index + 1 < len(argv):
+        git_cwd = current
+        value_options = {
+            "-c",
+            "-C",
+            "--config-env",
+            "--exec-path",
+            "--git-dir",
+            "--namespace",
+            "--super-prefix",
+            "--work-tree",
+        }
+        index = 1
+        while index < len(argv):
+            arg = argv[index]
+            if arg in value_options and index + 1 < len(argv):
+                if arg == "-C":
                     path = Path(argv[index + 1]).expanduser()
                     if not path.is_absolute() and current:
                         path = current / path
                     git_cwd = path.resolve()
-                    index += 2
-                    continue
-                if argv[index].startswith("-"):
-                    index += 1
-                    continue
-                if argv[index] == "push":
-                    return git_cwd
-                break
+                index += 2
+                continue
+            if any(arg.startswith(f"{option}=") for option in value_options if option.startswith("--")):
+                index += 1
+                continue
+            if arg.startswith("-"):
+                index += 1
+                continue
+            if arg == "push" and git_cwd is not None:
+                pushes.append(git_cwd)
+            return
+
+    for token in [*tokens, ";"]:
+        if token and all(char in "();&|{}" for char in token):
+            execute(segment)
+            segment = []
+            for punctuation in token:
+                if punctuation == "(":
+                    cwd_stack.append(current)
+                elif punctuation == ")" and cwd_stack:
+                    current = cwd_stack.pop()
             continue
         segment.append(token)
-    return None
+    return pushes
+
+
+def _push_cwd(command: str, default_cwd: str | None) -> Path | None:
+    """Compatibility helper returning the first push context."""
+    contexts = _push_cwds(command, default_cwd)
+    return contexts[0] if contexts else None
 
 
 def _git_paths(project_root: Path, args: list[str]) -> list[str]:
@@ -229,30 +262,24 @@ def main() -> None:
         sys.exit(0)
 
     default_cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR")
-    effective_cwd = _push_cwd(command, default_cwd)
-    if effective_cwd is None:
+    push_contexts = _push_cwds(command, default_cwd)
+    if not push_contexts:
         sys.exit(0)
 
-    project_root = _find_project_root(str(effective_cwd))
-    if project_root is None:
+    output = ""
+    for effective_cwd in push_contexts:
+        project_root = _find_project_root(str(effective_cwd))
+        if project_root is None:
+            continue
         if debug:
-            print("[ruff-format-gate] No pyproject.toml with [tool.ruff] found — allowing through", file=sys.stderr)
-        sys.exit(0)
-
-    if debug:
-        print(f"[ruff-format-gate] Running ruff format --check in {project_root}", file=sys.stderr)
-
-    changed_python = _changed_python_files(project_root)
-    if not changed_python:
-        if debug:
-            print("[ruff-format-gate] No changed Python files — allowing push", file=sys.stderr)
-        sys.exit(0)
-
-    returncode, output = _run_ruff_format_check(project_root, changed_python)
-
-    if returncode == 0:
-        if debug:
-            print("[ruff-format-gate] ruff format --check passed — allowing push", file=sys.stderr)
+            print(f"[ruff-format-gate] Running ruff format --check in {project_root}", file=sys.stderr)
+        changed_python = _changed_python_files(project_root)
+        if not changed_python:
+            continue
+        returncode, output = _run_ruff_format_check(project_root, changed_python)
+        if returncode != 0:
+            break
+    else:
         sys.exit(0)
 
     # Violations found — block the push

@@ -139,6 +139,45 @@ class TestPushShellParsing:
                 code, _ = _run_main(_make_bash_event(command, cwd=str(tmp_path)))
             assert code == 2, command
 
+    def test_standard_wrapper_and_git_global_options_cannot_bypass(self, tmp_path):
+        commands = (
+            "git -c color.ui=false push",
+            "git --git-dir .git push",
+            "command -p git push",
+            "command -- git push",
+        )
+        for command in commands:
+            assert mod._push_cwds(command, str(tmp_path)) == [tmp_path], command
+
+    def test_multiple_pushes_return_every_context(self, tmp_path):
+        assert mod._push_cwds("git -C cleanA push; git -C malformedB push", str(tmp_path)) == [
+            tmp_path / "cleanA",
+            tmp_path / "malformedB",
+        ]
+
+    def test_later_malformed_push_blocks_after_clean_first_push(self, tmp_path):
+        clean = tmp_path / "cleanA"
+        malformed = tmp_path / "malformedB"
+        for repo in (clean, malformed):
+            repo.mkdir()
+            (repo / "pyproject.toml").write_text("[tool.ruff]\n")
+        failed = type("R", (), {"returncode": 1, "stdout": "Would reformat: bad.py\n", "stderr": ""})()
+
+        def changed(root):
+            return [] if root == clean else [Path("bad.py")]
+
+        with (
+            patch.object(mod, "_changed_python_files", side_effect=changed) as discovery,
+            patch("subprocess.run", return_value=failed),
+        ):
+            code, _ = _run_main(_make_bash_event("git -C cleanA push; git -C malformedB push", cwd=str(tmp_path)))
+
+        assert code == 2
+        assert [call.args[0] for call in discovery.call_args_list] == [clean, malformed]
+
+    def test_subshell_cd_does_not_leak(self, tmp_path):
+        assert mod._push_cwds("(cd cleanA); git push", str(tmp_path)) == [tmp_path]
+
 
 # ---------------------------------------------------------------------------
 # No pyproject.toml — pass through
