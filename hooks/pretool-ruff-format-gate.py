@@ -64,61 +64,61 @@ def _find_project_root(cwd: str | None) -> Path | None:
     return None
 
 
-def _is_git_push_command(command: str) -> bool:
-    """Return whether a shell command actually executes ``git ... push``.
-
-    Shell arguments that merely contain the words (for example an ``rg`` search
-    for the text "git push") are not push commands.
-    """
+def _push_cwd(command: str, default_cwd: str | None) -> Path | None:
+    """Return the effective cwd of the actual push segment, if one exists."""
     try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="();&|{}")
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
-        return False
+        return None
 
+    current = Path(default_cwd).expanduser().resolve() if default_cwd else None
     segment: list[str] = []
     for token in [*tokens, ";"]:
-        if token and all(char in ";&|" for char in token):
+        if token and all(char in "();&|{}" for char in token):
             argv = segment
             segment = []
-            while argv and ("=" in argv[0] and not argv[0].startswith("-")):
+
+            # Shell grouping and command substitutions create segments. Strip
+            # only recognized execution wrappers, never arbitrary arguments.
+            while argv and argv[0] in {"$", "command", "builtin"}:
                 argv = argv[1:]
-            if argv and argv[0] == "git":
-                # Git global options may precede the subcommand. The push
-                # token is authoritative only before a shell separator.
-                if "push" in argv[1:]:
-                    return True
+            if argv and argv[0] == "env":
+                argv = argv[1:]
+                while argv and ("=" in argv[0] or argv[0].startswith("-")):
+                    argv = argv[1:]
+            while argv and "=" in argv[0] and not argv[0].startswith("-"):
+                argv = argv[1:]
+
+            if argv[:1] == ["cd"] and len(argv) >= 2:
+                path = Path(argv[1]).expanduser()
+                if not path.is_absolute() and current:
+                    path = current / path
+                current = path.resolve()
+                continue
+
+            if argv[:1] != ["git"]:
+                continue
+            git_cwd = current
+            index = 1
+            while index < len(argv):
+                if argv[index] == "-C" and index + 1 < len(argv):
+                    path = Path(argv[index + 1]).expanduser()
+                    if not path.is_absolute() and current:
+                        path = current / path
+                    git_cwd = path.resolve()
+                    index += 2
+                    continue
+                if argv[index].startswith("-"):
+                    index += 1
+                    continue
+                if argv[index] == "push":
+                    return git_cwd
+                break
             continue
         segment.append(token)
-    return False
-
-
-def _extract_push_cwd(command: str, default_cwd: str | None) -> str | None:
-    """Extract the effective cwd from a git push command string.
-
-    Detects:
-    - ``cd <path> && git push``
-    - ``git -C <path> push``
-    """
-    m = re.match(r'cd\s+(?:"([^"]+)"|(\S+))\s*(?:&&|;)', command.lstrip())
-    if m:
-        p = (m.group(1) or m.group(2) or "").strip()
-        if p:
-            path = Path(p).expanduser()
-            if not path.is_absolute() and default_cwd:
-                path = Path(default_cwd) / path
-            return str(path.resolve())
-
-    m = re.search(r'\bgit\s+-C\s+(?:"([^"]+)"|(\S+))', command)
-    if m:
-        p = m.group(1) or m.group(2)
-        path = Path(p).expanduser()
-        if not path.is_absolute() and default_cwd:
-            path = Path(default_cwd) / path
-        return str(path.resolve())
-
-    return default_cwd
+    return None
 
 
 def _git_paths(project_root: Path, args: list[str]) -> list[str]:
@@ -146,16 +146,19 @@ def _changed_python_files(project_root: Path) -> list[Path]:
     """
     paths: set[str] = set()
 
-    # Prefer the branch's upstream. New feature branches normally have none,
-    # so compare with the remote default branch, then the previous commit.
-    bases = ["@{upstream}", "origin/HEAD", "HEAD^"]
+    # Prefer the configured integration line. Critically, a valid empty diff
+    # is final; it must not trigger a fallback into stale repository history.
+    bases = ["origin/dev", "dev", "@{upstream}", "origin/main", "main", "origin/HEAD", "HEAD^"]
     for base in bases:
-        changed = _git_paths(
-            project_root,
-            ["diff", "--name-only", "-z", "--diff-filter=ACMR", f"{base}...HEAD"],
-        )
-        if changed:
-            paths.update(changed)
+        merge_base = _git_paths(project_root, ["merge-base", "HEAD", base])
+        if merge_base:
+            revision = merge_base[0].strip()
+            paths.update(
+                _git_paths(
+                    project_root,
+                    ["diff", "--name-only", "-z", "--diff-filter=ACMR", f"{revision}..HEAD"],
+                )
+            )
             break
 
     paths.update(_git_paths(project_root, ["diff", "--name-only", "-z", "--diff-filter=ACMR"]))
@@ -219,10 +222,6 @@ def main() -> None:
     if not command:
         sys.exit(0)
 
-    # Only fire on git push commands
-    if not _is_git_push_command(command):
-        sys.exit(0)
-
     # Bypass env var
     if os.environ.get(_BYPASS_ENV) == "1":
         if debug:
@@ -230,9 +229,11 @@ def main() -> None:
         sys.exit(0)
 
     default_cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR")
-    effective_cwd = _extract_push_cwd(command, default_cwd)
+    effective_cwd = _push_cwd(command, default_cwd)
+    if effective_cwd is None:
+        sys.exit(0)
 
-    project_root = _find_project_root(effective_cwd)
+    project_root = _find_project_root(str(effective_cwd))
     if project_root is None:
         if debug:
             print("[ruff-format-gate] No pyproject.toml with [tool.ruff] found — allowing through", file=sys.stderr)

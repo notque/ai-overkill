@@ -104,6 +104,42 @@ class TestNonPushCommandsPassThrough:
         assert code == 0
 
 
+class TestPushShellParsing:
+    def test_wrappers_and_grouping_cannot_bypass(self, tmp_path):
+        for command in (
+            "command git push",
+            "env FOO=1 git push",
+            "(git push)",
+            "{ git push; }",
+            "echo $(git push)",
+        ):
+            assert mod._push_cwd(command, str(tmp_path)) == tmp_path
+
+    def test_push_segment_owns_cwd(self, tmp_path):
+        a = tmp_path / "A"
+        b = tmp_path / "B"
+        assert mod._push_cwd("echo ok && cd B && git push", str(tmp_path)) == b
+        assert mod._push_cwd("cd 'B' && git push", str(tmp_path)) == b
+        assert mod._push_cwd("git -C A status && git -C B push", str(tmp_path)) == b
+
+    def test_wrapped_pushes_still_block_changed_malformed_python(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        failed = type("R", (), {"returncode": 1, "stdout": "Would reformat: bad.py\n", "stderr": ""})()
+        for command in (
+            "command git push",
+            "env FOO=1 git push",
+            "(git push)",
+            "{ git push; }",
+            "echo $(git push)",
+        ):
+            with (
+                patch.object(mod, "_changed_python_files", return_value=[Path("bad.py")]),
+                patch("subprocess.run", return_value=failed),
+            ):
+                code, _ = _run_main(_make_bash_event(command, cwd=str(tmp_path)))
+            assert code == 2, command
+
+
 # ---------------------------------------------------------------------------
 # No pyproject.toml — pass through
 # ---------------------------------------------------------------------------
@@ -326,6 +362,23 @@ class TestChangedPythonDiscovery:
             selected = mod._changed_python_files(tmp_path)
 
         assert selected == [Path("src/bad.py"), Path("src/types.pyi")]
+
+    def test_empty_integration_diff_does_not_fall_back_to_stale_history(self, tmp_path):
+        """A valid empty origin/dev comparison is final, not a reason to try HEAD^."""
+        calls = []
+
+        def fake_paths(_root, args):
+            calls.append(args)
+            if args[:2] == ["merge-base", "HEAD"] and args[-1] == "origin/dev":
+                return ["base-sha"]
+            if args[:2] == ["diff", "--name-only"]:
+                return []
+            return []
+
+        with patch.object(mod, "_git_paths", side_effect=fake_paths):
+            assert mod._changed_python_files(tmp_path) == []
+
+        assert not any("HEAD^...HEAD" in arg for call in calls for arg in call)
 
 
 class TestEndToEndWorktreeScope:
