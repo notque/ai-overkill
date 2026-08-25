@@ -21,7 +21,7 @@ cd ~/vexjoy-agent
 
 Claude Code is the primary runtime. If you also use Codex CLI, Factory, or Reasonix, the same install mirrors toolkit skills (and agents where the harness supports them) into `~/.codex/`, `~/.factory/`, and `~/.reasonix/` so all the CLIs share the same skill library. Reasonix has no agent surface, so it gets skills + scripts + hooks only. Gemini CLI support was removed (deprecated upstream, transitioned to Antigravity CLI); Antigravity support pending CLI maturity — see README § "Gemini CLI / Antigravity CLI Support (removed)".
 
-Codex hook support requires v0.144.1+. The six hooks shipped for v0.114 were correct for that Bash-only hook surface; current support covers 26 native and 35 adapter-backed registrations (61 supported), with 13 unsupported. The adapter covers `apply_patch`, not writes through `unified_exec` or other unmatched tools, and PreCompact/Stop hooks receive less telemetry than on Claude Code. After install or a hook update, run `/hooks` in Codex to review and trust changed definitions.
+Codex hook support requires v0.144.1+. The six hooks shipped for v0.114 were correct for that Bash-only hook surface; current support covers 25 native and 35 adapter-backed registrations (60 supported), with 13 unsupported. The adapter covers `apply_patch`, not writes through `unified_exec` or other unmatched tools, and PreCompact/Stop hooks receive less telemetry than on Claude Code. After install or a hook update, run `/hooks` in Codex to review and trust changed definitions.
 
 Command entry points:
 - Claude Code: `/do`

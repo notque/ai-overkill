@@ -3,7 +3,7 @@
 
 ADR-182's six-hook Bash-only allowlist was correct for the older Codex hook
 surface. Codex now supports apply_patch aliases and more lifecycle events.
-These tests pin the reviewed 76-registration accounting so a new Claude hook
+These tests pin the reviewed 73-registration accounting so a new Claude hook
 cannot silently create or remove Codex coverage.
 """
 

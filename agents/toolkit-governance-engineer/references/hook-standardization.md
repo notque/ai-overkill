@@ -180,18 +180,22 @@ print("[hook-name] Action suggested: fix the broken reference")
 
 PreToolUse hooks split into **gates** (can block tool execution) and **advisory** (context injection only). This distinction matters for exit code behavior and testing.
 
-### Gates (8 hooks — block on violation)
+### Documented gates (7 hooks — block on violation)
 
 | Hook | Matcher | Blocking Mechanism |
 |------|---------|-------------------|
 | `pretool-unified-gate.py` | Bash\|Write\|Edit | JSON `permissionDecision: deny` (exit 0) |
 | `pretool-branch-safety.py` | Bash | JSON `permissionDecision: deny` (exit 0) |
 | `ci-merge-gate.py` | Bash | JSON `permissionDecision: deny` (exit 0) — **non-functional**: uses `gh pr checks --json conclusion` but `conclusion` is invalid; use `bucket` |
-| `pretool-ruff-format-gate.py` | Bash | JSON `permissionDecision: deny` (exit 0) |
 | `pretool-synthesis-gate.py` | Write\|Edit | JSON `permissionDecision: deny` (exit 0) |
 | `pretool-plan-gate.py` | Write\|Edit | JSON `permissionDecision: deny` (exit 0) |
 | `pretool-adr-creation-gate.py` | Write | JSON `permissionDecision: deny` (exit 0) |
 | `pipeline-phase-gate.py` | Write\|Edit | **exit(2)** — inconsistent with other gates; should migrate to JSON `permissionDecision: deny` |
+
+`pretool-ruff-format-gate.py` remains an optional explicit changed-Python
+checker, but it is not registered in `.claude/settings.json` or Codex's
+allowlist. Repository test plans and CI enforce Ruff formatting; parsing Bash
+push text was bypassable and created cross-worktree false positives.
 
 ### Advisory (7 hooks — context injection only)
 
@@ -375,7 +379,7 @@ Deploy the hook Python file to `~/.claude/hooks/` first, verify it exists with `
 | Gate uses exit(2) instead of JSON deny | Inconsistent blocking mechanism across gate hooks | Migrate to `{"permissionDecision": "deny", "permissionDecisionReason": "..."}` pattern; known case: `pipeline-phase-gate.py` |
 | error-learner captures non-error output | Hook stdout parsed as "error" by error-learner | Ensure non-error hooks output structured JSON (not plain text that matches error patterns), or scope error-learner's detection |
 
-## Hook Health Status (as of 2026-05-15)
+## Historical hook health snapshot (2026-05-15)
 
 **58/60 registered hooks functional.** 2 non-functional:
 
@@ -390,7 +394,7 @@ Deploy the hook Python file to `~/.claude/hooks/` first, verify it exists with `
 |-------|-------|------|----------|-------|
 | SessionStart | 9 | 0 | 9 | sync, context loading, environment detection |
 | UserPromptSubmit | 4 | 0 | 4 | pipeline detection, correction capture, prompt capture |
-| PreToolUse | 15 | 8 | 7 | branch safety, format gates, plan gates, context injection |
+| PreToolUse | 15 | 8 | 7 | branch safety, plan gates, context injection |
 | PostToolUse | 22 | 0 | 22 | lint, security scan, learning, analytics, testing |
 | PreCompact | 1 | 0 | 1 | archive learnings |
 | PostCompact | 1 | 0 | 1 | re-inject plan context |

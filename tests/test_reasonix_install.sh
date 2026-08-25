@@ -152,8 +152,12 @@ SAMPLE_HOOK="${TEST_HOME}/.reasonix/hooks/user-correction-capture.py"
 assert "allowlisted hook mirrored" test -f "$SAMPLE_HOOK"
 REMOVED_TOOL_HOOK="${TEST_HOME}/.reasonix/hooks/pretool-branch-safety.py"
 assert "removed tool hook NOT mirrored" test ! -f "$REMOVED_TOOL_HOOK"
-# Non-allowlisted hooks (e.g. pretool-ruff-format-gate IS allowlisted; pick one NOT in
-# the allowlist — we excluded SessionStart-style ones, but check for a disabled stub).
+# The optional Ruff checker is intentionally unregistered and not mirrored into
+# Reasonix. Formatting enforcement belongs to repository test plans and CI.
+OPTIONAL_RUFF_CHECKER="${TEST_HOME}/.reasonix/hooks/pretool-ruff-format-gate.py"
+assert "optional Ruff checker NOT mirrored" test ! -f "$OPTIONAL_RUFF_CHECKER"
+
+# A disabled SessionStart-style stub also proves the allowlist is selective.
 NOT_ALLOWLISTED="${TEST_HOME}/.reasonix/hooks/creation-request-enforcer-userprompt.py"
 assert "non-allowlisted disabled stub NOT mirrored" test ! -f "$NOT_ALLOWLISTED"
 
