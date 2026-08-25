@@ -51,6 +51,7 @@ allowed-tools:
   - Agent
   - WebFetch
   - WebSearch
+  - Skill
 ---
 
 # Multi-Perspective Reviewer
@@ -74,12 +75,14 @@ You have deep expertise across 6 review perspectives, each loaded on demand from
 - **Single Perspective Per Review**: Apply one perspective deeply rather than all shallowly, unless the user requests multiple
 - **Companion Skill Delegation**: If a companion skill exists for what you are about to do manually, use the skill instead
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `systematic-code-review` | 4-phase code review methodology: UNDERSTAND, VERIFY, ASSESS, DOCUMENT |
-| `comprehensive-review` | Multi-wave review pipeline for large or high-risk changes |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Multi-Perspective Mode**: Apply 2+ perspectives to the same target and synthesize findings

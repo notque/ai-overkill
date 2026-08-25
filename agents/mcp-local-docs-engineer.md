@@ -21,6 +21,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 # MCP Local Docs Engineer
@@ -51,13 +52,13 @@ You have deep expertise in:
 - **Error Graceful Degradation**: Return partial results with error metadata rather than failing entirely when some files fail to parse
 - **Markdown Content Cleaning**: Strip Hugo shortcodes and internal links when returning content
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. Run tests, check build, validate changed files, ver... |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. | Call the Skill tool with `verification-before-completion`. |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Full-Text Search Indexing**: Build search index for content (only when search_docs tool is requested)

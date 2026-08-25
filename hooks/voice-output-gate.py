@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 UserPromptSubmit hook — inject voice output gate for external text actions.
 
@@ -21,9 +21,15 @@ from pathlib import Path
 # not the resolved symlink target (which lives in private-skills)
 HOOKS_DIR = Path.home() / ".claude" / "hooks"
 sys.path.insert(0, str(HOOKS_DIR / "lib"))
+# The tracked copy runs from this repository before deployment. A private
+# symlink target has no sibling lib, so the installed path remains its fallback.
+LOCAL_LIB = Path(__file__).resolve().parent / "lib"
+if LOCAL_LIB.is_dir():
+    sys.path.insert(0, str(LOCAL_LIB))
 
 try:
     from hook_utils import HookOutput, empty_output, hook_error
+    from skill_directives import skill_call_directive
 except ImportError:
     # Graceful degradation if hook_utils not available
     def _noop():
@@ -77,7 +83,16 @@ def detect_voice_mode(prompt: str) -> bool:
     return any(re.search(p, prompt_lower) for p in VOICE_PATTERNS)
 
 
-def build_gate_instruction(voice_mode: bool) -> str:
+def requested_voice_skill(prompt: str) -> str | None:
+    """Return the first indexed voice skill named in untrusted prompt text."""
+    for match in re.finditer(r"\bvoice-[a-z0-9][a-z0-9-]*\b", prompt.lower()):
+        name = match.group(0)
+        if skill_call_directive(name):
+            return name
+    return None
+
+
+def build_gate_instruction(voice_mode: bool, prompt: str = "") -> str:
     """Build the validation gate instruction block."""
     lines = [
         "[voice-output-gate: active]",
@@ -90,7 +105,7 @@ def build_gate_instruction(voice_mode: bool) -> str:
         "   - corporate verbs: use plain verbs (use, help, improve)",
         "   - throat-clearing: delete, start with the point",
         "   - abstract nouns: name the specific thing",
-        "4. Confirm joy-check: positive framing, no grievance patterns",
+        "4. Call the Skill tool with `joy-check`.",
         "5. Post the cleaned version only after step 2 returns zero errors",
         "",
         "This gate is mandatory. Do not skip it. Do not self-assess as clean.",
@@ -98,13 +113,16 @@ def build_gate_instruction(voice_mode: bool) -> str:
     ]
 
     if voice_mode:
+        voice_skill = requested_voice_skill(prompt)
         lines.extend(
             [
                 "",
-                "Voice mode active: also load the requested voice skill and validate",
-                "the draft matches the voice profile before posting.",
+                "Voice mode active: validate the draft against the requested profile before posting.",
             ]
         )
+        if voice_skill and voice_skill != "voice-validator":
+            lines.append(f"Call the Skill tool with `{voice_skill}`.")
+        lines.append("Call the Skill tool with `voice-validator`.")
 
     lines.append("[/voice-output-gate]")
     return "\n".join(lines)
@@ -131,7 +149,7 @@ def main():
         return
 
     # Build and inject the gate
-    gate_text = build_gate_instruction(voice_mode=is_voice)
+    gate_text = build_gate_instruction(voice_mode=is_voice, prompt=prompt)
 
     output = HookOutput(
         event_name="UserPromptSubmit",

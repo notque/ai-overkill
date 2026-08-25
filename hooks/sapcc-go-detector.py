@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 SessionStart Hook: SAP Converged Cloud Go Project Detection
 
@@ -15,6 +15,7 @@ Detection Logic:
 Output Format:
 - [sapcc-go] Detected SAP CC Go project: {module}
 - [auto-skill] go-patterns
+- Call the Skill tool with `go-patterns`.
 
 Design Principles:
 - Lightweight detection (reads go.mod only, no subprocess)
@@ -110,7 +111,11 @@ def get_sapcc_injection(module_name: str) -> str:
     Emits only tags. The go-patterns skill carries its own conventions.
     ADR hook-injection-condensation: removed conventions summary.
     """
-    return f"[sapcc-go] Detected SAP CC Go project: {module_name}\n[auto-skill] go-patterns"
+    return (
+        f"[sapcc-go] Detected SAP CC Go project: {module_name}\n"
+        "[auto-skill] go-patterns\n"
+        "Call the Skill tool with `go-patterns`."
+    )
 
 
 def main():

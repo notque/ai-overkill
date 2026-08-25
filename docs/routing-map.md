@@ -54,7 +54,7 @@ CI check: `python3 scripts/generate-routing-map.py --check`.
 | typescript-frontend-engineer | TypeScript frontend architecture: type-safe components, state management, build optimization | typescript, react, next.js, frontend, .tsx, .ts, zod |  | React Native mobile apps (use react-native-engineer); diagnosing race conditions, async bugs, or production runtime exceptions (use typescript-debugging-engineer); e-commerce carts, Stripe, and checkout flows (use nextjs-ecommerce-engineer); portfolio and gallery sites (use react-portfolio-engineer). This agent builds TypeScript frontend architecture: type-safe components, state, and build configuration. | universal-quality-gate, typescript-check |
 | ui-design-engineer | UI/UX design: design systems, responsive layouts, accessibility, animations | UI, design, tailwind, accessibility, responsive, animations, design system |  | non-visual design: API, schema, or system design (use the matching engineer); writing design docs (use a planning skill); design methodology, user-research analysis, or accessibility audit documentation (use design skill); combat visual effects and animation juice (use combat-effects-upgrade). This agent is visual UI/UX implementation only. | distinctive-frontend-design, typescript-frontend-engineer |
 
-## SKILLS (103)
+## SKILLS (104)
 
 | name | when to call (description) | triggers | FORCE | not_for | pairs_with |
 |---|---|---|---|---|---|

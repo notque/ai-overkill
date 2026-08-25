@@ -19,7 +19,7 @@ function enterPhase(title) {
 export default async function run({ scope } = {}) {
   enterPhase("wave-1");
   await agent({
-    prompt: `You are reviewer-system. Skill("systematic-code-review"). ${JSON.stringify(scope)}`,
+    prompt: `You are reviewer-system. Call the Skill tool with \`systematic-code-review\`. ${JSON.stringify(scope)}`,
     schema: { type: "object", required: ["verdict"], properties: { verdict: { type: "string", enum: ["APPROVE"] } } },
     agentType: "reviewer-system",
   });

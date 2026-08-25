@@ -14,13 +14,16 @@ truth for every one of them ("LLMs orchestrate, programs execute"):
      omission). An agent absent from agents/INDEX.json is coerced to
      general-purpose with `fallback=invalid-agent:<name>` (never raises).
      Emitted in the exact shape hooks/routing-decision-recorder.py parses.
-  2. Thinking directive by complexity, with slow/fast category overrides.
-  3. Token-budget line (input value, else `orchestration.token_budget`
+  2. Exact Skill-tool call directives for the primary skill and each skill in
+     the stack, primary first, ordered and de-duplicated. Shared-pattern stack
+     entries remain prompt injections, not Skill-tool calls.
+  3. Thinking directive by complexity, with slow/fast category overrides.
+  4. Token-budget line (input value, else `orchestration.token_budget`
      from .claude/settings.json, default 500000).
-  4. Task Specification block from the provided fields.
-  5. The four MANDATORY verbatim injections: reference loading,
+  5. Task Specification block from the provided fields.
+  6. The four MANDATORY verbatim injections: reference loading,
      completeness, Dense-Complete Writing, base instructions.
-  6. Optional worktree rules and LOCAL-ONLY block, on flags.
+  7. Optional worktree rules and LOCAL-ONLY block, on flags.
 
 Input schema (missing optional fields degrade gracefully — block omitted):
 
@@ -65,9 +68,14 @@ import argparse
 import json
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+# Preserve the invoked runtime path when scripts/ is itself a symlink. Resolving
+# __file__ would jump back to the source checkout and validate against its
+# unfiltered inventories instead of ~/.claude, ~/.codex, or another deployed
+# harness root.
+REPO_ROOT = Path(__file__).absolute().parent.parent
 SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
 DEFAULT_TOKEN_BUDGET = 500000
 
@@ -200,6 +208,10 @@ _KEY_RE = re.compile(r"^[a-z0-9:_-]+$")  # alts= / stack= items (comma is the se
 FALLBACK_AGENT = "general-purpose"
 AGENT_INDEX_PATH = REPO_ROOT / "agents" / "INDEX.json"
 AGENT_INDEX_LOCAL = "INDEX.local.json"
+SKILL_INDEX_PATH = REPO_ROOT / "skills" / "INDEX.json"
+SKILL_INDEX_LOCAL = "INDEX.local.json"
+PIPELINE_INDEX_PATH = REPO_ROOT / "skills" / "workflow" / "references" / "pipeline-index.json"
+SHARED_PATTERNS_DIR = REPO_ROOT / "skills" / "shared-patterns"
 # Harness-provided agents that exist outside agents/INDEX.json. Superset of
 # validate-do-references.py's set: the Agent tool accepts these names, so
 # coercing them would MANUFACTURE fallbacks instead of catching them.
@@ -382,6 +394,7 @@ def _key_list(raw: object, field: str) -> list[str]:
     return items
 
 
+@lru_cache(maxsize=16)
 def load_known_agents(index_path: Path = AGENT_INDEX_PATH) -> frozenset[str]:
     """Dispatchable agent names: agents/INDEX.json + INDEX.local.json + built-ins.
 
@@ -405,6 +418,99 @@ def load_known_agents(index_path: Path = AGENT_INDEX_PATH) -> frozenset[str]:
     if not names:
         return frozenset()
     return frozenset(names | BUILTIN_AGENTS)
+
+
+@lru_cache(maxsize=32)
+def _load_index_names(index_path: Path, field: str, local_name: str | None = None) -> frozenset[str]:
+    """Load lower-case component names from a tracked index and local overlay."""
+    names: set[str] = set()
+    paths = [index_path]
+    if local_name:
+        paths.append(index_path.parent / local_name)
+    for path in paths:
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        entries = raw.get(field)
+        if isinstance(entries, dict):
+            names.update(str(name).strip().lower() for name in entries if str(name).strip())
+    return frozenset(names)
+
+
+def load_known_skills(index_path: Path = SKILL_INDEX_PATH) -> frozenset[str]:
+    """Return active skill names from the tracked index plus local overlay."""
+    return _load_index_names(index_path, "skills", SKILL_INDEX_LOCAL)
+
+
+def load_known_pipelines(index_path: Path = PIPELINE_INDEX_PATH) -> frozenset[str]:
+    """Return workflow pipeline names from the pipeline index."""
+    return _load_index_names(index_path, "pipelines")
+
+
+@lru_cache(maxsize=8)
+def load_known_stack_patterns(patterns_dir: Path = SHARED_PATTERNS_DIR) -> frozenset[str]:
+    """Return shared-pattern stems allowed in ``stack`` but not callable as skills."""
+    try:
+        return frozenset(path.stem.lower() for path in patterns_dir.glob("*.md") if path.is_file())
+    except OSError:
+        return frozenset()
+
+
+def ordered_skill_calls(decision: dict) -> list[str]:
+    """Return callable skill names, primary first, ordered and de-duplicated.
+
+    ``stack`` may also carry shared prompt-pattern names. Those remain marker
+    telemetry and are omitted from Skill-tool calls. Agent names, pipeline
+    names, and unknown names fail closed instead of producing invalid calls.
+    """
+    primary = str(decision.get("skill") or "").strip().lower()
+    stack = _key_list(decision.get("stack") or [], "stack")
+    candidates = ([primary] if primary and primary != "-" else []) + stack
+    known_skills = load_known_skills()
+    known_agents = load_known_agents()
+    known_pipelines = load_known_pipelines()
+    known_patterns = load_known_stack_patterns()
+    if candidates and not known_skills:
+        raise InputError("cannot validate skill calls: skills/INDEX.json is unreadable or empty")
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for name in candidates:
+        if name in seen:
+            continue
+        seen.add(name)
+        if name in known_skills:
+            ordered.append(name)
+            continue
+        if name in known_patterns and name != primary:
+            continue
+        if name in known_agents:
+            raise InputError(f"skill call {name!r} names an agent; dispatch it with the Agent tool")
+        if name in known_pipelines:
+            raise InputError(f"skill call {name!r} names a pipeline; run it through workflow dispatch")
+        raise InputError(f"skill call {name!r} is absent from skills/INDEX.json")
+    return ordered
+
+
+def render_skill_calls(decision: dict) -> str:
+    """Render the A/B-winning action contract once per callable skill."""
+    return "\n".join(f"Call the Skill tool with `{name}`." for name in ordered_skill_calls(decision))
+
+
+def resolve_pipeline(decision: dict) -> str:
+    """Validate the optional pipeline token; pipelines never become Skill calls."""
+    pipeline = str(decision.get("pipeline") or "").strip().lower()
+    if not pipeline or pipeline == "-":
+        return ""
+    if not _SKILL_RE.match(pipeline):
+        raise InputError(f"'pipeline' {pipeline!r} — must match [a-z0-9-]+")
+    known = load_known_pipelines()
+    if not known:
+        raise InputError("cannot validate pipeline: pipeline-index.json is unreadable or empty")
+    if pipeline not in known:
+        raise InputError(f"'pipeline' {pipeline!r} is absent from pipeline-index.json")
+    return pipeline
 
 
 def slugify_fallback_reason(value: object) -> str:
@@ -481,7 +587,14 @@ def build_marker(decision: dict) -> str:
             f"Name the skill the agent must load, or route as trivial."
         )
 
+    # Validate the primary and stack names before emitting telemetry. This also
+    # prevents an agent or pipeline token from later becoming a Skill-tool call.
+    ordered_skill_calls(decision)
+    pipeline = resolve_pipeline(decision)
+
     parts = [f"[do-route] agent={agent}", f"skill={skill}", f"complexity={complexity}"]
+    if pipeline:
+        parts.append(f"pipeline={pipeline}")
 
     # Model enforcement: required for medium/complex, optional for trivial/simple.
     # Effort token included for all models so telemetry can distinguish each
@@ -600,6 +713,7 @@ def build_preamble(decision: dict, settings_path: Path = SETTINGS_PATH) -> str:
 
     blocks = [
         build_marker(decision),
+        render_skill_calls(decision),
         build_thinking(decision),
         build_token_line(decision, settings_path),
         build_task_spec(decision),

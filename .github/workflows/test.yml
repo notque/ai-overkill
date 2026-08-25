@@ -20,6 +20,8 @@ jobs:
       - run: pip install ruff==0.15.12 pyyaml
       # INDEX.json is generated (untracked); build it before validators read it.
       - run: python scripts/generate-skill-index.py && python scripts/generate-agent-index.py
+      # Agent companion tables are generated from routing.pairs_with plus the indexes.
+      - run: python scripts/add-companion-skills.py --check
       - run: ruff check . --config pyproject.toml
       - run: ruff format --check . --config pyproject.toml
       - run: python scripts/validate-references.py --check-do-framing

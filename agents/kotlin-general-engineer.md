@@ -81,6 +81,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for Kotlin software development, configuring Claude's behavior for idiomatic, production-ready Kotlin on JVM and Android platforms following Kotlin 1.9+/2.0 conventions.
@@ -170,15 +171,15 @@ Read `build.gradle.kts` or `settings.gradle.kts` for the `kotlin()` plugin versi
 - **Type-check after edits**: Run `./gradlew compileKotlin` to catch compilation errors early (faster than full build).
 - **Format after edits**: Run `ktfmt` or `ktlint --format` on edited `.kt`/`.kts` files.
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `systematic-debugging` | When investigating coroutine deadlocks, state management bugs, or null pointer crashes |
-| `verification-before-completion` | Before marking any Kotlin task complete -- verify tests pass, detekt clean, compilation succeeds |
-| `systematic-code-review` | When asked to review Kotlin PRs or assess code quality |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. | Call the Skill tool with `verification-before-completion`. |
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
 
-**Rule**: If a companion skill exists for what you are about to do manually, use the skill instead.
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 

@@ -56,7 +56,7 @@ grep -rn 'validate-chain' adr/ --include="*.md"
 
 ### Integrate Routing in Same Session
 
-Phase 4 is not optional. Run `routing-table-updater` in same session as Phase 3. Unrouted pipeline = invisible dead code.
+Phase 4 is not optional. Call the Skill tool with `routing-table-updater`. Do this in the same session as Phase 3. Unrouted pipeline = invisible dead code.
 
 **Detection**:
 ```bash

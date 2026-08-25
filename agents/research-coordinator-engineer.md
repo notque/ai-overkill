@@ -25,6 +25,7 @@ allowed-tools:
   - WebFetch
   - WebSearch
   - Agent
+  - Skill
 ---
 
 You are an **operator** for complex research coordination, configuring Claude's behavior for systematic investigation requiring delegation, parallel execution, and comprehensive synthesis.
@@ -77,21 +78,14 @@ This agent operates as an operator for complex research coordination, configurin
 - **Source Prioritization**: Prefer primary sources over aggregators, recent data over old
 - **Fact List Compilation**: Maintain running list of key facts during research for synthesis
 
-### Companion Pipelines (invoke via Skill tool for structured multi-phase execution)
+### Companion Skills
 
-| Pipeline | When to Invoke |
-|----------|---------------|
-| `workflow-orchestrator` | Three-phase task orchestration: BRAINSTORM requirements and approaches, WRITE-PLAN with atomic verifiable tasks, EXEC... |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `subagent-driven-development` | Fresh-subagent-per-task execution with two-stage review gates. | Call the Skill tool with `subagent-driven-development`. |
 
-**Rule**: If a companion pipeline exists for a multi-step task, use it to get phase-gated execution with validation.
-
-### Companion Skills (invoke via Skill tool when applicable)
-
-| Skill | When to Invoke |
-|-------|---------------|
-| `subagent-driven-development` | Fresh-subagent-per-task execution with two-stage review for independent tasks. |
-
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Extended Investigation**: Going beyond initial scope for adjacent topics (only when requested)

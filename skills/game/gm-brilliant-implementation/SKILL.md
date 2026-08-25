@@ -229,7 +229,7 @@ routes, and authorized contracts are verified, with rollback evidence present.
 
 Collect a privacy-safe post-live delta, distinguish new regressions from prior
 feedback, retain every valid unfinished item, record metric and welfare guards,
-and run `retro`. Report exact live SHA, evidence, decisions, changes, tests,
+and call the learning skill. Call the Skill tool with `retro`. Report exact live SHA, evidence, decisions, changes, tests,
 release proof, feedback window, and next wave.
 
 For conditional defects and human/volume-dependent evidence, use the binding

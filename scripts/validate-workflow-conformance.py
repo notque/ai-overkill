@@ -13,9 +13,9 @@ the dispatch shape it promises:
     }
 
 Each roster entry declares ``skills`` as a LIST (the full /do skill stack the
-agent attaches via one ``Skill("..")`` per element). The legacy singular
+agent attaches via one ``Call the Skill tool with `skill-name`.`` per element). The legacy singular
 ``skill: "name"`` is accepted as a one-element list. The gate verifies EACH
-declared skill has a corresponding ``Skill("..")`` emission.
+declared skill has a corresponding exact Skill-tool call.
 
 Two roster shapes are supported:
 
@@ -25,8 +25,8 @@ Two roster shapes are supported:
   shape (static Wave-1 + dynamic tail).
 * FULLY-DYNAMIC roster (``roster: {dynamic: true}``): the roster is supplied
   entirely by the caller (e.g. fan-out-workflow), so there are NO static
-  agentType:/Skill("..") literals to pin. The gate asserts the STRUCTURAL
-  INVARIANT instead — source emits a per-roster ``Skill(`` directive built from a
+  agentType/Skill-call literals to pin. The gate asserts the STRUCTURAL
+  INVARIANT instead — source emits a per-roster exact Skill-tool call built from a
   variable AND dispatches ``agentType`` from a roster variable — NOT specific
   names, and LABELS the check as STRUCTURAL (no silent vacuous pass).
 
@@ -36,7 +36,7 @@ This script asserts the actual script against that contract, in two layers:
   - ``meta.phases`` (the phase()/enterPhase() titles in source) == ``contract.phases``
   - static roster: every agentType dispatched + every skill resolvable in source;
     ``contract.agents.static`` == ``len(roster)`` and >= that many ``agent(`` call-sites
-  - fully-dynamic roster: the STRUCTURAL invariant (Skill(-from-variable +
+  - fully-dynamic roster: the STRUCTURAL invariant (Skill-call-from-variable +
     agentType-from-variable) is present in source
 * DYNAMIC (shells to scripts/conformance-harness.mjs IF node is available):
   - every recorded ``phases_entered`` (per tier) is a subset of ``contract.phases``
@@ -81,6 +81,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DIR = REPO_ROOT / "skills" / "workflow" / "references"
 HARNESS = REPO_ROOT / "scripts" / "conformance-harness.mjs"
+AGENT_INDEX = REPO_ROOT / "agents" / "INDEX.json"
+SKILL_INDEX = REPO_ROOT / "skills" / "INDEX.json"
+
+
+def _load_index_names(path: Path, key: str) -> frozenset[str]:
+    """Load trusted component names; an unreadable registry stays empty."""
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8")).get(key)
+        if not isinstance(entries, dict):
+            return frozenset()
+        return frozenset(entries)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return frozenset()
+
+
+KNOWN_AGENTS = _load_index_names(AGENT_INDEX, "agents")
+KNOWN_SKILLS = _load_index_names(SKILL_INDEX, "skills")
+_COMPONENT_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 # --- meta / contract parsing --------------------------------------------------
 # meta.name is parsed by workflow-registry.py with a non-greedy first-`}` match;
@@ -95,24 +113,26 @@ _AGENT_TYPE = re.compile(r"""\bagentType\s*:\s*["'`]([^"'`$]+)["'`]""")
 # Literal `agent: "name"` roster-declaration fields (agentType reaches dispatch
 # via a variable r.agent; the literal names live in the roster array).
 _AGENT_FIELD = re.compile(r"""\bagent\s*:\s*["'`]([^"'`$]+)["'`]""")
-# A literal Skill("name") token (name must not be an interpolation placeholder).
-_SKILL_LITERAL = re.compile(r"""\bSkill\(\s*["'`]([^"'`$]+)["'`]\s*\)""")
-# Any Skill( directive at all — proves the skill-attach wiring is emitted, even
-# when the name is template-interpolated (Skill("${roster.skill}")).
-_SKILL_DIRECTIVE = re.compile(r"\bSkill\(")
-# A template-interpolated Skill directive: Skill("${...}") — the per-roster
+# A literal exact Skill-tool call (name must not be an interpolation placeholder).
+_SKILL_LITERAL = re.compile(r"""Call the Skill tool with \\?`([a-z0-9][a-z0-9-]*)\\?`\.""")
+# Any exact Skill-tool call — proves the skill-attach wiring is emitted.
+_SKILL_DIRECTIVE = re.compile(r"Call the Skill tool with \\?`")
+# A template-interpolated Skill-tool call — the per-roster
 # methodology attach where the skill name is supplied by a (roster) variable.
-# This is the fully-dynamic-roster invariant: a Skill directive built from a
+# This is the fully-dynamic-roster invariant: an exact call built from a
 # variable, not a fixed literal.
-_SKILL_INTERPOLATED = re.compile(r"""\bSkill\(\s*["'`][^"'`]*\$\{[^}]+\}""")
+_SKILL_INTERPOLATED = re.compile(r"""Call the Skill tool with \\?`\$\{[^}]+\}\\?`\.""")
 # A DELEGATED per-roster skill-attach: a skillDirectives(<expr>) CALL — the shared
-# helper that emits one Skill("..") per element of a skills LIST. The inline
-# Skill("${..}") literal lives in the helper module; the workflow body delegates
+# helper that emits one exact Skill-tool call per element of a skills LIST. The
+# inline sentence lives in the helper module; the workflow body delegates
 # to it. This is the Stage-2.5 form of the per-roster methodology attach (full
 # skill stack), and counts as the fully-dynamic structural invariant. The
 # negative lookbehind excludes a `function skillDirectives(` DEFINITION so only an
 # actual invocation counts as evidence (a definition emits nothing).
 _SKILL_DIRECTIVES_CALL = re.compile(r"(?<!function )\bskillDirectives\(")
+# A fail-closed validation call over a complete dynamic roster. Function
+# definitions do not count: validation must execute before dispatch.
+_VALIDATE_ROSTER_CALL = re.compile(r"(?<!function )\bvalidateRoster\(")
 # A `skills: ["a", "b", ...]` array-literal field on a roster entry. The capture
 # is the inner array body; individual quoted names are extracted from it. This is
 # the Stage-2.5 multi-skill roster shape (skill -> skills LIST).
@@ -238,7 +258,7 @@ _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 def strip_comments(source: str) -> str:
     """Remove // line and /* */ block comments. Comments are never evidence that
-    the body dispatches an agent/skill (a comment mentioning Skill("x") proves
+    the body dispatches an agent/skill (a comment mentioning a call proves
     nothing). Never raises."""
     try:
         return _LINE_COMMENT.sub("", _BLOCK_COMMENT.sub("", source))
@@ -273,9 +293,9 @@ def extract_agent_types(source: str) -> set[str]:
 def extract_skill_tokens(source: str) -> set[str]:
     """Return the set of skill names statically resolvable from source.
 
-    Skill names reach the prompt via a template (``Skill("${s}")`` inside the
+    Skill names reach the prompt via a template inside the
     skillDirectives helper), so the literal names live in the roster/map
-    declarations, not the prompt string. Collect from: literal ``Skill("name")``
+    declarations, not the prompt string. Collect from: literal exact calls,
     tokens, ``skill: "name"`` fields, ``skills: ["a", "b"]`` array elements (the
     Stage-2.5 multi-skill roster shape), and ``"key": "name"`` map values (an
     AGENT_SKILLS-style map). Interpolation placeholders (``${...}``) are excluded
@@ -307,7 +327,7 @@ def entry_skills(entry: dict) -> list[str]:
 
 
 def has_skill_directive(source: str) -> bool:
-    """True if source emits a Skill( directive at all (skill-attach wiring present)."""
+    """True if source emits the exact Skill-tool call contract."""
     return _SKILL_DIRECTIVE.search(source) is not None
 
 
@@ -317,9 +337,9 @@ def has_dynamic_skill_directive(source: str) -> bool:
     This is the fully-dynamic-roster invariant: the per-agent methodology attach is
     built from a roster variable, not pinned to a fixed skill name. Two accepted
     forms:
-      * INLINE template literal ``Skill("${..}")`` (a single from-variable Skill).
+      * INLINE template literal using ``Call the Skill tool with `${..}`.``.
       * DELEGATED ``skillDirectives(<expr>)`` — the shared helper that emits one
-        Skill("..") per element of a skills LIST (the Stage-2.5 full-stack attach).
+        exact call per element of a skills LIST (the Stage-2.5 full-stack attach).
     """
     return _SKILL_INTERPOLATED.search(source) is not None or _SKILL_DIRECTIVES_CALL.search(source) is not None
 
@@ -385,25 +405,30 @@ def _static_checks(source: str, contract: dict) -> tuple[list[str], list[str]]:
     #        SKILLS + COUNT of the fixed barrier).
     #    (b) FULLY-DYNAMIC roster ({dynamic:true}) — the roster is caller-supplied,
     #        so there are NO names to pin. Assert the STRUCTURAL invariant: source
-    #        emits a per-roster Skill( directive built from a variable AND dispatches
+    #        emits a per-roster exact Skill-tool call built from a variable AND dispatches
     #        agentType from a variable. Label it STRUCTURAL (honest limits — no names,
     #        no silent vacuous pass).
     if roster_is_fully_dynamic(contract):
         labels.append(
             "roster: STRUCTURAL (fully-dynamic, caller-supplied roster — assert the "
-            "INVARIANT not specific names: source emits a Skill( directive derived from "
+            "INVARIANT not specific names: source emits an exact Skill-tool call derived from "
             "a roster variable AND dispatches agentType from a roster variable)"
         )
         if not has_dynamic_skill_directive(body):
             errors.append(
                 "fully-dynamic roster invariant violated: source emits no per-roster "
-                'Skill( directive built from a variable (expected Skill("${...}") — the '
+                "exact Skill-tool call built from a variable (expected Call the Skill tool with `${...}`.) — the "
                 "proven per-agent methodology attach)"
             )
         if not has_dynamic_agent_dispatch(body):
             errors.append(
                 "fully-dynamic roster invariant violated: source dispatches no agentType "
                 "from a roster variable (expected agentType: <var>, e.g. agentType: r.agentType)"
+            )
+        if _VALIDATE_ROSTER_CALL.search(body) is None:
+            errors.append(
+                "fully-dynamic roster invariant violated: source does not call validateRoster() "
+                "before dispatching caller-supplied names"
             )
         # agents.static must be absent/0 for a fully-dynamic roster (nothing to count).
         agents = contract.get("agents", {})
@@ -423,6 +448,34 @@ def _static_checks(source: str, contract: dict) -> tuple[list[str], list[str]]:
     src_agent_types = extract_agent_types(body)
     src_skills = extract_skill_tokens(body)
 
+    labels.append("roster registry: SHAPE+SKILLS (trusted agents/INDEX.json + skills/INDEX.json)")
+    if not KNOWN_AGENTS:
+        errors.append("trusted agent index is unreadable or empty")
+    if not KNOWN_SKILLS:
+        errors.append("trusted skill index is unreadable or empty")
+    for index, entry in enumerate(roster):
+        agent_type = entry.get("agentType")
+        if not isinstance(agent_type, str) or not _COMPONENT_NAME.fullmatch(agent_type):
+            errors.append(f"roster[{index}]: agent name must match [a-z0-9-]+")
+        elif agent_type in KNOWN_SKILLS:
+            errors.append(f"roster[{index}]: '{agent_type}' is a skill, not an agent")
+        elif agent_type not in KNOWN_AGENTS:
+            errors.append(f"roster[{index}]: unknown agent '{agent_type}'")
+
+        raw_skills = entry.get("skills")
+        if raw_skills is None and isinstance(entry.get("skill"), str):
+            raw_skills = [entry["skill"]]
+        if not isinstance(raw_skills, list) or not raw_skills:
+            errors.append(f"roster[{index}]: expected at least one skill")
+            continue
+        for skill_index, skill in enumerate(raw_skills):
+            if not isinstance(skill, str) or not _COMPONENT_NAME.fullmatch(skill):
+                errors.append(f"roster[{index}].skills[{skill_index}]: skill name must match [a-z0-9-]+")
+            elif skill in KNOWN_AGENTS:
+                errors.append(f"roster[{index}].skills[{skill_index}]: '{skill}' is an agent, not a skill")
+            elif skill not in KNOWN_SKILLS:
+                errors.append(f"roster[{index}].skills[{skill_index}]: unknown skill '{skill}'")
+
     # 2a. roster agentType present in source (SHAPE).
     labels.append("roster.agentType: SHAPE (each present as agentType: in source)")
     for entry in roster:
@@ -431,20 +484,20 @@ def _static_checks(source: str, contract: dict) -> tuple[list[str], list[str]]:
             errors.append(f"roster agentType '{at}' not dispatched in source (no agentType: token)")
 
     # 3. roster skills present in source (SKILLS). The skill-attach directive must
-    #    be emitted (Skill( OR a skillDirectives( delegation present), and EACH
+    #    be emitted (exact call OR a skillDirectives( delegation present), and EACH
     #    declared skill in every entry's skills LIST must be resolvable from source
     #    roster/map literals (names reach the prompt via a template, or are passed
     #    to the skillDirectives helper). Stage 2.5: skill -> skills LIST, so each
     #    element is checked independently.
     labels.append(
-        "roster.skills: SKILLS (Skill( directive emitted; EACH skill in every entry's "
+        "roster.skills: SKILLS (exact Skill-tool call emitted; EACH skill in every entry's "
         "skills list resolvable from source roster/map literals)"
     )
     all_declared_skills = [s for entry in roster for s in entry_skills(entry)]
     wiring = has_skill_directive(body) or _SKILL_DIRECTIVES_CALL.search(body) is not None
     if all_declared_skills and not wiring:
         errors.append(
-            "no Skill( directive (or skillDirectives( delegation) emitted in source, "
+            "no exact Skill-tool call (or skillDirectives( delegation) emitted in source, "
             f"but contract.roster declares skills {sorted(set(all_declared_skills))}"
         )
     for entry in roster:
@@ -452,7 +505,7 @@ def _static_checks(source: str, contract: dict) -> tuple[list[str], list[str]]:
             if sk not in src_skills:
                 errors.append(
                     f"roster skill '{sk}' not resolvable from source "
-                    '(no Skill("{sk}") literal, skills:[...] element, skill: field, or map value)'.replace("{sk}", sk)
+                    "(no exact Skill-tool call literal, skills:[...] element, skill: field, or map value)"
                 )
 
     # 4. fixed Wave-1 barrier size (COUNT — the ONLY count check; static barrier).
@@ -519,7 +572,7 @@ def _dynamic_checks(js_path: Path, contract: dict) -> tuple[list[str], list[str]
     fully_dynamic = roster_is_fully_dynamic(contract)
     roster = [] if fully_dynamic else contract.get("roster", [])
     # Stage 2.5: each entry declares a skills LIST; the recorded trace must show
-    # EVERY declared skill for that agent (one Skill() per element).
+    # EVERY declared skill for that agent (one exact Skill-tool call per element).
     expected_roster = [(e.get("agentType"), tuple(sorted(entry_skills(e)))) for e in roster]
 
     traces = harness_out.get("traces", {})
@@ -536,7 +589,7 @@ def _dynamic_checks(js_path: Path, contract: dict) -> tuple[list[str], list[str]
         if fully_dynamic:
             # Fully-dynamic roster: NO names to pin. Assert the STRUCTURAL invariant
             # in the recorded trace — the first-phase fan-out dispatched at least one
-            # worker via agentType AND each carried a Skill( directive (the per-agent
+            # worker via agentType AND each carried a Skill-tool call (the per-agent
             # methodology attach). NOT count, NOT specific names (honest limit).
             if recorded_roster and not all(at for at, _ in recorded_roster):
                 errors.append(
@@ -544,7 +597,7 @@ def _dynamic_checks(js_path: Path, contract: dict) -> tuple[list[str], list[str]
                 )
             if recorded_roster and not all(skills for _, skills in recorded_roster):
                 errors.append(
-                    f"tier {tier}: a fan-out worker carried no Skill( directive "
+                    f"tier {tier}: a fan-out worker carried no Skill-tool call "
                     "(per-roster methodology attach missing in the recorded trace)"
                 )
         elif recorded_roster != expected_roster:
@@ -557,7 +610,7 @@ def _dynamic_checks(js_path: Path, contract: dict) -> tuple[list[str], list[str]
         notes.append(
             "dynamic: fully-dynamic roster — agent_count and names are caller-supplied "
             "and NOT asserted (honest limit); only phase-subset + the STRUCTURAL "
-            "invariant (agentType-from-variable + Skill(-from-variable per worker) are checked"
+            "invariant (agentType-from-variable + Skill-call-from-variable per worker) are checked"
         )
     elif contract.get("dynamic"):
         notes.append(

@@ -51,6 +51,8 @@ REASONIX_DIR="${HOME}/.reasonix"
 REASONIX_SKILLS_DIR="${REASONIX_DIR}/skills"
 REASONIX_SCRIPTS_DIR="${REASONIX_DIR}/scripts"
 REASONIX_HOOKS_DIR="${REASONIX_DIR}/hooks"
+REASONIX_INDEX_OWNER_MARKER="${REASONIX_SKILLS_DIR}/.vexjoy-managed-index"
+REASONIX_INDEX_BACKUP="${REASONIX_SKILLS_DIR}/.vexjoy-index-backup"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║                VexJoy Agent - Installation Script               ║${NC}"
@@ -794,6 +796,34 @@ os.rename(tmp, dst)
             [ -z "$(find "$support_dir" -name SKILL.md -print -quit)" ] || continue
             reasonix_uninstall_entry "$(basename "$support_dir")"
         done
+
+        # Restore a user-owned registry only when install recorded that it
+        # replaced one. Without the marker, INDEX.json is outside our ownership.
+        if [ -f "$REASONIX_INDEX_OWNER_MARKER" ]; then
+            reasonix_index_ownership=$(head -1 "$REASONIX_INDEX_OWNER_MARKER" 2>/dev/null || true)
+            if [ "$DRY_RUN" = true ]; then
+                if [ "$reasonix_index_ownership" = "restore" ] && \
+                   { [ -e "$REASONIX_INDEX_BACKUP" ] || [ -L "$REASONIX_INDEX_BACKUP" ]; }; then
+                    echo -e "${BLUE}  Would restore pre-existing Reasonix INDEX.json${NC}"
+                else
+                    echo -e "${BLUE}  Would remove VexJoy-managed Reasonix INDEX.json${NC}"
+                fi
+            else
+                rm -f "${REASONIX_SKILLS_DIR}/INDEX.json"
+                if [ "$reasonix_index_ownership" = "restore" ] && \
+                   { [ -e "$REASONIX_INDEX_BACKUP" ] || [ -L "$REASONIX_INDEX_BACKUP" ]; }; then
+                    mv "$REASONIX_INDEX_BACKUP" "${REASONIX_SKILLS_DIR}/INDEX.json"
+                    echo -e "${GREEN}  ✓ Restored pre-existing Reasonix INDEX.json${NC}"
+                else
+                    rm -f "$REASONIX_INDEX_BACKUP"
+                    echo -e "${GREEN}  ✓ Removed VexJoy-managed Reasonix INDEX.json${NC}"
+                fi
+                rm -f "$REASONIX_INDEX_OWNER_MARKER"
+            fi
+            REMOVED+=("Reasonix managed skill index")
+        elif [ -e "${REASONIX_SKILLS_DIR}/INDEX.json" ] || [ -L "${REASONIX_SKILLS_DIR}/INDEX.json" ]; then
+            echo -e "${YELLOW}  Preserving unmanaged Reasonix INDEX.json${NC}"
+        fi
 
         # Stale toolkit symlinks — only entries whose target no longer exists
         # (broken symlinks). Healthy toolkit symlinks in --symlink mode were
@@ -1577,6 +1607,150 @@ _category_filtered() {
     esac
 }
 
+# Generate a runtime-local skill registry from the mirror that was actually
+# deployed. The temporary output is atomically moved over a source INDEX.json
+# symlink, so both copy and symlink installs validate profile exclusions against
+# the installed tree rather than the repository inventory.
+generate_installed_skill_index() {
+    local runtime_dir=$1
+    local label=$2
+    local preserve_existing=${3:-false}
+    local skills_dir="${runtime_dir}/skills"
+    local index_path="${skills_dir}/INDEX.json"
+    local output_tmp local_output_tmp index_output prepared=false ownership=""
+    local deployed_skill_link deployed_skill_target deployed_skill_md deployed_skill_dir deployed_skill_name
+    local source_skills_canonical
+    local -a index_layout_args=()
+
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${BLUE}  Would generate ${label} installed skill index: ${index_path}${NC}"
+        return 0
+    fi
+
+    mkdir -p "$skills_dir"
+    # A prior symlink install may have deployed a skill that the current
+    # profile disables. Install loops skip disabled skills but must also remove
+    # their old root aliases and nested category links before inventory scans.
+    # Preserve user links by removing only symlinks that resolve inside this
+    # toolkit's public skills tree.
+    if [ -n "$DISABLED_SKILLS" ]; then
+        source_skills_canonical=$(_canonical_path "${SCRIPT_DIR}/skills") || source_skills_canonical=""
+        if [ -n "$source_skills_canonical" ]; then
+            while IFS= read -r deployed_skill_link; do
+                [ -n "$deployed_skill_link" ] || continue
+                deployed_skill_name=$(basename "$deployed_skill_link")
+                _profile_disabled skills "$deployed_skill_name" || continue
+                deployed_skill_target=$(_canonical_path "$deployed_skill_link") || continue
+                case "$deployed_skill_target" in
+                    "$source_skills_canonical"/*)
+                        rm "$deployed_skill_link"
+                        echo -e "${YELLOW}  Removed ${label} ${deployed_skill_name} symlink (disabled by profile)${NC}"
+                        ;;
+                esac
+            done < <(find -P "$skills_dir" -mindepth 1 -maxdepth 2 -type l -print 2>/dev/null)
+        fi
+    fi
+
+    # Copy-mode category mirrors contain nested skills as well as flat aliases.
+    # Remove disabled nested copies before indexing so deployment and inventory
+    # agree. This scan does not follow the external symlinks preserved above.
+    if [ -n "$DISABLED_SKILLS" ]; then
+        while IFS= read -r deployed_skill_md; do
+            [ -n "$deployed_skill_md" ] || continue
+            deployed_skill_dir=$(dirname "$deployed_skill_md")
+            deployed_skill_name=$(basename "$deployed_skill_dir")
+            if _profile_disabled skills "$deployed_skill_name"; then
+                rm -rf "$deployed_skill_dir"
+                echo -e "${YELLOW}  Removed ${label} ${deployed_skill_name} (disabled by profile)${NC}"
+            fi
+        done < <(find "$skills_dir" -mindepth 2 -name SKILL.md -print 2>/dev/null)
+    fi
+
+    if [ "$preserve_existing" = true ] && [ ! -f "$REASONIX_INDEX_OWNER_MARKER" ]; then
+        if [ -e "$index_path" ] || [ -L "$index_path" ]; then
+            rm -f "$REASONIX_INDEX_BACKUP"
+            mv "$index_path" "$REASONIX_INDEX_BACKUP"
+            ownership="restore"
+        else
+            ownership="remove"
+        fi
+        printf '%s\n' "$ownership" > "$REASONIX_INDEX_OWNER_MARKER"
+        prepared=true
+    fi
+
+    output_tmp=$(mktemp "${skills_dir}/.INDEX.json.vexjoy.XXXXXX")
+    local_output_tmp=$(mktemp "${skills_dir}/.INDEX.local.json.vexjoy.XXXXXX")
+    # Whole-directory symlinks retain the repository's nested category layout.
+    # In that layout --include-private would request flattened file paths, then
+    # prune every nested-only entry as a phantom. Real runtime skill dirs use
+    # either copied nested paths, nested aliases, or flat mirrors; their paths
+    # are discoverable in-place and private-inclusive scanning remains correct.
+    if [ ! -L "$skills_dir" ]; then
+        index_layout_args+=(--include-private)
+    fi
+    if index_output=$(HOME="$runtime_dir" "$PYTHON_CMD" "${SCRIPT_DIR}/scripts/generate-skill-index.py" \
+        "${index_layout_args[@]}" \
+        --repo-root "$runtime_dir" \
+        --output "$output_tmp" 2>&1); then
+        cp "$output_tmp" "$local_output_tmp"
+        mv -f "$local_output_tmp" "${skills_dir}/INDEX.local.json"
+        mv -f "$output_tmp" "$index_path"
+        echo -e "${GREEN}  ✓ Generated ${label} installed skill inventories${NC}"
+        return 0
+    fi
+
+    rm -f "$output_tmp" "$local_output_tmp"
+    if [ "$prepared" = true ]; then
+        rm -f "$REASONIX_INDEX_OWNER_MARKER"
+        if [ "$ownership" = "restore" ] && \
+           { [ -e "$REASONIX_INDEX_BACKUP" ] || [ -L "$REASONIX_INDEX_BACKUP" ]; }; then
+            mv "$REASONIX_INDEX_BACKUP" "$index_path"
+        else
+            rm -f "$REASONIX_INDEX_BACKUP"
+        fi
+    fi
+    echo -e "${RED}  ✗ Failed to generate ${label} installed skill index${NC}"
+    echo -e "${RED}${index_output}${NC}"
+    return 1
+}
+
+# Generate the agent registry from the files actually deployed to a runtime.
+# This cannot depend on the source agents/INDEX.json: a clean checkout may not
+# have generated it yet, and copy mode installs agents before the source index
+# refresh near the end of this script. Native workflow helpers import the
+# installed registry at module load, so absence is fatal rather than advisory.
+generate_installed_agent_index() {
+    local runtime_dir=$1
+    local label=$2
+    local agents_dir="${runtime_dir}/agents"
+    local index_path="${agents_dir}/INDEX.json"
+    local output_tmp local_output_tmp index_output
+
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${BLUE}  Would generate ${label} installed agent inventories: ${index_path}${NC}"
+        return 0
+    fi
+
+    mkdir -p "$agents_dir"
+    output_tmp=$(mktemp "${agents_dir}/.INDEX.json.vexjoy.XXXXXX")
+    local_output_tmp=$(mktemp "${agents_dir}/.INDEX.local.json.vexjoy.XXXXXX")
+    if index_output=$(HOME="$runtime_dir" "$PYTHON_CMD" "${SCRIPT_DIR}/scripts/generate-agent-index.py" \
+        --include-private \
+        --repo-root "$runtime_dir" \
+        --output "$output_tmp" 2>&1); then
+        cp "$output_tmp" "$local_output_tmp"
+        mv -f "$local_output_tmp" "${agents_dir}/INDEX.local.json"
+        mv -f "$output_tmp" "$index_path"
+        echo -e "${GREEN}  ✓ Generated ${label} installed agent inventories${NC}"
+        return 0
+    fi
+
+    rm -f "$output_tmp" "$local_output_tmp"
+    echo -e "${RED}  ✗ Failed to generate ${label} installed agent inventories${NC}"
+    echo -e "${RED}${index_output}${NC}"
+    return 1
+}
+
 # Scan for conflicts before first install_component call
 if [ "$MODE" = "symlink" ]; then
     detect_conflicts
@@ -1660,6 +1834,8 @@ for private_dir in private-agents private-skills private-hooks; do
     fi
 done
 
+generate_installed_agent_index "$CLAUDE_DIR" "Claude"
+
 # Install private-voices into Claude skills (goes through symlink into repo/skills/)
 if [ -d "${SCRIPT_DIR}/private-voices" ]; then
     echo ""
@@ -1684,6 +1860,8 @@ if [ -d "${SCRIPT_DIR}/private-voices" ]; then
         fi
     done
 fi
+
+generate_installed_skill_index "$CLAUDE_DIR" "Claude"
 
 # Install git post-merge hook for automatic sync on git pull
 echo ""
@@ -1738,6 +1916,8 @@ if [ "$MIRROR_CODEX" = true ]; then
         done
     fi
 
+    generate_installed_skill_index "$CODEX_DIR" "Codex"
+
     echo ""
     echo -e "${YELLOW}Syncing Codex agents mirror...${NC}"
     CODEX_AGENT_COUNT=0
@@ -1760,6 +1940,8 @@ if [ "$MIRROR_CODEX" = true ]; then
             CODEX_AGENT_COUNT=$((CODEX_AGENT_COUNT + 1))
         done
     fi
+
+    generate_installed_agent_index "$CODEX_DIR" "Codex"
 
     # Sync Codex hooks mirror (ADR-182)
     echo ""
@@ -2021,6 +2203,8 @@ if [ -d "${SCRIPT_DIR}/private-voices" ]; then
     done
 fi
 
+generate_installed_skill_index "$FACTORY_DIR" "Factory"
+
 # Component counts for the install summary (count source dirs, not per-entry)
 FACTORY_SKILL_COUNT=$(ls -1 "${SCRIPT_DIR}/skills/"*/SKILL.md 2>/dev/null | wc -l)
 FACTORY_DROID_COUNT=$(ls -1 "${SCRIPT_DIR}/agents/"*.md 2>/dev/null | grep -v README | wc -l)
@@ -2116,6 +2300,8 @@ if [ -d "${SCRIPT_DIR}/private-skills" ]; then
         HERMES_ENTRY_COUNT=$((HERMES_ENTRY_COUNT + 1))
     done
 fi
+
+generate_installed_skill_index "$HERMES_DIR" "Hermes"
 
 echo ""
 echo -e "${YELLOW}Syncing Hermes scripts mirror...${NC}"
@@ -2252,6 +2438,8 @@ for support_dir in "${SCRIPT_DIR}/skills/"*/; do
     fi
 done
 
+generate_installed_skill_index "$REASONIX_DIR" "Reasonix" true
+
 echo ""
 echo -e "${YELLOW}Syncing Reasonix scripts mirror...${NC}"
 if [ -d "${SCRIPT_DIR}/scripts" ]; then
@@ -2382,6 +2570,12 @@ if [ -d "${SCRIPT_DIR}/private-voices/shared-references" ]; then
                 else
                     if [ "$MODE" = "symlink" ]; then
                         ln -sf "$ref_file" "$target"
+                    elif [ -e "$target" ] && [ "$ref_file" -ef "$target" ]; then
+                        # A prior symlink install may already expose this exact
+                        # private reference through the deployed tree. Treat it
+                        # as current instead of asking cp to copy a file onto
+                        # itself, which aborts a later copy-mode reinstall.
+                        :
                     else
                         cp -f "$ref_file" "$target"
                     fi

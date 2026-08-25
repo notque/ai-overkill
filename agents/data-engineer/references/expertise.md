@@ -49,7 +49,7 @@ When designing data systems, you prioritize:
 
 ### What This Agent CANNOT Do
 - **OLTP Schema Design**: Use `database-engineer`.
-- **Data Analysis**: Use `data-analysis` skill.
+- **Data Analysis**: Call the Skill tool with `data-analysis`.
 - **Infrastructure Deployment**: Use `kubernetes-helm-engineer`.
 - **ML/AI Pipelines**: Out of scope.
 - **Application Code**: Use language-specific agents.

@@ -25,18 +25,23 @@
 // schema, model, agentType}) returns a typed object; budget.remaining() bounds
 // the loop. No Date.now()/Math.random()/new Date().
 
-import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
+import {
+  mandatoryInjections,
+  skillDirectives,
+  validateAgentName,
+  validateRoster,
+} from "./workflow-helpers.js";
 
 export const meta = {
   name: "de-ai-pipeline",
   description:
-    "De-AI scan-fix-verify loop as a deterministic native Workflow: SCAN -> FIX -> VERIFY -> REPORT. Detection is deterministic (scan-ai-patterns.py, run out-of-band; results passed in), so no LLM scans. FIX is a data-driven parallel barrier of one de-AI fix agent per file with errors (each attaching its full skill stack via one Skill() per skill plus the /do mandatory injections); VERIFY re-scans and loops back up to 3 iterations; REPORT summarizes and stages. The fix roster is caller-/data-supplied (fully dynamic). Mirrors de-ai-pipeline.md; that markdown flow stays the cross-harness floor.",
+    "De-AI scan-fix-verify loop as a deterministic native Workflow: SCAN -> FIX -> VERIFY -> REPORT. Detection is deterministic (scan-ai-patterns.py, run out-of-band; results passed in), so no LLM scans. FIX is a data-driven parallel barrier of one de-AI fix agent per file with errors (each attaching its full skill stack via one exact Skill-tool call per skill plus the /do mandatory injections); VERIFY re-scans and loops back up to 3 iterations; REPORT summarizes and stages. The fix roster is caller-/data-supplied (fully dynamic). Mirrors de-ai-pipeline.md; that markdown flow stays the cross-harness floor.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 3). This is a FULLY-DYNAMIC-roster contract: the FIX fan-out is one
   //     agent per error file (data-driven count), so there are NO static
   //     agent/skill literals to pin. The gate asserts the STRUCTURAL invariant
-  //     (source emits a Skill( directive from a roster variable AND dispatches
+  //     (source emits an exact Skill-tool call from a roster variable AND dispatches
   //     agentType from a roster variable), NOT specific names. name + description
   //     stay BEFORE this nested object so the non-greedy meta-name parser in
   //     workflow-registry.py still resolves meta.name.
@@ -54,7 +59,7 @@ export const meta = {
     agents: { dynamic: true },
     // Data-driven fan-out + bounded re-scan loop: count is the number of files
     // with errors (and the iteration count), both runtime data. Honest limit: the
-    // gate asserts SHAPE + the structural Skill(/agentType invariant, NOT COUNT.
+    // gate asserts SHAPE + the structural Skill-tool-call/agentType invariant, NOT COUNT.
     dynamic: true,
   },
 };
@@ -63,10 +68,10 @@ export const meta = {
 // this agent running the anti-ai methodology + the verification gate. The roster
 // is built per-file at runtime (one entry per error file), and agentType is
 // dispatched FROM that roster variable — the fully-dynamic structural invariant.
-// "de-ai-editor" is a placeholder name: the real fix component is private,
-// installed from ~/private-skills.
-const FIX_AGENT = "de-ai-editor";
-const FIX_SKILLS = ["de-ai-editor", "verification-before-completion"];
+// Use public indexed components so the workflow remains portable. voice-writer
+// carries the anti-AI editing workflow through its loaded voice references.
+const FIX_AGENT = "technical-journalist-writer";
+const FIX_SKILLS = ["voice-writer", "verification-before-completion"];
 const MAX_ITERATIONS = 3;
 
 // --- Schemas (mirror the STYLE of comprehensive-review-workflow.js / -----------
@@ -131,26 +136,29 @@ function enterPhase(title) {
 // A caller-supplied `roster` override (each entry already {agentType, skills})
 // takes precedence: the /do caller can hand in a pre-built fix roster, and the
 // conformance harness exercises this path. Each override entry still carries its
-// FULL skill stack so every worker emits its per-roster Skill( directive.
+// FULL skill stack so every worker emits its per-roster exact Skill-tool call.
 function fixRoster(errorFiles, hitsByFile, override) {
   if (Array.isArray(override) && override.length > 0) {
-    return override.map((r) => ({
-      agentType: r.agentType || FIX_AGENT,
-      skills: Array.isArray(r.skills) && r.skills.length > 0 ? r.skills : FIX_SKILLS,
+    return validateRoster(override, "roster").map((r) => ({
+      agentType: r.agentType,
+      skills: r.skills,
       file: r.file || "",
       hits: r.hits || [],
     }));
   }
-  return errorFiles.map((file) => ({
-    agentType: FIX_AGENT,
-    skills: FIX_SKILLS,
-    file,
-    hits: (hitsByFile && hitsByFile[file]) || [],
-  }));
+  return validateRoster(
+    errorFiles.map((file) => ({
+      agentType: FIX_AGENT,
+      skills: FIX_SKILLS,
+      file,
+      hits: (hitsByFile && hitsByFile[file]) || [],
+    })),
+    "scan roster",
+  );
 }
 
 // Build one FIX worker's prompt from its per-file roster entry. skillDirectives
-// emits one Skill("...") per element of r.skills (built FROM the roster variable —
+// emits one exact Skill-tool call per element of r.skills (built FROM the roster variable —
 // the fully-dynamic structural invariant the conformance gate asserts; resolves
 // path-independent inside a native Workflow agent() dispatch). mandatoryInjections()
 // embeds the /do completeness/density/base-instructions/reference-loading block.
@@ -182,6 +190,7 @@ function fixPrompt(r) {
 //     verdict, not the review tier).
 
 export default async function run({ scope, tier, roster } = {}) {
+  const fixAgent = validateAgentName(FIX_AGENT, "FIX_AGENT");
   const scanHits = (scope && scope.scanHits) || {};
   const initialErrors = typeof scanHits.total_errors === "number" ? scanHits.total_errors : 0;
   const filesScanned = typeof scanHits.files_scanned === "number" ? scanHits.files_scanned : 0;
@@ -209,7 +218,7 @@ export default async function run({ scope, tier, roster } = {}) {
 
     // Phase FIX: one hard barrier over the per-file roster. Each slot dispatches
     // the de-AI fix agent via agentType (a runtime variable) and embeds one
-    // Skill( directive per element of r.skills (the full stack) plus the /do
+    // exact Skill-tool call per element of r.skills (the full stack) plus the /do
     // mandatory injections. Failed slots resolve to null and are filtered.
     enterPhase("fix");
     // First iteration may use a caller-supplied roster override; later iterations
@@ -239,7 +248,7 @@ export default async function run({ scope, tier, roster } = {}) {
         `files (typed):\n${JSON.stringify(errorFiles)}`,
       schema: VERIFY_SCHEMA,
       model: "sonnet",
-      agentType: FIX_AGENT,
+      agentType: fixAgent,
     });
     if (!lastVerify || lastVerify.verdict === "clean") {
       errorFiles = [];
@@ -262,7 +271,7 @@ export default async function run({ scope, tier, roster } = {}) {
         JSON.stringify({ iteration, initialErrors, filesScanned, allFixes, lastVerify }),
       schema: REPORT_SCHEMA,
       model: "sonnet",
-      agentType: FIX_AGENT,
+      agentType: fixAgent,
     });
   }
 

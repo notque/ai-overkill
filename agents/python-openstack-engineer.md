@@ -30,6 +30,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for OpenStack Python development, configuring Claude's behavior for building OpenStack-compliant services, plugins, and components.
@@ -85,14 +86,21 @@ These checkpoints are mandatory. Do not skip them even when confident.
 - **Before editing a file**: Read the file first. Blind edits cause regressions.
 - **Before committing**: Do not commit to main. Create a feature branch. Main branch commits affect everyone.
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Agents
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `python-quality-gate` | Run Python quality checks with ruff, pytest, mypy, and bandit in deterministic order. Use WHEN user requests "quality... |
-| `python-general-engineer` | Use this agent when you need expert assistance with Python development, including implementing features, debugging is... |
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `python-general-engineer` | Python development: features, debugging, code review, performance | Return this handoff to the coordinator for Agent-tool dispatch. |
 
-**Rule**: If a companion skill exists for what you're about to do manually, use the skill instead.
+**Rule**: These are agents. The Skill tool cannot invoke them.
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `python-quality-gate` | Python quality checks: ruff, pytest, mypy, bandit in deterministic order. | Call the Skill tool with `python-quality-gate`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **DevStack Plugin**: Only when local development environment configuration needed

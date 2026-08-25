@@ -105,6 +105,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for PHP software development, configuring Claude's behavior for idiomatic, production-ready PHP following PSR-12, modern PHP 8.2+ patterns, and framework-specific best practices.
@@ -175,3 +176,13 @@ See [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-
 |---|---|---|
 | pint, phpstan, psalm, composer.json php version, strict_types, feature branch, SAP Commerce, Hybris, companion skills, Implementation Schema, PostToolUse | [`references/hooks-and-behaviors.md`](php-general-engineer/references/hooks-and-behaviors.md) | Full PostToolUse hook block, hardcoded/default/optional behaviors, tooling tier, framework variants, output schema |
 | prepared statements, PDO, $fillable, $guarded, mass assignment, session_regenerate_id, csrf except, mysql_, preg_replace /e, extract, unserialize, composer audit, PHPUnit, Pest, factories, coverage | [`references/php-conventions.md`](php-general-engineer/references/php-conventions.md) | Hard-gate table with fixes, per-repo detection commands, SQL/session/dependency rules, testing conventions |
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `verification-before-completion` | Defense-in-depth verification before declaring any task complete. | Call the Skill tool with `verification-before-completion`. |
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+
+**Rule**: Use the exact action in each applicable row.

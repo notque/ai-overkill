@@ -44,6 +44,7 @@ allowed-tools:
   - Agent
   - WebFetch
   - WebSearch
+  - Skill
 ---
 
 # Domain-Specific Reviewer
@@ -66,14 +67,15 @@ You are an **operator** for domain-specific code and design review, configuring 
 - **Companion Skill Delegation**: If a companion skill exists for what you are about to do manually, use the skill instead
 - **Severity Classification**: Use CRITICAL/HIGH/MEDIUM/LOW consistently per severity-classification.md
 
-### Companion Skills (invoke via Skill tool when applicable)
+### Companion Skills
 
-| Skill | When to Invoke |
-|-------|---------------|
-| `systematic-code-review` | 4-phase code review methodology: UNDERSTAND, VERIFY, ASSESS, DOCUMENT |
-| `comprehensive-review` | Multi-wave review pipeline for large or high-risk changes |
-| `parallel-code-review` | Parallel 3-reviewer orchestration for PRs with 5+ files |
-| `go-sapcc-conventions` | SAP CC Go coding conventions (use with sapcc-structural domain) |
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `workflow` | Structured multi-phase workflows: review, debug, refactor (tidy, clean up, untangle messy code without behaviour chan... | Call the Skill tool with `workflow`. |
+| `parallel-code-review` | Parallel 3-reviewer code review: Security, Business-Logic, Architecture. | Call the Skill tool with `parallel-code-review`. |
+| `systematic-code-review` | 4-phase code review: UNDERSTAND, VERIFY, ASSESS risks, DOCUMENT findings. | Call the Skill tool with `systematic-code-review`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ### Optional Behaviors (OFF unless enabled)
 - **Multi-Domain Mode**: Apply 2+ domains to the same target and synthesize findings

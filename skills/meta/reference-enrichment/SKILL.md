@@ -168,8 +168,7 @@ python3 scripts/validate-references.py --check-do-framing
 ```
 Both must exit 0 before proceeding to Phase 4.
 
-After validation passes, run the `condense` skill on each generated reference file to strip prose
-filler while preserving patterns, detection commands, and error-fix mappings.
+After validation passes, process each generated reference file for density. Call the Skill tool with `condense`. Strip prose filler while preserving patterns, detection commands, and error-fix mappings.
 
 ---
 

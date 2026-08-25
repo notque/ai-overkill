@@ -117,7 +117,7 @@ No manual commands needed - it's fully automatic.
 | Type | Action | Example |
 |------|--------|---------|
 | `auto` | Execute automatically | `install_module`, `use_replace_all`, `retry` |
-| `skill` | Invoke skill | `systematic-debugging` |
+| `skill` | Call an indexed skill | `workflow` |
 | `agent` | Spawn agent | `golang-general-engineer` |
 | `manual` | Show suggestion | User decides |
 

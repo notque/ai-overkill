@@ -129,7 +129,7 @@ Answer these four questions:
 
 **Step 1: Load voice skill**
 
-Invoke the appropriate voice skill (e.g., `voice-{name}`) via the Skill tool. See `references/voice-variants.md` for voice-specific prompt templates.
+Use the exact `Call the Skill tool with \`skill-name\`.` contract with the indexed `voice-{name}` skill. See `references/voice-variants.md` for voice-specific prompt templates.
 
 **Step 2: Generate with research context**
 

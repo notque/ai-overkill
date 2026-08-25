@@ -105,6 +105,16 @@ Load `rive-animation-library.md` when building or debugging animations, state ma
 | `src/engine/CombatEngine.ts` | Dispatches attack/block/hit events — wire to Rive trigger inputs here |
 | `src/assets/characters/` | Target location for `.riv` character files |
 
+### Companion Agents
+
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `typescript-frontend-engineer` | TypeScript frontend architecture: type-safe components, state management, build optimization | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `ui-design-engineer` | UI/UX design: design systems, responsive layouts, accessibility, animations | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `pixijs-combat-renderer` | PixiJS v8 2D WebGL combat rendering: @pixi/react hybrid canvas, normal maps, GPU particles, post-processing | Return this handoff to the coordinator for Agent-tool dispatch. |
+
+**Rule**: These are agents. The Skill tool cannot invoke them.
+
 ## Error Handling
 
 **useRive returns null canvas**: The Rive instance loads asynchronously — guard with `if (!rive)` before accessing state machine inputs. Never fire inputs on a null rive instance.

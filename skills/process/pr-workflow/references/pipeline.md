@@ -86,10 +86,12 @@ If the changeset spans 30+ files or multiple unrelated features, suggest the use
 
 **Skip condition**: Only if user explicitly passes `--skip-review`. One-line changes can still introduce security vulnerabilities or break business logic, so the default is always to review.
 
-**Invoke the comprehensive-review skill:**
+**Run the comprehensive-review pipeline:**
+
+Call the Skill tool with `workflow`.
 
 ```
-Invoke: /comprehensive-review
+Pipeline: comprehensive-review
 Scope: git diff --cached (staged changes)
 Mode: review + fix (default)
 ```

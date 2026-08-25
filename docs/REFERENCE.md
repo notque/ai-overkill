@@ -181,7 +181,7 @@ These personas are loaded on demand as reference files within the `reviewer-pers
 
 ## Skills
 
-Loaded automatically or via `Skill("name")`.
+Loaded automatically or by the exact action contract: `Call the Skill tool with \`skill-name\`.`
 
 ### Workflow Automation
 | Skill | Purpose |

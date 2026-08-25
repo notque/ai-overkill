@@ -219,7 +219,7 @@ Where `{voice_profile}` is the voice skill selected in Phase 1 (e.g., `voice-myp
 **Goal**: Verify the draft matches the voice profile's statistical fingerprint.
 
 **Steps**:
-1. Invoke `voice-validator` skill
+1. Call the Skill tool with `voice-validator`.
 2. Measure actual metrics against Phase 3 targets:
    - Sentence length distribution
    - First-person pronoun density
@@ -281,7 +281,7 @@ Where `{voice_profile}` is the voice skill selected in Phase 1 (e.g., `voice-myp
 **Goal**: Verify the article frames its content on the joy side, not the grievance side.
 
 **Steps**:
-1. Invoke `joy-check` skill
+1. Call the Skill tool with `joy-check`.
 2. Score the article on the joy-grievance spectrum
 3. Ensure the article:
    - Celebrates problem-solving, not complaining about problems
@@ -298,7 +298,7 @@ Where `{voice_profile}` is the voice skill selected in Phase 1 (e.g., `voice-myp
 **Goal**: Strip all AI-sounding patterns from the content.
 
 **Steps**:
-1. Invoke the private de-AI editor skill (deployed to `~/.claude/skills/` from `~/private-skills` when installed)
+1. For the installed private de-AI editor, use the exact `Call the Skill tool with \`skill-name\`.` contract with its indexed name (deployed to `~/.claude/skills/` from `~/private-skills` when installed).
 2. Scan for and remove:
    - Generic transitions ("Furthermore", "Moreover", "It's worth noting")
    - Hedge stacking ("It seems like it might potentially")

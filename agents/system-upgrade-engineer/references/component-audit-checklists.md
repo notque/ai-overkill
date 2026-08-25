@@ -198,7 +198,7 @@ Do instead: Scope audit to the component types identified in the Change Manifest
 |---------|-----------|-----|
 | Session deadlocks on every tool call | Hook with exit code 2 deployed to `~/.claude/hooks/` with syntax error | `python3 -c "import ast; ast.parse(...)"` on every hook before deploying |
 | Agent dispatch fails silently | `pairs_with` references a removed component | Audit `pairs_with` for all in-scope agents |
-| Routing gap — user triggers fall through to default | Routing table references old trigger text | Re-run `routing-table-updater` skill after agent changes |
+| Routing gap — user triggers fall through to default | Routing table references old trigger text | Call the Skill tool with `routing-table-updater`. Do this after agent changes. |
 | Script call at runtime raises FileNotFoundError | Skill references moved or deleted script | `find scripts/ -name "*.py"` and reconcile all skill references |
 
 ---

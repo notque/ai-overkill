@@ -35,7 +35,7 @@ routing:
 
 Orchestrates a comprehensive four-wave review against ALL source files in the
 repository, not just changed files. Delegates the actual review to the
-`comprehensive-review` skill. Produces a prioritized issue backlog instead of
+`comprehensive-review` pipeline. Produces a prioritized issue backlog instead of
 auto-fixes.
 
 **When to use**: Quarterly health checks, after major refactors, onboarding to
@@ -132,15 +132,15 @@ skip the review phase.
 This skill orchestrates scope and output only. The actual four-wave review is
 performed by `comprehensive-review` with `--review-only` mode.
 
-**Step 1: Invoke comprehensive-review**
+**Step 1: Run comprehensive-review**
 
-Invoke the `comprehensive-review` skill with these overrides:
+Call the Skill tool with `workflow`. Run the `comprehensive-review` pipeline with these overrides:
 - **Scope**: Pass the full file list from Phase 1 (use `--focus [files]` mode)
 - **Mode**: Use `--review-only` to skip auto-fix. Output is a prioritized backlog for human triage, not patches -- full-repo auto-fix touches too many files at once and risks cascading breakage.
 - **All waves**: Run Wave 0, Wave 1, Wave 2, and Wave 3. Full-repo review needs maximum coverage. Wave 0 supplies per-package context, Waves 1 and 2 inspect cross-cutting and deep risks, and Wave 3 challenges false consensus and low-value findings.
 - **Checklists**: Load `references/audit-playbook.md` and pass it as prompt context for the wave agents. For each Wave 1/2 agent, include the category checklists matching that agent's lens plus each component's Phase 1 score and grade as triage context only. For Wave 3, include prior findings and the playbook's evidence rules so adversarial reviewers can reject weak findings or surface missed risks.
 
-The comprehensive-review skill handles Wave 0 (per-package), Wave 1 (foundation), Wave 2 (deep dive), and Wave 3 (adversarial) internally. The Checklists override is how the playbook reaches agents dispatched in fresh context.
+The `comprehensive-review` pipeline handles Wave 0 (per-package), Wave 1 (foundation), Wave 2 (deep dive), and Wave 3 (adversarial) internally. The Checklists override is how the playbook reaches agents dispatched in fresh context.
 
 **Audit playbook**: The playbook maps categories to wave lenses and specifies evidence requirements per pattern. Agents use the checklists in their prompt to ensure systematic coverage rather than ad-hoc judgment about what to check.
 

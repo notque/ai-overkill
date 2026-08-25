@@ -32,7 +32,7 @@ import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
 export const meta = {
   name: "explore-pipeline",
   description:
-    "Systematic codebase-exploration pipeline as a deterministic native Workflow: tiered SCAN -> MAP -> ANALYZE -> (COMPILE -> ASSESS -> SYNTHESIZE -> REFINE) -> REPORT. SCAN is a fixed parallel barrier of 3 read-only scanner specialists (Structure, Entry Point, Pattern); a codebase coordinator then maps architecture, analyzes core abstractions, and (at deep tier) compiles, assesses quality, synthesizes ranked findings, and verifies them against source before REPORT. Each agent attaches its full skill stack (one Skill() per skill) plus the /do mandatory injections. Read-only. Mirrors explore-pipeline.md; that markdown flow stays the cross-harness floor.",
+    "Systematic codebase-exploration pipeline as a deterministic native Workflow: tiered SCAN -> MAP -> ANALYZE -> (COMPILE -> ASSESS -> SYNTHESIZE -> REFINE) -> REPORT. SCAN is a fixed parallel barrier of 3 read-only scanner specialists (Structure, Entry Point, Pattern); a codebase coordinator then maps architecture, analyzes core abstractions, and (at deep tier) compiles, assesses quality, synthesizes ranked findings, and verifies them against source before REPORT. Each agent attaches its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections. Read-only. Mirrors explore-pipeline.md; that markdown flow stays the cross-harness floor.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 3). STATIC validation pins the phases + the FIXED 3-scanner SCAN
@@ -49,13 +49,13 @@ export const meta = {
     phases: ["scan", "map", "analyze", "compile", "assess", "synthesize", "refine", "report"],
     // SCAN is a FIXED barrier: 3 read-only scanner specialists on every run (the
     // prose Phase 1 Structure/Entry-Point/Pattern scanners). Each carries a
-    // `skills` LIST (the full read-only-exploration stack attached via one Skill()
+    // `skills` LIST (the full read-only-exploration stack attached via one exact Skill-tool call
     // per element). The distinct scanner lens is a RUNTIME property of the prompt,
     // so the static roster is three identical-type entries (type + skills + count).
     roster: [
-      { agentType: "research-subagent-executor", skills: ["codebase-overview", "codebase-analyzer"] },
-      { agentType: "research-subagent-executor", skills: ["codebase-overview", "codebase-analyzer"] },
-      { agentType: "research-subagent-executor", skills: ["codebase-overview", "codebase-analyzer"] },
+      { agentType: "research-subagent-executor", skills: ["codebase-overview"] },
+      { agentType: "research-subagent-executor", skills: ["codebase-overview"] },
+      { agentType: "research-subagent-executor", skills: ["codebase-overview"] },
     ],
     // The SCAN barrier dispatches exactly the fixed 3 on every run (static).
     agents: { static: 3, dynamic: false },
@@ -66,15 +66,15 @@ export const meta = {
   },
 };
 
-// Map each dispatched agent to the FULL skill stack it invokes by name (one
-// Skill() per element). The read-only scanners + the coordinator both run the
-// codebase methodology skills (codebase-overview = structure/architecture,
-// codebase-analyzer = pattern/quality discovery). The literal skill names live in
+// Map each dispatched agent to the FULL skill stack it invokes by name (one exact
+// Skill-tool call per element). The read-only scanners + the coordinator both run the
+// codebase-overview methodology: structure/architecture plus its promoted
+// pattern/quality analysis references. The literal skill names live in
 // these `skills: [...]` arrays so the conformance gate resolves them; the body
 // emits the directives by delegating each entry's list to skillDirectives().
 const AGENT_SKILLS = {
-  "research-subagent-executor": ["codebase-overview", "codebase-analyzer"],
-  "research-coordinator-engineer": ["codebase-overview", "codebase-analyzer"],
+  "research-subagent-executor": ["codebase-overview"],
+  "research-coordinator-engineer": ["codebase-overview"],
 };
 
 const COORDINATOR_AGENT = "research-coordinator-engineer";
@@ -229,7 +229,7 @@ function enterPhase(title) {
 }
 
 // Build one SCAN scanner's prompt for its read-only lens. skillDirectives emits
-// one Skill("...") per element of the scanner skill stack (resolves path-
+// one exact Skill-tool call per element of the scanner skill stack (resolves path-
 // independent inside a native Workflow agent() dispatch). mandatoryInjections()
 // embeds the /do completeness/density/base-instructions/reference-loading block.
 // Each scanner gets a DISTINCT lens and returns its own typed result.

@@ -213,6 +213,6 @@ Solution:
 
 ## References
 
-- PR creation and push: use `pr-sync` skill
-- Fixing review comments: use `pr-fix` skill
-- Code review: use `/pr-review` skill
+- PR creation and push: Call the Skill tool with `pr-workflow`. Use its Sync intent.
+- Fixing review comments: Call the Skill tool with `pr-workflow`. Use its Fix intent.
+- Code review: Call the Skill tool with `systematic-code-review`.

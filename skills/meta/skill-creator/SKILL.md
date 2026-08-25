@@ -428,8 +428,7 @@ failure modes: joy-check catches grievance-mode framing that drags the model
 toward pessimism; do-pair validation catches failure modes with no paired
 "Do instead" counterpart.
 
-**Joy-check** (framing). Invoke the `joy-check` skill on the SKILL.md and each
-`references/*.md` file. The accepted deterministic substitute is:
+**Joy-check** (framing). Call the Skill tool with `joy-check`. Apply it to the SKILL.md and each `references/*.md` file. The accepted deterministic substitute is:
 
 ```bash
 python3 scripts/validate-references.py --check-do-framing
@@ -451,8 +450,7 @@ python3 scripts/validate-references.py --check-do-framing
 
 ### Post-scaffold: condense
 
-After creation and validation, run the `condense` skill on the new SKILL.md to
-maximize information density. The condense skill strips prose filler while
+After creation and validation, maximize the new SKILL.md's information density. Call the Skill tool with `condense`. The condense skill strips prose filler while
 preserving every instruction, rule, gate, and code block — because new skills
 tend to ship verbose and the condense pass catches what the author's eye skips.
 

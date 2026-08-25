@@ -221,18 +221,18 @@ If the user rejects a complex fix, log the rejection and skip regeneration for t
 
 After applying generator fixes:
 
-1. Invoke the `workflow` skill (composition phase) for the affected subdomains only (not the entire domain, unless a step menu change affects all chains)
+1. Call the Skill tool with `workflow`. Run its composition phase for the affected subdomains only (not the entire domain, unless a step menu change affects all chains).
 2. Validate the new chains with `scripts/artifact-utils.py validate-chain`
 3. If validation fails: the fix introduced a type incompatibility. Revert the fix and investigate further.
 
 **Step 3: Re-run scaffolder for affected skills**
 
-1. Invoke the `workflow` skill (scaffolder phase) for the affected subdomain skills only
+1. Call the Skill tool with `workflow`. Run its scaffolder phase for the affected subdomain skills only.
 2. The scaffolder reads the updated generator components (template, rules, step menu) automatically
 
 **Step 4: Re-run test runner for regenerated skills**
 
-1. Invoke the `workflow` skill (test-runner phase) for the regenerated skills
+1. Call the Skill tool with `workflow`. Run its test-runner phase for the regenerated skills.
 2. Collect new test results
 
 **Step 5: Compare before/after**

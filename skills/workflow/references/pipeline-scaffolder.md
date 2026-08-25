@@ -216,7 +216,7 @@ For steps with `profile_gate` set: include the phase only if the gate matches th
 
 **Goal**: Wire all components into routing and verify the full component dependency graph. Unroutable skills are dead code (Rule 7—not negotiable).
 
-**Step 1: Routing integration**. Invoke `routing-table-updater` in batch mode:
+**Step 1: Routing integration**. Call the Skill tool with `routing-table-updater`. Use batch mode:
 - Add all N skills to `skills/meta/do/references/routing-tables.md`
 - Add the agent (if new) to `agents/INDEX.json`
 - For each skill: add trigger entries from `subdomain.routing_triggers`
@@ -352,7 +352,7 @@ To invoke each generated skill:
 
 ### Error: Freestyle Scaffolding Attempted
 **Cause**: Creating skills without a Pipeline Spec JSON—"just make a skill for X".
-**Solution**: Without the spec, there is no validated chain, no type checking, no consistent structure. The result is skills that fail to integrate with the pipeline system. Always require a Pipeline Spec JSON. If one is missing, route to `chain-composer` first.
+**Solution**: Without the spec, there is no validated chain, no type checking, no consistent structure. The result is skills that fail to integrate with the pipeline system. Always require a Pipeline Spec JSON. If one is missing, use this action: Call the Skill tool with `workflow`. Run the `chain-composer` pipeline first.
 
 ### Error: Routing Integration Skipped
 **Cause**: All skill files exist but `routing-table-updater` was not run.

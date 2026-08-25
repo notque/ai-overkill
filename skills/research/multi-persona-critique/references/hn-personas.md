@@ -31,7 +31,7 @@ You are embodying the [PERSONA NAME] from the roast methodology.
 **Target to analyze:** [analyzed target - file path or repo]
 
 **Critical requirements:**
-1. Use read-only mode (invoke read-only-ops skill first)
+1. Call the Skill tool with `read-only-ops`. Do this first.
 2. Follow your systematic 5-step review process exactly
 3. Tag ALL claims as [CLAIM-N] with file:line references
 4. Use your persona's standardized output format

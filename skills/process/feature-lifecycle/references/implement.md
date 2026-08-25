@@ -30,7 +30,7 @@ Execute the implementation plan by dispatching tasks to domain agents wave by wa
 
      A missing path/hash, absolute or escaping path, changed ADR, or different active registration blocks implementation.
    - Derive the consultation directory only from the validated ADR stem. Do not reuse a consultation for a different path or hash.
-   - If `adr/{feature-slug}/synthesis.md` does not exist, run `adr-consultation` now against that validated ADR. This is the single pre-IMPLEMENT consultation point; architecture-deepening and feature DESIGN must not run an earlier duplicate consultation.
+- If `adr/{feature-slug}/synthesis.md` does not exist, consult against that validated ADR now. Call the Skill tool with `adr-consultation`. This is the single pre-IMPLEMENT consultation point; architecture-deepening and feature DESIGN must not run an earlier duplicate consultation.
    - Read the synthesis and confirm it names the same ADR path and hash, then check the verdict.
         - If verdict is "PROCEED", gate passes, continue.
         - If verdict is "BLOCKED", **BLOCK**: Print "Consultation blocked implementation. Resolve concerns in adr/{adr-name}/concerns.md before implementing." and STOP.
@@ -143,7 +143,7 @@ Quick validation before the formal validation phase:
 | Error | Cause | Solution |
 |-------|-------|----------|
 | No plan found | Plan phase not completed | Run plan phase first |
-| Consultation not completed | Architecture-origin or Medium+ feature has no synthesis for the validated design ADR path and hash | Run `adr-consultation` at the pre-IMPLEMENT gate |
+| Consultation not completed | Architecture-origin or Medium+ feature has no synthesis for the validated design ADR path and hash | Call the Skill tool with `adr-consultation`. Do this at the pre-IMPLEMENT gate. |
 | ADR validation fails | Design ADR is missing, unsafe, changed, or not the active registration | Return to DESIGN; register the canonical feature ADR and refresh the recorded hash |
 | Consultation blocked | synthesis.md verdict is BLOCKED | Resolve concerns in adr/{name}/concerns.md |
 | Agent dispatch fails | Agent not available or task malformed | Retry with more context, escalate if 3 failures |

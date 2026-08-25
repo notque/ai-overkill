@@ -20,18 +20,23 @@
 //   - Wall-clock and randomness are unavailable by design (determinism is
 //     bit-stable across replay). This script uses neither.
 
-import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
+import {
+  mandatoryInjections,
+  skillDirectives,
+  validateAgentName,
+  validateRoster,
+} from "./workflow-helpers.js";
 
 export const meta = {
   name: "fan-out-workflow",
   description:
-    "Generic native fan-out/synthesize Workflow for Complex / tier-4 work with no named pipeline: dispatch a caller-supplied roster of specialists in a single parallel barrier (each attaching its FULL skill stack by name via one Skill(...) per skill, plus the /do mandatory injections), then synthesize the typed worker results in-memory with one budget-aware synthesizer. The roster, skills, lenses, and synthesizer are all caller-supplied — the floor is the prose dispatching-parallel-agents flow.",
+    "Generic native fan-out/synthesize Workflow for Complex / tier-4 work with no named pipeline: dispatch a caller-supplied roster of specialists in a single parallel barrier (each attaching its FULL skill stack by name via one exact Skill-tool call per skill, plus the /do mandatory injections), then synthesize the typed worker results in-memory with one budget-aware synthesizer. The roster, skills, lenses, and synthesizer are all caller-supplied — the floor is the prose dispatching-parallel-agents flow.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 2). This is a FULLY-DYNAMIC-roster contract: the roster is
   //     caller-supplied, so there are NO static agent/skill literals to pin.
-  //     The gate asserts the STRUCTURAL invariant (source emits a Skill(
-  //     directive derived from a roster variable AND dispatches agentType from a
+  //     The gate asserts the STRUCTURAL invariant (source emits an exact Skill-tool
+  //     call derived from a roster variable AND dispatches agentType from a
   //     roster variable), NOT specific names. name + description stay BEFORE this
   //     nested object so the non-greedy meta-name parser in workflow-registry.py
   //     still resolves meta.name.
@@ -45,7 +50,7 @@ export const meta = {
     // roster (roster.length workers + 1 synthesizer).
     agents: { dynamic: true },
     // Data-driven fan-out: count + names are caller-supplied (honest limit — the
-    // gate asserts SHAPE + the structural Skill(/agentType invariant, NOT COUNT).
+    // gate asserts SHAPE + the structural Skill-tool-call/agentType invariant, NOT COUNT).
     dynamic: true,
   },
 };
@@ -104,7 +109,7 @@ function enterPhase(title) {
 
 // Build one worker's prompt from its roster entry. The roster entry supplies the
 // dispatched specialist (agentType), the FULL skill stack it attaches by name
-// (one Skill("...") per element of r.skills — resolves path-independent inside a
+// (one exact Skill-tool call per element of r.skills — resolves path-independent inside a
 // native Workflow agent() dispatch, proven this session), and the lens that
 // focuses its pass. `scope` is the shared diff/task descriptor. The Skill
 // directives are built FROM the roster variable r.skills — this is the fully-
@@ -131,20 +136,25 @@ function workerPrompt(r, scope) {
 //   - tier: right-size-review tier (carried into scope for the workers; this
 //     workflow does not gate phases on tier — the CALLER sizes the roster).
 //   - roster: [{agentType, skills, lens}] — caller-supplied; the fan-out set.
-//     `skills` is a LIST (the full /do Phase-3 stack), one Skill() per element.
+//     `skills` is a LIST (the full /do Phase-3 stack), one exact Skill-tool call per element.
 //   - synthAgentType: the synthesizer agent (default a general synthesizer).
 //   - fixThreshold: min budget to attempt the synthesis pass (default 8000).
 
 export default async function run({ scope, tier, roster, synthAgentType, fixThreshold } = {}) {
-  const workers = Array.isArray(roster) ? roster : [];
+  // Validate the complete caller-supplied dispatch plan before entering a phase
+  // or invoking agent(), so one bad name rejects the whole fan-out.
+  const workers = validateRoster(roster, "roster");
   // Default general synthesizer: research-coordinator-engineer (its role is
   // multi-source synthesis). The caller overrides via synthAgentType.
-  const synthesizer = synthAgentType || "research-coordinator-engineer";
+  const synthesizer = validateAgentName(
+    synthAgentType || "research-coordinator-engineer",
+    "synthAgentType",
+  );
   const minSynthBudget = typeof fixThreshold === "number" ? fixThreshold : 8000;
 
   // Phase fan-out: one hard barrier over the caller-supplied roster. Each slot
   // dispatches the roster's specialist via agentType (a runtime variable) and
-  // embeds one Skill( directive per element of r.skills (the full stack) plus
+  // embeds one exact Skill-tool call per element of r.skills (the full stack) plus
   // the /do mandatory injections. A failed slot resolves to null; nulls are
   // filtered before synthesis.
   enterPhase("fan-out");

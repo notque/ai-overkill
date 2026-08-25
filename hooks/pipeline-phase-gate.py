@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.0.1
 """
 PreToolUse:Write,Edit Hook: Pipeline Phase Gate
 
@@ -278,7 +278,8 @@ def main() -> None:
         if not marker_path.is_file():
             print(
                 "[pipeline-phase-gate] BLOCKED: Blog post writes require the voice-writer pipeline. "
-                "Run /voice-writer first. The voice pipeline creates .voice-pipeline-complete "
+                "[fix-with-skill] voice-writer\n"
+                "Call the Skill tool with `voice-writer`. The voice pipeline creates .voice-pipeline-complete "
                 "when all 13 phases pass.",
                 file=sys.stderr,
             )
@@ -300,7 +301,8 @@ def main() -> None:
             print(
                 f"[pipeline-phase-gate] BLOCKED: .voice-pipeline-complete target_file "
                 f"'{marker_target}' does not match write target '{target_basename}'. "
-                f"Run /voice-writer for this specific post.",
+                f"[fix-with-skill] voice-writer\n"
+                f"Call the Skill tool with `voice-writer`. Run it for this specific post.",
                 file=sys.stderr,
             )
             sys.exit(2)

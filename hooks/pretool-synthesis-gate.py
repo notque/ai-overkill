@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.1.1
 """
 PreToolUse:Write,Edit Hook: Consultation Synthesis Gate
 
@@ -279,14 +279,17 @@ def main() -> None:
         # synthesis.md is missing — block until consultation is run.
         print(
             f"[synthesis-gate] BLOCKED: Consultation required. "
-            f"Run /adr-consultation on {adr_name} first.\n"
+            f"Consult on {adr_name} first.\n"
+            f"[fix-with-skill] adr-consultation\n"
             f"[synthesis-gate] Expected: {synthesis_path}{stale_note}",
             file=sys.stderr,
         )
         deny_tool_use(
             "PreToolUse",
             f"ADR consultation required before implementing {adr_name}. "
-            f"Run /adr-consultation on {adr_name} first to generate {synthesis_path}.{stale_note}",
+            f"[fix-with-skill] adr-consultation\n"
+            f"Call the Skill tool with `adr-consultation`. The consultation must generate "
+            f"{synthesis_path}.{stale_note}",
         )
         sys.exit(0)
 

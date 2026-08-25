@@ -65,8 +65,9 @@ ERROR_TYPES = {
 DEFAULT_FIX_ACTIONS = {
     "missing_file": {"fix_type": "auto", "fix_action": "create_file"},
     "permissions": {"fix_type": "manual", "fix_action": "check_permissions"},
-    "syntax_error": {"fix_type": "skill", "fix_action": "systematic-debugging"},
-    "type_error": {"fix_type": "skill", "fix_action": "systematic-debugging"},
+    # systematic-debugging is a workflow pipeline, not an invocable skill.
+    "syntax_error": {"fix_type": "skill", "fix_action": "workflow"},
+    "type_error": {"fix_type": "skill", "fix_action": "workflow"},
     "import_error": {"fix_type": "auto", "fix_action": "install_module"},
     "timeout": {"fix_type": "auto", "fix_action": "retry_with_timeout"},
     "connection": {"fix_type": "auto", "fix_action": "retry"},

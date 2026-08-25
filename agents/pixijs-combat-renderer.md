@@ -219,6 +219,16 @@ Individual `Texture.from()` calls per sprite are a hard block — batch them int
 
 ---
 
+### Companion Agents
+
+| Agent | When to dispatch | Action |
+|-------|------------------|--------|
+| `typescript-frontend-engineer` | TypeScript frontend architecture: type-safe components, state management, build optimization | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `ui-design-engineer` | UI/UX design: design systems, responsive layouts, accessibility, animations | Return this handoff to the coordinator for Agent-tool dispatch. |
+| `combat-effects-upgrade` | Zero-dependency combat visual upgrades: CSS particle replacement, Framer Motion combat juice, CSS 3D card transforms | Return this handoff to the coordinator for Agent-tool dispatch. |
+
+**Rule**: These are agents. The Skill tool cannot invoke them.
+
 ## Error Handling
 
 ### `Cannot read properties of undefined (reading 'render')`

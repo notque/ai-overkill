@@ -248,9 +248,9 @@ be ≥75 (grade B or above) before proceeding to Phase 5.** Self-assessment
 ("this looks good") does not satisfy this gate — agent-evaluation scoring is
 mandatory.
 
-**Step 1**: Run `agent-evaluation` on the new SKILL.md.
+**Step 1**: Call the Skill tool with `agent-evaluation`. Evaluate the new SKILL.md.
 
-Use the `agent-evaluation` skill, pointing it at `skills/{name}/SKILL.md`. This
+Call the Skill tool with `agent-evaluation`. Point it at `skills/{name}/SKILL.md`. This
 produces a score breakdown across six criteria (total 100 points). The skill
 must score ≥75 to proceed to integration.
 
@@ -282,7 +282,7 @@ Breakdown:
 
 **Step 3**: Run positive framing validation on the generated skill.
 
-Invoke `joy-check --mode instruction` on `skills/{name}/SKILL.md`. This validates that
+Call the Skill tool with `joy-check`. Use instruction mode on `skills/{name}/SKILL.md`. This validates that
 the skill's instructions use positive framing (action-based) instead of prohibition-heavy
 wording. Positive framing makes instructions more actionable and easier for agents to
 internalize because it tells the agent what to do instead of only naming what to avoid.
@@ -344,7 +344,7 @@ A routing entry is needed if:
 - The skill has natural trigger phrases that aren't already routed elsewhere
 
 If a routing entry is needed:
-- Run `routing-table-updater` or instruct the user to add the entries manually
+- Call the Skill tool with `routing-table-updater`. Otherwise, instruct the user to add the entries manually.
 - Report routing-table changes explicitly, including what was added or updated, so the user can review the effect before it lands
 
 If no routing entry is needed (internal skill, or triggers already covered):

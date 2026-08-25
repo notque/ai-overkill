@@ -7,7 +7,7 @@ top-level ``dynamic`` flag for data-driven passes). The validator asserts the
 actual script against that contract:
 
 - STATIC: ``meta.phases`` titles == ``contract.phases``; the static roster's
-  agentType+skill pairs are present in source ``agentType:``/``Skill("..")``
+  agentType+skill pairs are present in source ``agentType:``/exact Skill-tool calls
   tokens; the declared static agent count matches the roster.
 - DYNAMIC (only when node is available): shells to conformance-harness.mjs and
   asserts the recorded trace (phases entered subset of contract.phases; static
@@ -29,6 +29,17 @@ SCRIPT = Path(__file__).resolve().parents[1] / "validate-workflow-conformance.py
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "conformance"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_WORKFLOW_DIR = REPO_ROOT / "skills" / "workflow" / "references"
+CONTRACTED_WORKFLOWS = tuple(
+    REAL_WORKFLOW_DIR / name
+    for name in (
+        "comprehensive-review-workflow.js",
+        "de-ai-pipeline.js",
+        "explore-pipeline.js",
+        "fan-out-workflow.js",
+        "research-pipeline.js",
+        "toolkit-improvement.js",
+    )
+)
 
 # Import the module for unit-level tests of the static checker.
 sys.path.insert(0, str(SCRIPT.parent))
@@ -60,6 +71,49 @@ def _result_for(data, name_substr):
     raise AssertionError(f"no result for {name_substr} in {[r['file'] for r in data['files']]}")
 
 
+def _run_helper(skills):
+    """Call skillDirectives() in a fresh Node process."""
+    helper = REAL_WORKFLOW_DIR / "workflow-helpers.js"
+    script = (
+        "import { skillDirectives } from "
+        + json.dumps(helper.as_uri())
+        + "; process.stdout.write(skillDirectives(JSON.parse(process.argv[1])));"
+    )
+    return subprocess.run(
+        [NODE, "--input-type=module", "-e", script, json.dumps(skills)],
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_fan_out(roster, synth_agent="research-coordinator-engineer"):
+    """Execute fan-out with recording mocks and return its fail-closed trace."""
+    workflow = REAL_WORKFLOW_DIR / "fan-out-workflow.js"
+    script = """
+      const calls = [];
+      globalThis.phase = () => {};
+      globalThis.budget = { remaining: () => 100000 };
+      globalThis.agent = async ({ agentType }) => {
+        calls.push(agentType);
+        return { verdict: "PASS", summary: "ok" };
+      };
+      globalThis.parallel = (thunks) => Promise.all(thunks.map((thunk) => thunk()));
+      const mod = await import(WORKFLOW_URL);
+      try {
+        await mod.default({ scope: {}, roster: ROSTER, synthAgentType: SYNTH_AGENT });
+        process.stdout.write(JSON.stringify({ threw: false, calls }));
+      } catch (error) {
+        process.stdout.write(JSON.stringify({ threw: true, calls, error: String(error.message) }));
+      }
+    """
+    script = script.replace("WORKFLOW_URL", json.dumps(workflow.as_uri()))
+    script = script.replace("ROSTER", json.dumps(roster))
+    script = script.replace("SYNTH_AGENT", json.dumps(synth_agent))
+    proc = subprocess.run([NODE, "--input-type=module", "-e", script], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
 # --- STATIC: pure parser unit tests ------------------------------------------
 
 
@@ -85,7 +139,7 @@ def test_extract_skill_tokens_from_source():
     src = (FIXTURES / "matching.js").read_text()
     skills = vwc.extract_skill_tokens(src)
     assert "systematic-code-review" in skills
-    assert "roast" in skills
+    assert "multi-persona-critique" in skills
 
 
 def test_extract_skill_tokens_picks_up_skills_array():
@@ -105,6 +159,106 @@ def test_extract_skills_list_from_roster_entry():
     matching = vwc.extract_contract((FIXTURES / "matching.js").read_text())
     entry = matching["roster"][0]
     assert vwc.entry_skills(entry) == ["systematic-code-review", "verification-before-completion"]
+
+
+@pytest.mark.parametrize(
+    ("skills", "message"),
+    (
+        ([], "at least one skill"),
+        (["not-an-indexed-skill"], "unknown skill"),
+        (["reviewer-system"], "agent, not a skill"),
+        ([42], "skill name must be a string"),
+    ),
+)
+@pytest.mark.skipif(NODE is None, reason="node not available; helper runtime tests require node")
+def test_skill_directives_rejects_untrusted_or_empty_names(skills, message):
+    """Directive rendering fails closed before untrusted names enter a prompt."""
+    proc = _run_helper(skills)
+    assert proc.returncode != 0, proc.stdout
+    assert message in proc.stderr.lower(), proc.stderr
+
+
+@pytest.mark.parametrize(
+    ("roster", "synth_agent", "message"),
+    (
+        (
+            [
+                {"agentType": "reviewer-system", "skills": ["systematic-code-review"]},
+                {"agentType": "not-an-indexed-agent", "skills": ["systematic-code-review"]},
+            ],
+            "research-coordinator-engineer",
+            "unknown agent",
+        ),
+        (
+            [
+                {"agentType": "reviewer-system", "skills": ["systematic-code-review"]},
+                {"agentType": "reviewer-code", "skills": ["not-an-indexed-skill"]},
+            ],
+            "research-coordinator-engineer",
+            "unknown skill",
+        ),
+        (
+            [{"agentType": "reviewer-system", "skills": ["systematic-code-review"]}],
+            "not-an-indexed-agent",
+            "unknown agent",
+        ),
+        (
+            [{"agentType": "systematic-code-review", "skills": ["verification-before-completion"]}],
+            "research-coordinator-engineer",
+            "skill, not an agent",
+        ),
+        (
+            [
+                {"agentType": "reviewer-system", "skills": ["systematic-code-review"]},
+                {"agentType": "reviewer-code", "skills": []},
+            ],
+            "research-coordinator-engineer",
+            "at least one skill",
+        ),
+    ),
+)
+@pytest.mark.skipif(NODE is None, reason="node not available; workflow runtime tests require node")
+def test_fan_out_rejects_entire_untrusted_dispatch_before_agent_calls(roster, synth_agent, message):
+    """One invalid dynamic name rejects the whole fan-out before any dispatch."""
+    trace = _run_fan_out(roster, synth_agent)
+    assert trace["threw"] is True, trace
+    assert trace["calls"] == [], trace
+    assert message in trace["error"].lower(), trace
+
+
+def test_fully_dynamic_roster_requires_registry_validation_call():
+    """Shape-only conformance cannot pass without fail-closed name validation."""
+    source = (FIXTURES / "dynamic-roster.js").read_text()
+    contract = vwc.extract_contract(source)
+    stripped = source.replace("validateRoster(roster)", "roster")
+    errors, _ = vwc._static_checks(stripped, contract)
+    assert any("validate" in error.lower() and "roster" in error.lower() for error in errors), errors
+
+
+@pytest.mark.parametrize(
+    ("agent_type", "skills", "message"),
+    (
+        ("not-an-indexed-agent", ["systematic-code-review"], "unknown agent"),
+        ("reviewer-system", ["reviewer-code"], "agent, not a skill"),
+        ("reviewer-system", [], "at least one skill"),
+    ),
+)
+def test_static_contract_rejects_untrusted_wrong_type_or_empty_roster_entries(agent_type, skills, message):
+    """Conformance validates roster names against the trusted component indexes."""
+    contract = {
+        "phases": ["fan-out"],
+        "roster": [{"agentType": agent_type, "skills": skills}],
+        "agents": {"static": 1, "dynamic": False},
+        "dynamic": False,
+    }
+    source = f'''
+      enterPhase("fan-out");
+      const roster = [{{agentType: "{agent_type}", skills: {json.dumps(skills)}}}];
+      skillDirectives(roster[0].skills);
+      agent({{agentType: "{agent_type}"}});
+    '''
+    errors, _ = vwc._static_checks(source, contract)
+    assert any(message in error.lower() for error in errors), errors
 
 
 def test_count_agent_callsites():
@@ -168,6 +322,22 @@ def test_real_comprehensive_review_workflow_passes_static():
     assert rc == 0, data
 
 
+@pytest.mark.parametrize("path", (*CONTRACTED_WORKFLOWS, SCRIPT), ids=lambda path: path.name)
+def test_active_workflow_contract_surfaces_drop_legacy_skill_syntax(path: Path):
+    """Active workflow guidance must not compete with the exact call contract."""
+    source = path.read_text(encoding="utf-8")
+    assert "Skill(" not in source, f"legacy Skill() contract remains in {path}"
+
+
+def test_contracted_workflows_use_only_active_skill_names():
+    """Retired aliases stay out of executable native workflow surfaces."""
+    source = "\n".join(path.read_text(encoding="utf-8") for path in CONTRACTED_WORKFLOWS)
+    assert '"roast"' not in source
+    assert '"codebase-analyzer"' not in source
+    assert '"multi-persona-critique"' in source
+    assert '"codebase-overview"' in source
+
+
 # --- DYNAMIC: only when node is available ------------------------------------
 
 
@@ -211,7 +381,7 @@ def test_output_labels_count_vs_shape_checks():
 
 
 # --- FULLY-DYNAMIC ROSTER: the fan-out contract shape ------------------------
-# A fully-dynamic-roster workflow has NO static agentType:/Skill("..") literals
+# A fully-dynamic-roster workflow has no static agentType/exact-call literals
 # (the roster is caller-supplied). The contract declares roster:{dynamic:true}.
 # The validator must assert the STRUCTURAL invariant — source emits a Skill(
 # directive derived from a roster variable AND dispatches agentType from a roster
@@ -226,8 +396,8 @@ def test_roster_is_fully_dynamic_helper():
 
 
 def test_has_dynamic_skill_directive_detects_interpolated_skill():
-    """Skill("${r.skill}") (template-derived) counts as a per-roster Skill directive."""
-    yes = 'agent({ prompt: `Skill("${r.skill}")`, agentType: r.agentType })'
+    """A template-derived exact sentence counts as a per-roster Skill call."""
+    yes = r"agent({ prompt: `Call the Skill tool with \`${r.skill}\`.`, agentType: r.agentType })"
     no = "agent({ prompt: `review the diff`, agentType: r.agentType })"
     assert vwc.has_dynamic_skill_directive(yes) is True
     assert vwc.has_dynamic_skill_directive(no) is False
@@ -273,11 +443,11 @@ def test_dynamic_roster_not_vacuous_pass():
     assert vwc.roster_is_fully_dynamic(contract) is True
     errors, _ = vwc._static_checks(src, contract)
     assert errors == [], errors  # the real fixture passes
-    # Remove the inline Skill("${s}") literal AND the per-roster
+    # Remove the inline exact call literal AND the per-roster
     # skillDirectives(r.skills) CALL -> the structural invariant is violated ->
     # must error. The helper DEFINITION (function skillDirectives(...)) is excluded
     # from evidence by the gate's lookbehind, so it does not mask the removal.
-    stripped = src.replace('Skill("${s}")', "your usual methodology").replace(
+    stripped = src.replace("Call the Skill tool with \\`${s}\\`.", "your usual methodology").replace(
         "skillDirectives(r.skills)", "your usual methodology"
     )
     errs2, _ = vwc._static_checks(stripped, contract)
@@ -305,8 +475,8 @@ def test_real_fan_out_workflow_passes_static():
 
 # --- skills[] CONTRACT: full stack per agent (Stage 2.5) ---------------------
 # Each roster entry now declares a skills LIST and the body must emit one
-# Skill("..") per element. The gate verifies EACH declared skill has a
-# corresponding Skill() emission (static for literal rosters; structural for
+# exact Skill-tool call per element. The gate verifies EACH declared skill has a
+# corresponding call (static for literal rosters; structural for
 # fully-dynamic rosters where emission is delegated to skillDirectives(<var>)).
 
 
@@ -338,13 +508,13 @@ def test_each_declared_skill_checked_independently():
 def test_delegated_skill_directives_call_satisfies_invariant():
     """has_dynamic_skill_directive() also recognizes a skillDirectives(<var>) call.
 
-    The real workflows delegate per-roster Skill() emission to an imported helper
-    skillDirectives(r.skills); the inline Skill("${..}") literal lives in the
+    The real workflows delegate per-roster Skill-tool call emission to an imported helper
+    skillDirectives(r.skills); the inline exact sentence lives in the
     helper module, not the workflow body. The structural invariant must accept the
     delegated call as evidence the per-roster methodology attach is emitted.
     """
     delegated = "agent({ prompt: `You are ${r.agentType}.` + skillDirectives(r.skills), agentType: r.agentType })"
-    inline = 'agent({ prompt: `Skill("${r.skill}")`, agentType: r.agentType })'
+    inline = r"agent({ prompt: `Call the Skill tool with \`${r.skill}\`.`, agentType: r.agentType })"
     none = "agent({ prompt: `review the diff`, agentType: r.agentType })"
     assert vwc.has_dynamic_skill_directive(delegated) is True
     assert vwc.has_dynamic_skill_directive(inline) is True
@@ -360,7 +530,7 @@ def test_real_comprehensive_review_passes_static_with_skills_list():
 
 @pytest.mark.skipif(NODE is None, reason="node not available; dynamic harness is a local/dev tool")
 def test_real_comprehensive_review_dynamic_records_every_skill():
-    """The recorded trace shows EVERY declared skill per agent (multiple Skill())."""
+    """The recorded trace shows EVERY declared skill per agent."""
     rc, data = _run_json("--dir", str(REAL_WORKFLOW_DIR))
     res = _result_for(data, "comprehensive-review-workflow.js")
     assert res["status"] == "pass", res

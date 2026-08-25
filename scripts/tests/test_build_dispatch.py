@@ -6,8 +6,8 @@ Covers:
   (hooks/routing-decision-recorder.py) on 9 marker variants: agent/skill,
   complexity, model, health gate inputs (numeric and `health=-`), alts, stack.
 - Model enforcement: required for medium/complex, optional for trivial/simple.
-- Preamble completeness and block order: marker first, then thinking
-  directive, token line, Task Specification, the 4 mandatory injections,
+- Preamble completeness and block order: marker first, exact Skill-tool calls,
+  then thinking directive, token line, Task Specification, the 4 mandatory injections,
   optional worktree/local-only blocks.
 - Thinking directive by complexity + slow/fast overrides.
 - Graceful degradation: missing optional fields omit their block only.
@@ -104,7 +104,7 @@ ROUND_TRIP_CASES = [
         id="full-gate-inputs-alts-stack-model",
     ),
     pytest.param(  # V2: no weight row (health=-) with a stack
-        {"health": {}, "stack": ["worktree-agent"]},
+        {"health": {}, "stack": ["quick"]},
         {
             "agent": "python-general-engineer",
             "skill": "test-driven-development",
@@ -116,7 +116,7 @@ ROUND_TRIP_CASES = [
             "action": None,
             "alternates": None,
             "gate_inputs_present": True,
-            "stack": ["worktree-agent"],
+            "stack": ["quick"],
         },
         id="health-dash-with-stack",
     ),
@@ -263,6 +263,8 @@ def test_preamble_contains_every_mandatory_block_in_order():
     preamble = bd.build_preamble(_decision(complexity="complex"))
     ordered = [
         "[do-route] agent=python-general-engineer skill=test-driven-development complexity=complex model=opus",
+        "Call the Skill tool with `test-driven-development`.",
+        "Call the Skill tool with `verification-before-completion`.",
         bd.THINKING_SLOW,
         "~480000 tokens available for this task; prioritize accordingly.",
         "## Task Specification (auto-extracted)",
@@ -291,6 +293,43 @@ def test_worktree_and_local_only_blocks_follow_flags():
     neither = bd.build_preamble(_decision())
     assert bd.WORKTREE_RULES not in neither
     assert bd.LOCAL_ONLY_BLOCK not in neither
+
+
+def test_skill_calls_are_primary_first_ordered_and_deduplicated():
+    decision = _decision(
+        skill="test-driven-development",
+        stack=["verification-before-completion", "test-driven-development", "quick", "quick"],
+    )
+    calls = bd.render_skill_calls(decision).splitlines()
+    assert calls == [
+        "Call the Skill tool with `test-driven-development`.",
+        "Call the Skill tool with `verification-before-completion`.",
+        "Call the Skill tool with `quick`.",
+    ]
+
+
+def test_shared_pattern_stack_entry_is_not_a_skill_call():
+    decision = _decision(stack=["anti-rationalization-core", "verification-before-completion"])
+    calls = bd.render_skill_calls(decision)
+    assert "anti-rationalization-core" not in calls
+    assert calls.endswith("Call the Skill tool with `verification-before-completion`.")
+
+
+@pytest.mark.parametrize("name", ["reviewer-code", "feature-pipeline", "not-a-real-component"])
+def test_non_skill_stack_names_fail_closed(name):
+    with pytest.raises(bd.InputError, match="skill call"):
+        bd.build_preamble(_decision(stack=[name]))
+
+
+def test_pipeline_is_validated_and_marked_but_never_called_as_a_skill():
+    preamble = bd.build_preamble(_decision(pipeline="feature-pipeline"))
+    assert " pipeline=feature-pipeline " in preamble.splitlines()[0] + " "
+    assert "Call the Skill tool with `feature-pipeline`." not in preamble
+
+
+def test_unknown_pipeline_fails_closed():
+    with pytest.raises(bd.InputError, match="pipeline-index"):
+        bd.build_preamble(_decision(pipeline="not-a-pipeline"))
 
 
 @pytest.mark.parametrize(
@@ -327,6 +366,7 @@ def test_missing_optional_fields_omit_their_blocks_only():
     preamble = bd.build_preamble(minimal)
     assert preamble.startswith("[do-route] agent=claude skill=- complexity=trivial model=opus health=-\n")
     assert "## Task Specification" not in preamble
+    assert "Call the Skill tool" not in preamble
     assert "stack={" not in preamble
     # Mandatory blocks survive the minimal input.
     for injection in (bd.INJ_REFERENCE_LOADING, bd.INJ_COMPLETENESS, bd.INJ_DENSE_COMPLETE, bd.INJ_BASE_INSTRUCTIONS):

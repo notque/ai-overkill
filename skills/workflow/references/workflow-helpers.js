@@ -7,7 +7,7 @@
 // from a direct /do dispatch — not a single bare skill.
 //
 // Two builders, used identically by both workflows:
-//   - skillDirectives(skills): emit one Skill("<name>") directive for EVERY skill
+//   - skillDirectives(skills): emit one exact Skill-tool call for EVERY skill
 //     in the roster entry's skills list (the Phase-3 enhancement stack: primary
 //     skill + test-driven-development/verification-before-completion + the
 //     per-task-type anti-rationalization patterns the caller stacked).
@@ -17,18 +17,96 @@
 //
 // Determinism: no Date.now()/Math.random(); pure string composition only.
 
-// Emit a Skill("<name>") directive for EVERY skill in the list. The native
-// runtime resolves Skill("name") path-independent inside an agent() dispatch
-// (proven this session). Returns "" for an empty/absent list so a skill-less
-// roster entry adds nothing.
+import agentIndex from "../../../agents/INDEX.json" with { type: "json" };
+import skillIndex from "../../INDEX.json" with { type: "json" };
+
+const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+function indexNames(index, key, label) {
+  const entries = index && index[key];
+  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
+    throw new Error(`Trusted ${label} index is unreadable or empty.`);
+  }
+  const names = Object.keys(entries);
+  if (names.length === 0) {
+    throw new Error(`Trusted ${label} index is unreadable or empty.`);
+  }
+  return new Set(names);
+}
+
+const KNOWN_AGENTS = indexNames(agentIndex, "agents", "agent");
+const KNOWN_SKILLS = indexNames(skillIndex, "skills", "skill");
+
+export function validateAgentName(name, label = "agentType") {
+  if (typeof name !== "string") {
+    throw new TypeError(`${label}: agent name must be a string.`);
+  }
+  if (!NAME_RE.test(name)) {
+    throw new TypeError(`${label}: invalid agent name ${JSON.stringify(name)}.`);
+  }
+  if (KNOWN_SKILLS.has(name)) {
+    throw new TypeError(`${label}: ${name} is a skill, not an agent.`);
+  }
+  if (!KNOWN_AGENTS.has(name)) {
+    throw new TypeError(`${label}: unknown agent ${name}.`);
+  }
+  return name;
+}
+
+export function validateSkillNames(skills, label = "skills") {
+  if (!Array.isArray(skills)) {
+    throw new TypeError(`${label}: skills must be an array.`);
+  }
+  if (skills.length === 0) {
+    throw new TypeError(`${label}: expected at least one skill.`);
+  }
+
+  const names = [];
+  const seen = new Set();
+  for (const name of skills) {
+    if (typeof name !== "string") {
+      throw new TypeError(`${label}: skill name must be a string.`);
+    }
+    if (!NAME_RE.test(name)) {
+      throw new TypeError(`${label}: invalid skill name ${JSON.stringify(name)}.`);
+    }
+    if (KNOWN_AGENTS.has(name)) {
+      throw new TypeError(`${label}: ${name} is an agent, not a skill.`);
+    }
+    if (!KNOWN_SKILLS.has(name)) {
+      throw new TypeError(`${label}: unknown skill ${name}.`);
+    }
+    if (!seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+export function validateRoster(roster, label = "roster") {
+  if (!Array.isArray(roster)) {
+    throw new TypeError(`${label}: roster must be an array.`);
+  }
+  if (roster.length === 0) {
+    throw new TypeError(`${label}: expected at least one roster entry.`);
+  }
+  return roster.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new TypeError(`${label}[${index}]: roster entry must be an object.`);
+    }
+    return {
+      ...entry,
+      agentType: validateAgentName(entry.agentType, `${label}[${index}].agentType`),
+      skills: validateSkillNames(entry.skills, `${label}[${index}].skills`),
+    };
+  });
+}
+
+// Emit the A/B-winning action contract for every validated skill in the list.
 export function skillDirectives(skills) {
-  const list = Array.isArray(skills) ? skills.filter((s) => typeof s === "string" && s) : [];
-  if (list.length === 0) return "";
-  const lines = list.map((s) => `- Skill("${s}")`).join("\n");
-  return (
-    `\nInvoke EACH of these methodologies by name first, in order, then report ` +
-    `through their structure:\n${lines}`
-  );
+  const list = validateSkillNames(skills);
+  return `\n${list.map((s) => `Call the Skill tool with \`${s}\`.`).join("\n")}`;
 }
 
 // The /do Phase 4 Step 2 MANDATORY injection block, verbatim. Every dispatched

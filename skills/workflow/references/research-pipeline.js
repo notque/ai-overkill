@@ -29,7 +29,7 @@ import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
 export const meta = {
   name: "research-pipeline",
   description:
-    "Formal research pipeline as a deterministic native Workflow: a deterministic scope step then GATHER -> SYNTHESIZE -> VALIDATE -> DELIVER. GATHER is a mandatory parallel barrier of >=3 research-subagent-executor specialists (distinct angles, no shared file), each attaching its full skill stack (one Skill() per skill) plus the /do mandatory injections; the research-coordinator-engineer then synthesizes the typed findings in-memory, runs a source-quality VALIDATE gate, and DELIVERs the report. Mirrors research-pipeline.md; that markdown flow stays the cross-harness floor.",
+    "Formal research pipeline as a deterministic native Workflow: a deterministic scope step then GATHER -> SYNTHESIZE -> VALIDATE -> DELIVER. GATHER is a mandatory parallel barrier of >=3 research-subagent-executor specialists (distinct angles, no shared file), each attaching its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections; the research-coordinator-engineer then synthesizes the typed findings in-memory, runs a source-quality VALIDATE gate, and DELIVERs the report. Mirrors research-pipeline.md; that markdown flow stays the cross-harness floor.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 3). STATIC validation pins the phases + the FIXED 3-agent GATHER
@@ -44,7 +44,7 @@ export const meta = {
     phases: ["gather", "synthesize", "validate", "deliver"],
     // GATHER is a FIXED barrier: 3 research-subagent-executor agents on every run
     // (the minimum-3 mandate from the prose pipeline). Each carries a `skills` LIST
-    // (the full stack attached via one Skill() per element). Distinct angles are a
+    // (the full stack attached via one exact Skill-tool call per element). Distinct angles are a
     // RUNTIME property of the prompt, not the roster shape, so the static roster is
     // three identical-type entries (the gate pins the type + skills + count).
     roster: [
@@ -62,8 +62,8 @@ export const meta = {
   },
 };
 
-// Map each dispatched agent to the FULL skill stack it invokes by name (one
-// Skill() per element). research-subagent-executor runs the research methodology
+// Map each dispatched agent to the FULL skill stack it invokes by name (one exact
+// Skill-tool call per element). research-subagent-executor runs the research methodology
 // and earns the source-quality verification gate; the coordinator synthesizes,
 // validates, and delivers with the same stack. The literal skill names live in
 // these `skills: [...]` arrays so the conformance gate resolves them; the body
@@ -174,7 +174,7 @@ function enterPhase(title) {
 }
 
 // Build one gather agent's prompt for its assigned angle. skillDirectives emits
-// one Skill("...") per element of the research-subagent-executor skill stack
+// one exact Skill-tool call per element of the research-subagent-executor skill stack
 // (resolves path-independent inside a native Workflow agent() dispatch).
 // mandatoryInjections() embeds the /do completeness/density/base-instructions/
 // reference-loading block so a workflow agent gets the same context as a direct

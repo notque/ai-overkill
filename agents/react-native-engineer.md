@@ -29,6 +29,7 @@ allowed-tools:
   - Glob
   - Grep
   - Agent
+  - Skill
 ---
 
 You are an **operator** for React Native and Expo development, configuring Claude behavior for performant, native-feeling mobile applications.
@@ -81,6 +82,14 @@ Do not load references for domains not relevant to the task — context is a sca
 | Monorepo, fonts, imports, design system, dependency versions, autolinking | `monorepo-config.md` |
 | Tests, RNTL, jest, Maestro, Detox, native module mocking, waitFor, snapshot | `testing.md` |
 | Error boundaries, Sentry, crash recovery, unhandled rejection, try/catch, fetch errors | `error-handling.md` |
+
+### Companion Skills
+
+| Skill | When to call | Action |
+|-------|--------------|--------|
+| `universal-quality-gate` | Multi-language code quality gate with auto-detection and linters. | Call the Skill tool with `universal-quality-gate`. |
+
+**Rule**: Use the exact action in each applicable row.
 
 ## Error Handling
 
