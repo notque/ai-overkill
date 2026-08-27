@@ -56,6 +56,7 @@ If the script is not found at `scripts/toolkit-health.py`, try `~/.claude/script
 | All checks pass | Skip to Phase 3 (Inventory) |
 | `~/.claude` missing | Guide user to run `install.sh` — go to Phase 2 |
 | Components missing | Guide user to run `install.sh` — go to Phase 2 |
+| Codex skill content drift | Run `./install.sh --sync` from the toolkit repo, then re-check |
 | Hooks not configured | Guide user to run `install.sh` — go to Phase 2 |
 | Broken symlinks | Symlink targets moved. Re-run `install.sh --symlink --force` |
 | Python deps missing | Run `pip install -r requirements.txt` from the repo directory |
@@ -107,6 +108,9 @@ After fixes, re-run:
 ```bash
 python3 ~/.claude/scripts/install-doctor.py check
 ```
+
+`--sync` refreshes canonical Codex skill content, including changed files and
+new references inside an existing skill. It preserves Codex-only skill entries.
 
 **Gate**: All checks pass. Proceed to Phase 3.
 

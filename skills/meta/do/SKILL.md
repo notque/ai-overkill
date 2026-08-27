@@ -251,22 +251,32 @@ Stack on signals.
 | Complex implementation | Offer subagent-driven-development |
 | "local only"/"no push"/"keep it local"/"stay local" | Inject `shared-patterns/local-only.md` |
 | Voice profile (e.g. voice-example-profile) | Stack `voice-writer`; voice-*=profile |
-| Interview-mode heuristic | `planning` — `depth-first-interview.md` |
+| Material unresolved choices | `planning` — `ambiguity-triage.md`; ask only when question value is high |
+| Needed knowledge or approval exists with another person | `planning` — `human-source-elicitation.md` |
+| Observation can settle a high impact uncertainty | `planning` — `empirical-prototype.md` |
+| Phase, worker, or session transition | `planning` — `context-boundary.md` |
 | Objective with done-criteria / "loop until done" | Stack `objective-loop` |
 | Protected PR/security intent with a Go source operand | Keep `pr-workflow`/`security-review` primary and stack `go-patterns` from `PRE_ROUTE_RESULT.stack` or router `pairs_with` |
 
 Review overlap: real-diff row wins; fallback only without diff.
 
-**Interview heuristic.** Short, no file/symbol, ambiguous. Spec:
+**Question-value policy.** Complexity alone never forces questions. Inspect the request, repository, supplied material, and prior decisions first. Load `planning/references/ambiguity-triage.md`, then choose:
 
-| Example | ? | Why |
-|---|---|---|
-| "i'm not sure how to approach this complex build" | Y | Vague+no target |
-| "fix the typo on line 42 of foo.py" | N | File+loc |
-| "build a thing that does X" | Y | No file |
-| "add a test for `parseConfig` in src/config.go" | N | Symbol+file |
-| "where do i even start with this rewrite" | Y | No subject |
-| "rename `cfg` to `config` in `internal/`" | N | Mechanical |
+| Unresolved state | Action |
+|---|---|
+| Low impact, reversible, or covered by a safe convention | State the assumption and execute. |
+| One high impact decision owned by the current user | Ask one question with a recommendation, then execute. |
+| Two or more high impact decisions owned by the current user | Use `depth-first-interview.md`: batch the independent frontier, then traverse genuine dependencies; interviews initiated by the router cap at five questions and three decision rounds. |
+| Facts, constraints, preferences, or approval exist with another person | Use `human-source-elicitation.md`; draft the artifact and never send without authorization. |
+| Evidence can settle the choice faster than discussion | Use `empirical-prototype.md`: Question → Evidence → Verdict → Next action. |
+
+Explicit "interview me" or "grill me" opts into exhaustive material coverage until shared understanding or a user stop; it has no arbitrary question or round cap. An implicit interview must earn its interruption cost through likely avoided rework and remains bounded. "Just build it," "skip questions," and equivalents use recommended defaults and continue.
+
+An interview is not terminal when it suspends an active delivery objective. Compile the decisions and automatically resume the originating build, fix, install, validation, or other execution flow; never report the decision artifact as completion of the original objective. Stop after compilation only when the user explicitly requested only an interview artifact or excluded implementation.
+
+Ask the current independent frontier in one logical round. In Markdown, include the full frontier with a recommendation for each and wait once. A harness native structured question UI may chunk the frontier only at its capacity per call; do not recompute between chunks unless an answer invalidates a pending question. Single question turns are reserved for true dependency branches. Interviews initiated by the router cap at five questions and three decision rounds, plus at most one concise confirmation response; explicit grills construct and exhaust the material decision tree, with the kinds and number of questions determined by what shared understanding requires. Do not add ceremonial questions. Answering the last frontier does not authorize execution by itself: ask one concise shared understanding confirmation. Skip that extra confirmation only when the same response explicitly says "proceed", "build it", "looks right, continue", or equivalent. Resume nested execution only after explicit proceed or confirmation; a request for only an interview stops at the artifact.
+
+At each pipeline or worker boundary, apply `planning/references/context-boundary.md`: continue while live context is evidence; use a fresh worker with a complete Task Spec when durable artifacts are sufficient; use `pause.md` only for plan or session lifecycle; use `session-handoff` plus the Task Spec for inline worker or agent transfer; compact only under context pressure.
 
 Check `pairs_with` before stacking. Skills with built-in verification gates may suffice.
 

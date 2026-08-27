@@ -64,6 +64,7 @@ MODE=""
 DRY_RUN=false
 FORCE=true  # Default to force — never prompt about existing directories
 CONFLICT_MODE=""  # per-item | replace | skip; set by --per-item/--sync or conflict prompt
+SYNC_REFRESH=false  # true only for explicit --sync; --per-item preserves existing children
 CONFIGURE=false
 CONFIGURE_ONLY=false
 while [[ $# -gt 0 ]]; do
@@ -102,6 +103,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --sync)
             CONFLICT_MODE="per-item"
+            SYNC_REFRESH=true
             # --sync implies symlink mode when MODE is not yet set
             [ -z "$MODE" ] && MODE="symlink"
             shift
@@ -126,7 +128,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --force      Replace existing directories without prompting (default)"
             echo "  --no-force   Prompt before replacing existing directories"
             echo "  --per-item   Symlink each item individually; preserve external content"
-            echo "  --sync       Alias for --per-item; implies --symlink mode default"
+            echo "  --sync       Refresh toolkit-owned Codex entries; preserve runtime-only entries"
             echo "  --configure       Run the interactive profile picker, then install"
             echo "  --configure-only  Run the picker, write .local/profile.yaml, then exit"
             echo ""
@@ -1415,6 +1417,7 @@ sync_mirror_entry() {
     local source=$1
     local target=$2
     local label=${3:-Mirror}
+    local refresh_existing=${4:-false}
     local name
     name=$(basename "$source")
 
@@ -1428,10 +1431,14 @@ sync_mirror_entry() {
             fi
         else
             # Convert only toolkit-owned whole-dir symlinks. External symlinks
-            # remain the user's chosen active path and get add-only entries.
+            # remain the user's chosen active path. Never traverse them: a
+            # refresh inside that directory would mutate external content.
             if [ -L "$target" ] && _symlink_points_to "$target" "$source"; then
                 echo -e "${GREEN}  ✓ ${label} converting whole-dir symlink to per-item dir${NC}"
                 rm "$target"
+            elif [ -L "$target" ]; then
+                echo -e "${YELLOW}  Skipping external ${label} symlink: ${target}${NC}"
+                return
             fi
             mkdir -p "$target"
             local item item_name
@@ -1446,8 +1453,18 @@ sync_mirror_entry() {
                     echo -e "${GREEN}  ✓ ${label} per-item refreshed ${item_name}${NC}"
                     continue
                 fi
-                if [ -e "$target/$item_name" ]; then
-                    continue  # already present; skip silently
+                if [ -e "$target/$item_name" ] || [ -L "$target/$item_name" ]; then
+                    if [ "$refresh_existing" != true ]; then
+                        continue  # external/existing entry; keep it
+                    fi
+                    if [ -d "$item" ] && [ -d "$target/$item_name" ] && [ ! -L "$target/$item_name" ]; then
+                        sync_mirror_entry "$item" "$target/$item_name" "$label" true
+                        continue
+                    fi
+                    rm -rf "$target/$item_name"
+                    ln -s "$item" "$target/$item_name"
+                    echo -e "${GREEN}  ✓ ${label} per-item refreshed ${item_name}${NC}"
+                    continue
                 fi
                 ln -s "$item" "$target/$item_name"
                 echo -e "${GREEN}  ✓ ${label} per-item linked ${item_name}${NC}"
@@ -1487,7 +1504,10 @@ sync_mirror_entry() {
 
 # Backward-compatible wrapper for existing call sites
 sync_codex_entry() {
-    sync_mirror_entry "$1" "$2" "Codex"
+    # Codex is a generated toolkit mirror. Refresh canonical children during
+    # --sync so an earlier copy or stale link cannot shadow changed source.
+    # Entries not present in the source remain untouched.
+    sync_mirror_entry "$1" "$2" "Codex" "$SYNC_REFRESH"
 }
 
 # install_git_hook — writes .git/hooks/post-merge to auto-sync new items after git pull.
@@ -1845,6 +1865,15 @@ if [ -d "${SCRIPT_DIR}/private-voices" ]; then
         skill_src="${voice_dir}/skill"
         [ -d "$skill_src" ] || continue
         voice_name=$(basename "$voice_dir")
+        if _profile_disabled skills "voice-${voice_name}"; then
+            echo -e "${YELLOW}  Skipping voice-${voice_name} (not selected)${NC}"
+            target="${CLAUDE_DIR}/skills/voice-${voice_name}"
+            if [ -L "$target" ] && _symlink_points_to "$target" "$skill_src"; then
+                rm "$target"
+                echo -e "${YELLOW}  Removed Claude voice-${voice_name} symlink (disabled by profile)${NC}"
+            fi
+            continue
+        fi
         target="${CLAUDE_DIR}/skills/voice-${voice_name}"
         if [ "$DRY_RUN" = true ]; then
             echo -e "${BLUE}  Would link voice: voice-${voice_name}${NC}"
@@ -1901,6 +1930,17 @@ if [ "$MIRROR_CODEX" = true ]; then
             skill_src="${voice_dir}/skill"
             [ -d "$skill_src" ] || continue
             voice_name=$(basename "$voice_dir")
+            if _profile_disabled skills "voice-${voice_name}"; then
+                echo -e "${YELLOW}  Skipping voice-${voice_name} (not selected)${NC}"
+                target="${CODEX_SKILLS_DIR}/voice-${voice_name}"
+                if { [ -L "$target" ] && _symlink_points_to "$target" "$skill_src"; } || \
+                   { [ -d "$target" ] && [ -L "$target/SKILL.md" ] && \
+                     _symlink_points_to "$target/SKILL.md" "$skill_src/SKILL.md"; }; then
+                    rm -rf "$target"
+                    echo -e "${YELLOW}  Removed Codex voice-${voice_name} mirror (disabled by profile)${NC}"
+                fi
+                continue
+            fi
             target="${CODEX_SKILLS_DIR}/voice-${voice_name}"
             sync_codex_entry "$skill_src" "$target"
             CODEX_ENTRY_COUNT=$((CODEX_ENTRY_COUNT + 1))
@@ -2793,8 +2833,8 @@ fi
 if [ "$DRY_RUN" = true ]; then
     echo -e "${BLUE}  Would write: ${CLAUDE_DIR}/.install-manifest.json${NC}"
 else
-    $PYTHON_CMD -c "
-import json, datetime, subprocess, sys
+    VEXJOY_MANIFEST_DISABLED_SKILLS="$DISABLED_SKILLS" $PYTHON_CMD -c "
+import json, datetime, os, subprocess, sys
 try:
     commit = subprocess.check_output(['git', '-C', '${SCRIPT_DIR}', 'rev-parse', '--short', 'HEAD'], text=True, stderr=subprocess.DEVNULL).strip()
 except Exception:
@@ -2810,6 +2850,7 @@ manifest = {
     'hermes_components': ['skills', 'scripts'],
     'reasonix_components': ['skills', 'scripts', 'hooks'],
     'reasonix_hooks_allowlist': 'scripts/reasonix-hooks-allowlist.txt',
+    'disabled_skills': [name for name in os.environ.get('VEXJOY_MANIFEST_DISABLED_SKILLS', '').splitlines() if name],
 }
 json.dump(manifest, open('${CLAUDE_DIR}/.install-manifest.json', 'w'), indent=2)
 print('  Install manifest written to ~/.claude/.install-manifest.json')
@@ -2828,11 +2869,11 @@ else
 fi
 # Count components dynamically (excluding README files)
 AGENT_COUNT=$(ls -1 "${SCRIPT_DIR}/agents/"*.md 2>/dev/null | grep -v README | wc -l)
-SKILL_COUNT=$(ls -1 "${SCRIPT_DIR}/skills/"*/SKILL.md 2>/dev/null | wc -l)
+SKILL_COUNT=$(ls -1 "${CLAUDE_DIR}/skills/"*/SKILL.md 2>/dev/null | wc -l)
 HOOK_COUNT=$(ls -1 "${SCRIPT_DIR}/hooks/"*.py 2>/dev/null | wc -l)
 COMMAND_COUNT=$(ls -1 "${SCRIPT_DIR}/commands/"*.md 2>/dev/null | grep -v README | wc -l)
 SCRIPT_COUNT=$(ls -1 "${SCRIPT_DIR}/scripts/"*.py 2>/dev/null | wc -l)
-INVOCABLE_COUNT=$(grep -rl 'user-invocable: true' "${SCRIPT_DIR}/skills/"*/SKILL.md 2>/dev/null | wc -l)
+INVOCABLE_COUNT=$(grep -l 'user-invocable: true' "${CLAUDE_DIR}/skills/"*/SKILL.md 2>/dev/null | wc -l)
 
 echo ""
 echo "Installed components:"

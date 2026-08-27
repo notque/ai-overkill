@@ -268,6 +268,436 @@ def _force_push_protected(command: str) -> str | None:
     return None
 
 
+# ── destructive Git operation walk ──────────────────────────────
+
+_GIT_GLOBAL_VALUE_OPTIONS = frozenset(
+    {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"}
+)
+_WHOLE_TREE_PATHSPECS = frozenset(
+    {
+        ".",
+        "./",
+        ":/",
+        ":/*",
+        "*",
+        ":(top)",
+        ":(top)**",
+        ":(glob)**",
+        ":(glob)**/*",
+        ":(top,glob)**/*",
+        ":(glob,top)**/*",
+    }
+)
+_GIT_BUILTIN_SUBCOMMANDS = frozenset(
+    {
+        "add",
+        "am",
+        "apply",
+        "archive",
+        "bisect",
+        "blame",
+        "branch",
+        "bundle",
+        "checkout",
+        "cherry",
+        "cherry-pick",
+        "clean",
+        "clone",
+        "commit",
+        "config",
+        "describe",
+        "diff",
+        "difftool",
+        "fetch",
+        "format-patch",
+        "fsck",
+        "gc",
+        "grep",
+        "help",
+        "init",
+        "log",
+        "maintenance",
+        "merge",
+        "mergetool",
+        "mv",
+        "notes",
+        "pull",
+        "push",
+        "range-diff",
+        "rebase",
+        "reflog",
+        "remote",
+        "repack",
+        "replace",
+        "reset",
+        "restore",
+        "revert",
+        "rm",
+        "shortlog",
+        "show",
+        "show-branch",
+        "sparse-checkout",
+        "stash",
+        "status",
+        "submodule",
+        "switch",
+        "tag",
+        "worktree",
+    }
+)
+
+
+def _git_command_parts(segment: str) -> tuple[str, list[str]] | None:
+    """Return a real Git segment's subcommand and args.
+
+    Leading env assignments and transparent wrappers are removed by the shared
+    command parser. Git global options are skipped before selecting the
+    subcommand, including value-taking `-C` and `-c` forms.
+    """
+    stripped = _strip_leading_prefixes(segment)
+    try:
+        toks = shlex.split(stripped, posix=True)
+    except ValueError:
+        toks = stripped.split()
+    if not toks or toks[0].rsplit("/", 1)[-1].lower() != "git":
+        return None
+
+    i = 1
+    while i < len(toks):
+        tok = toks[i]
+        if tok == "--":
+            i += 1
+            break
+        if not tok.startswith("-") or tok == "-":
+            break
+        if tok in _GIT_GLOBAL_VALUE_OPTIONS:
+            i += 2
+        else:
+            # `-Cdir`, `-cname=value`, and long `--key=value` forms hold their
+            # value in this token; flag-only global options need no special case.
+            i += 1
+    if i >= len(toks):
+        return None
+    return toks[i].lower(), toks[i + 1 :]
+
+
+def _inline_git_alias_payload(segment: str) -> str:
+    """Return an invoked inline `git -c alias.NAME=...` expansion.
+
+    Only aliases defined and invoked in the same command are expanded. Other
+    config entries and unused alias definitions remain inert for this check.
+    """
+    stripped = _strip_leading_prefixes(segment)
+    try:
+        stripped_toks = shlex.split(stripped, posix=True)
+    except ValueError:
+        stripped_toks = stripped.split()
+    if not stripped_toks or stripped_toks[0].rsplit("/", 1)[-1].lower() != "git":
+        return ""
+
+    try:
+        toks = shlex.split(segment, posix=True)
+    except ValueError:
+        toks = segment.split()
+    git_indices = [i for i, tok in enumerate(toks) if tok.rsplit("/", 1)[-1].lower() == "git"]
+    for git_index in git_indices:
+        aliases: dict[str, str] = {}
+        i = git_index + 1
+        while i < len(toks):
+            tok = toks[i]
+            config = ""
+            if tok == "-c" and i + 1 < len(toks):
+                config = toks[i + 1]
+                i += 2
+            elif tok.startswith("-c") and len(tok) > 2:
+                config = tok[2:].lstrip("=")
+                i += 1
+            elif tok in _GIT_GLOBAL_VALUE_OPTIONS:
+                i += 2
+                continue
+            elif tok.startswith("-") and tok != "-":
+                i += 1
+                continue
+            else:
+                break
+
+            key, sep, value = config.partition("=")
+            if sep and key.lower().startswith("alias."):
+                aliases[key[6:].lower()] = value
+
+        if i >= len(toks):
+            continue
+        expansion = aliases.get(toks[i].lower())
+        if expansion is None:
+            continue
+        trailing = shlex.join(toks[i + 1 :]) if i + 1 < len(toks) else ""
+        if expansion.startswith("!"):
+            return f"{expansion[1:]} {trailing}".strip()
+        return f"git {expansion} {trailing}".strip()
+    return ""
+
+
+def _split_executed_shell_segments(command: str) -> list[str]:
+    """Split on shell operators outside quotes.
+
+    Unlike `_SEGMENT_SPLIT_RE`, this preserves quoted `-c` and `eval` payloads
+    as one token. Command substitutions are scanned separately before this
+    helper runs.
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    in_single = in_double = False
+    i = 0
+    while i < len(command):
+        c = command[i]
+        if c == "\\" and not in_single and i + 1 < len(command):
+            buf.extend((c, command[i + 1]))
+            i += 2
+            continue
+        if c == "'" and not in_double:
+            in_single = not in_single
+            buf.append(c)
+        elif c == '"' and not in_single:
+            in_double = not in_double
+            buf.append(c)
+        elif not in_single and not in_double and c in ";|&\n":
+            segment = "".join(buf).strip()
+            if segment:
+                segments.append(segment)
+            buf = []
+            # Treat `&&` and `||` as one separator.
+            if i + 1 < len(command) and command[i + 1] == c and c in "|&":
+                i += 1
+        else:
+            buf.append(c)
+        i += 1
+    segment = "".join(buf).strip()
+    if segment:
+        segments.append(segment)
+    return segments
+
+
+def _eval_payload(segment: str) -> str:
+    """Return the shell text executed by `eval`, or an empty string."""
+
+    def _decode_ansi(match: re.Match[str]) -> str:
+        body = match.group(1)
+        for escaped, value in (("\\n", "\n"), ("\\t", "\t"), ("\\'", "'"), ("\\\\", "\\")):
+            body = body.replace(escaped, value)
+        return shlex.quote(body)
+
+    # Convert every Bash ANSI-C argument, then join all eval arguments as Bash
+    # does. Reading only the first `$'...'` let a later argument carry the
+    # destructive command.
+    normalized = re.sub(r"\$'((?:\\.|[^'])*)'", _decode_ansi, segment)
+    try:
+        toks = shlex.split(normalized, posix=True)
+    except ValueError:
+        toks = normalized.split()
+    eval_indices = [i for i, tok in enumerate(toks) if tok.rsplit("/", 1)[-1].lower() == "eval"]
+    if eval_indices:
+        return " ".join(toks[eval_indices[-1] + 1 :])
+    return ""
+
+
+def _xargs_payload(segment: str) -> str:
+    """Return the command that `xargs` executes, or an empty string."""
+    stripped = _strip_leading_prefixes(segment)
+    try:
+        toks = shlex.split(stripped, posix=True)
+    except ValueError:
+        toks = stripped.split()
+    if not toks or toks[0].rsplit("/", 1)[-1].lower() != "xargs":
+        return ""
+    value_options = frozenset(
+        {
+            "-a",
+            "--arg-file",
+            "-E",
+            "--eof",
+            "-I",
+            "--replace",
+            "-L",
+            "--max-lines",
+            "-n",
+            "--max-args",
+            "-P",
+            "--max-procs",
+            "-s",
+            "--max-chars",
+        }
+    )
+    i = 1
+    while i < len(toks):
+        tok = toks[i]
+        if tok == "--":
+            i += 1
+            break
+        if not tok.startswith("-") or tok == "-":
+            break
+        i += 2 if tok in value_options else 1
+    return shlex.join(toks[i:]) if i < len(toks) else ""
+
+
+def _persistent_git_alias_payload(
+    name: str,
+    cwd: str | None,
+    cache: dict[tuple[str, str], str | None],
+) -> str:
+    """Look up a repository/worktree/global Git alias with a bounded call."""
+    lookup_cwd = cwd or os.getcwd()
+    key = (lookup_cwd, name.lower())
+    if key in cache:
+        return cache[key] or ""
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", f"alias.{name}"],
+            cwd=lookup_cwd,
+            capture_output=True,
+            text=True,
+            timeout=0.05,
+            check=False,
+        )
+        expansion = result.stdout.strip() if result.returncode == 0 else ""
+    except (subprocess.TimeoutExpired, OSError):
+        expansion = ""
+    payload = (expansion[1:] if expansion.startswith("!") else f"git {expansion}") if expansion else ""
+    cache[key] = payload or None
+    return payload
+
+
+def _destructive_git_operation(
+    command: str,
+    _depth: int = 0,
+    cwd: str | None = None,
+    _alias_cache: dict[tuple[str, str], str | None] | None = None,
+) -> str | None:
+    """Describe a destructive Git operation, else return None.
+
+    Blocks irreversible reset/clean/branch deletion and whole-tree checkout or
+    restore. Targeted file restore and normal branch switching stay available.
+    Shell `-c` payloads are checked recursively; quoted Git text passed to a
+    display command is not treated as execution.
+    """
+    if _depth > 4:
+        return None
+    if _alias_cache is None:
+        _alias_cache = {}
+    if cwd is None and _CURRENT_EVENT:
+        cwd = _CURRENT_EVENT.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or None
+
+    # Substitutions execute even when the outer command only displays output.
+    # Ignore substitutions inside single quotes, where POSIX shells treat them
+    # as literal text. Blank scanned spans before the outer segment walk so
+    # operators inside a substitution cannot be mistaken for outer operators.
+    sq_spans = _single_quoted_spans(command)
+    substitution_spans: list[tuple[int, int]] = []
+    for sub in _SUBSTITUTION_RE.finditer(command):
+        if any(start <= sub.start() < end for start, end in sq_spans):
+            continue
+        body = sub.group("dollar") or sub.group("back") or sub.group("proc") or ""
+        substitution_spans.append(sub.span())
+        description = _destructive_git_operation(body, _depth + 1, cwd, _alias_cache)
+        if description:
+            return description
+    scan_command = "".join(
+        " " if any(start <= i < end for start, end in substitution_spans) else c for i, c in enumerate(command)
+    )
+
+    for segment in _split_executed_shell_segments(scan_command):
+        cmd = _command_token(segment)
+        segment_cwd = _extract_effective_cwd(segment, cwd)
+        if cmd in _SHELL_LAUNCHERS:
+            payload = _shell_c_payload(segment)
+            description = (
+                _destructive_git_operation(payload, _depth + 1, segment_cwd, _alias_cache) if payload else None
+            )
+            if description:
+                return description
+            continue
+        if cmd == "eval":
+            payload = _eval_payload(segment)
+            description = (
+                _destructive_git_operation(payload, _depth + 1, segment_cwd, _alias_cache) if payload else None
+            )
+            if description:
+                return description
+            continue
+        if cmd == "xargs":
+            payload = _xargs_payload(segment)
+            description = (
+                _destructive_git_operation(payload, _depth + 1, segment_cwd, _alias_cache) if payload else None
+            )
+            if description:
+                return description
+            continue
+        if cmd != "git":
+            continue
+
+        alias_payload = _inline_git_alias_payload(segment)
+        if alias_payload:
+            description = _destructive_git_operation(alias_payload, _depth + 1, segment_cwd, _alias_cache)
+            if description:
+                return description
+
+        parsed = _git_command_parts(segment)
+        if not parsed:
+            continue
+        subcommand, args = parsed
+        option_args = args[: args.index("--")] if "--" in args else args
+
+        if subcommand == "reset" and "--hard" in option_args:
+            return "git reset --hard (discards tracked work)"
+
+        if subcommand == "clean":
+            force = "--force" in option_args or any(
+                tok.startswith("-") and not tok.startswith("--") and "f" in tok[1:] for tok in option_args
+            )
+            dry_run = "--dry-run" in option_args or any(
+                tok.startswith("-") and not tok.startswith("--") and "n" in tok[1:] for tok in option_args
+            )
+            if force and not dry_run:
+                return "git clean --force (deletes untracked work)"
+
+        if subcommand == "branch":
+            force_delete = any(
+                tok.startswith("-") and not tok.startswith("--") and "D" in tok[1:] for tok in option_args
+            )
+            force_delete = force_delete or ("--delete" in option_args and "--force" in option_args)
+            force_delete = force_delete or ("-d" in option_args and "-f" in option_args)
+            if force_delete:
+                return "git branch -D (force-deletes a branch)"
+
+        if subcommand == "config":
+            alias_at = next((i for i, arg in enumerate(args) if arg.lower().startswith("alias.")), None)
+            if alias_at is not None and alias_at + 1 < len(args):
+                expansion = " ".join(args[alias_at + 1 :])
+                alias_command = expansion[1:] if expansion.startswith("!") else f"git {expansion}"
+                description = _destructive_git_operation(alias_command, _depth + 1, segment_cwd, _alias_cache)
+                if description:
+                    return "git config destructive alias (persists a tracked-work deletion command)"
+
+        if subcommand in {"checkout", "restore"}:
+            broad = next((arg for arg in args if arg in _WHOLE_TREE_PATHSPECS), None)
+            staged_only = subcommand == "restore" and ("--staged" in option_args or "-S" in option_args)
+            worktree_too = "--worktree" in option_args or "-W" in option_args
+            if broad and (not staged_only or worktree_too):
+                return f"git {subcommand} {broad} (overwrites the whole worktree)"
+            if subcommand == "checkout" and ("-f" in option_args or "--force" in option_args):
+                return "git checkout --force (discards tracked work while switching)"
+
+        if subcommand == "switch" and "--discard-changes" in option_args:
+            return "git switch --discard-changes (discards tracked work while switching)"
+
+        if subcommand not in _GIT_BUILTIN_SUBCOMMANDS:
+            payload = _persistent_git_alias_payload(subcommand, segment_cwd, _alias_cache)
+            if payload:
+                description = _destructive_git_operation(payload, _depth + 1, segment_cwd, _alias_cache)
+                if description:
+                    return f"git alias {subcommand} expands to a destructive command"
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════
 # 4. CREATION GATE PATTERNS (pretool-creation-gate.py)
 # ═══════════════════════════════════════════════════════════════
@@ -1210,7 +1640,11 @@ def check_dangerous_command(command: str) -> None:
 
     # Functional walks (audit S2) share the regex rules' whitelist contract:
     # a full-command whitelist entry skips the rule, nothing else does.
-    for check, category in ((_rm_destructive_target, "filesystem"), (_force_push_protected, "git")):
+    for check, category in (
+        (_rm_destructive_target, "filesystem"),
+        (_force_push_protected, "git"),
+        (_destructive_git_operation, "git"),
+    ):
         description = check(command)
         if description and not _is_whitelisted(command, whitelist):
             _block(

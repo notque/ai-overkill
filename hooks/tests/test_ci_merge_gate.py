@@ -253,6 +253,8 @@ class TestCIStatusGate:
         r = run_hook("gh pr merge 55 --squash", gh_checks_json=passing, tmp_path=tmp_path)
         assert r.returncode == 0
         assert _last_decision(r.stdout) is None, "Passing CI must not produce a deny"
+        assert r.stdout == "", "Allowed hooks must reserve stdout for protocol output"
+        assert "Merge allowed" in r.stderr
 
     def test_pr_number_resolved_via_view_fallback(self, tmp_path):
         """No PR number in command -> hook resolves it via `gh pr view`, then gates CI."""
