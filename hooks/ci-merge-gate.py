@@ -75,7 +75,7 @@ def main() -> None:
 
     if not pr_number:
         # Can't determine PR number — let it through with a warning
-        print("[ci-merge-gate] WARNING: Could not determine PR number. Skipping CI check.")
+        print("[ci-merge-gate] WARNING: Could not determine PR number. Skipping CI check.", file=sys.stderr)
         return
 
     # Check CI status
@@ -87,20 +87,26 @@ def main() -> None:
             timeout=15,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        print("[ci-merge-gate] WARNING: Could not check CI status (gh not available or timeout).")
+        print(
+            "[ci-merge-gate] WARNING: Could not check CI status (gh not available or timeout).",
+            file=sys.stderr,
+        )
         return
 
     if result.returncode != 0:
         # gh pr checks failed — might be no checks configured
         if "no checks" in result.stderr.lower():
             return
-        print(f"[ci-merge-gate] WARNING: Could not fetch CI checks: {result.stderr.strip()}")
+        print(
+            f"[ci-merge-gate] WARNING: Could not fetch CI checks: {result.stderr.strip()}",
+            file=sys.stderr,
+        )
         return
 
     try:
         checks = json.loads(result.stdout)
     except json.JSONDecodeError:
-        print("[ci-merge-gate] WARNING: Could not parse CI check results.")
+        print("[ci-merge-gate] WARNING: Could not parse CI check results.", file=sys.stderr)
         return
 
     # bucket field values: pass, fail, pending, skipping, cancel
@@ -147,7 +153,9 @@ def main() -> None:
         sys.exit(0)
 
     # All checks passed
-    print(f"[ci-merge-gate] CI checks passed for PR #{pr_number}. Merge allowed.")
+    # PreToolUse stdout is protocol-only. Human-readable diagnostics must use
+    # stderr or Codex's adapter will reject an otherwise allowed invocation.
+    print(f"[ci-merge-gate] CI checks passed for PR #{pr_number}. Merge allowed.", file=sys.stderr)
 
 
 if __name__ == "__main__":
