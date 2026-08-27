@@ -182,11 +182,19 @@ def check_codex_skills() -> dict:
             else "Codex skills mirror not found. Run install.sh from the toolkit repo.",
         }
 
+    disabled_skills: set[str] = set()
+    try:
+        install_manifest = json.loads((CLAUDE_DIR / ".install-manifest.json").read_text(encoding="utf-8"))
+        disabled_skills = {name for name in install_manifest.get("disabled_skills", []) if isinstance(name, str)}
+    except (json.JSONDecodeError, OSError, TypeError):
+        pass
+
     # Build expected entries by walking the nested skill structure.
     # The Codex mirror is flat (same as ~/.claude/skills deployment), so we
     # need to list individual skills, not category folders.
     repo_skills = repo_root / "skills"
     expected_entries = []
+    expected_skill_sources: dict[str, Path] = {}
     root_utility = {"shared-patterns", "workflow", "kb"}
     for item in sorted(repo_skills.iterdir()):
         if item.is_file():
@@ -196,8 +204,9 @@ def check_codex_skills() -> dict:
         elif item.is_dir():
             # Category folder: list individual skills inside
             for skill_dir in sorted(item.iterdir()):
-                if skill_dir.is_dir():
+                if (skill_dir / "SKILL.md").is_file():
                     expected_entries.append(skill_dir.name)
+                    expected_skill_sources[skill_dir.name] = skill_dir
 
     private_skills_dir = repo_root / "private-skills"
     if private_skills_dir.is_dir():
@@ -205,21 +214,29 @@ def check_codex_skills() -> dict:
             if not category_dir.is_dir() or category_dir.name.startswith("."):
                 continue
             for skill_dir in sorted(category_dir.iterdir()):
-                if not skill_dir.is_dir():
+                if not (skill_dir / "SKILL.md").is_file():
                     continue
                 # Voice category deploys as voice-{name}
                 if category_dir.name == "voice":
-                    expected_entries.append(f"voice-{skill_dir.name}")
+                    deployed_name = f"voice-{skill_dir.name}"
                 else:
-                    expected_entries.append(skill_dir.name)
+                    deployed_name = skill_dir.name
+                expected_entries.append(deployed_name)
+                expected_skill_sources[deployed_name] = skill_dir
 
     private_voices_dir = repo_root / "private-voices"
     if private_voices_dir.is_dir():
         for voice_dir in sorted(private_voices_dir.iterdir()):
             if (voice_dir / "skill").is_dir():
-                expected_entries.append(f"voice-{voice_dir.name}")
+                deployed_name = f"voice-{voice_dir.name}"
+                expected_entries.append(deployed_name)
+                expected_skill_sources[deployed_name] = voice_dir / "skill"
 
     expected_entries = list(dict.fromkeys(expected_entries))
+    expected_entries = [name for name in expected_entries if name not in disabled_skills]
+    expected_skill_sources = {
+        name: source for name, source in expected_skill_sources.items() if name not in disabled_skills
+    }
 
     if not codex_skills_dir.is_dir():
         return {
@@ -236,6 +253,29 @@ def check_codex_skills() -> dict:
             "label": "~/.codex/skills mirror",
             "passed": False,
             "detail": f"{len(expected_entries) - len(missing)}/{len(expected_entries)} entries present; missing: {', '.join(missing[:5])}",
+        }
+
+    drifted: list[str] = []
+    for deployed_name, source_dir in expected_skill_sources.items():
+        target_dir = codex_skills_dir / deployed_name
+        for source_file in source_dir.rglob("*"):
+            if not source_file.is_file() or "__pycache__" in source_file.parts or source_file.suffix == ".pyc":
+                continue
+            relative = source_file.relative_to(source_dir)
+            target_file = target_dir / relative
+            try:
+                matches = target_file.is_file() and target_file.read_bytes() == source_file.read_bytes()
+            except OSError:
+                matches = False
+            if not matches:
+                drifted.append(f"{deployed_name}/{relative}")
+
+    if drifted:
+        return {
+            "name": "codex_skills",
+            "label": "~/.codex/skills mirror",
+            "passed": False,
+            "detail": f"content drift in {len(drifted)} mirrored files: {', '.join(drifted[:5])}",
         }
 
     return {
@@ -303,8 +343,8 @@ def check_hermes_skills() -> dict:
         return {
             "name": "hermes_skills",
             "label": "~/.hermes/skills mirror",
-            "passed": False,
-            "detail": "Directory not found. Run install.sh to mirror toolkit skills for Hermes Agent.",
+            "passed": True,
+            "detail": "not installed (optional runtime)",
         }
 
     repo_root = get_toolkit_repo_root()
@@ -341,8 +381,8 @@ def check_reasonix_skills() -> dict:
         return {
             "name": "reasonix_skills",
             "label": "~/.reasonix/skills discoverable",
-            "passed": False,
-            "detail": "Directory not found. Run install.sh to mirror toolkit skills for Reasonix.",
+            "passed": True,
+            "detail": "not installed (optional runtime)",
         }
 
     # The /do router is always installed; use it as the canary for discoverability.
@@ -721,7 +761,7 @@ def check_skill_structure() -> list[dict]:
 
 
 def check_permissions() -> list[dict]:
-    """Check that hook and script files are executable."""
+    """Check that Python hook and script files are readable by the runtime."""
     results = []
     for subdir in ["hooks", "scripts"]:
         target = CLAUDE_DIR / subdir
@@ -730,32 +770,32 @@ def check_permissions() -> list[dict]:
 
         # Resolve symlinks
         real_dir = target.resolve()
-        non_exec = []
+        unreadable = []
         total = 0
 
         for f in real_dir.glob("*.py"):
             if f.name == "__init__.py":
                 continue
             total += 1
-            if not os.access(f, os.X_OK):
-                non_exec.append(f.name)
+            if not os.access(f, os.R_OK):
+                unreadable.append(f.name)
 
-        if non_exec:
+        if unreadable:
             results.append(
                 {
                     "name": f"perms_{subdir}",
-                    "label": f"{subdir}/*.py executable",
+                    "label": f"{subdir}/*.py readable",
                     "passed": False,
-                    "detail": f"{len(non_exec)}/{total} not executable: {', '.join(non_exec[:3])}{'...' if len(non_exec) > 3 else ''}",
+                    "detail": f"{len(unreadable)}/{total} not readable: {', '.join(unreadable[:3])}{'...' if len(unreadable) > 3 else ''}",
                 }
             )
         else:
             results.append(
                 {
                     "name": f"perms_{subdir}",
-                    "label": f"{subdir}/*.py executable",
+                    "label": f"{subdir}/*.py readable",
                     "passed": True,
-                    "detail": f"All {total} files OK",
+                    "detail": f"All {total} files readable (Python entry points do not require executable bits)",
                 }
             )
     return results

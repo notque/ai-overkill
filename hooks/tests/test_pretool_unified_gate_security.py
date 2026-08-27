@@ -13,6 +13,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -379,6 +380,121 @@ class TestForcePushOrderIndependence:
         # dangerous-command walk directly so this row tests only force-push logic.
         got = DENY if mod._force_push_protected(command) else ALLOW
         assert got == expected, case_id
+
+
+DESTRUCTIVE_GIT_CASES = [
+    # reset --hard: option order and Git global options must not bypass the gate.
+    ("reset-hard", "git reset --hard", DENY),
+    ("reset-hard-ref", "git reset HEAD~2 --hard", DENY),
+    ("reset-hard-global-option", "git -C /tmp/repo reset --hard HEAD", DENY),
+    ("reset-hard-wrapper", "env git --no-pager reset --hard", DENY),
+    ("reset-hard-shell-chain", "bash -lc 'echo ready; git reset --hard'", DENY),
+    ("reset-hard-after-shell", "bash -lc 'echo ready'; git reset --hard", DENY),
+    ("reset-hard-substitution", "echo $(git reset --hard)", DENY),
+    ("reset-hard-eval", "eval 'git reset --hard'", DENY),
+    ("reset-hard-ansi-eval", "eval $'git reset --hard'", DENY),
+    ("reset-hard-ansi-eval-multiple", "eval $'true; ' $'git reset --hard'", DENY),
+    ("safe-ansi-eval-multiple", "eval $'true; ' 'printf safe'", ALLOW),
+    ("reset-hard-xargs", "printf HEAD | xargs git reset --hard", DENY),
+    ("reset-hard-inline-alias", "git -c 'alias.nuke=reset --hard' nuke", DENY),
+    ("reset-hard-inline-alias-attached", "git '-calias.nuke=reset --hard' nuke", DENY),
+    ("reset-hard-inline-alias-sudo-user-git", "sudo -u git git -c 'alias.nuke=reset --hard' nuke", DENY),
+    ("clean-inline-shell-alias", "git -c 'alias.purge=!git clean -fd' purge", DENY),
+    ("restore-inline-alias", "git -c 'alias.wipe=restore .' wipe", DENY),
+    ("reset-keep", "git reset --keep HEAD~1", ALLOW),
+    ("reset-mixed", "git reset --mixed HEAD~1", ALLOW),
+    ("reset-option-terminator", "git reset -- --hard", ALLOW),
+    ("safe-inline-alias", "git -c 'alias.st=status --short' st", ALLOW),
+    ("safe-inline-alias-sudo-user-git", "sudo -u git git -c 'alias.st=status --short' st", ALLOW),
+    ("unused-destructive-inline-alias", "git -c 'alias.nuke=reset --hard' status", ALLOW),
+    ("unrelated-inline-config", "git -c advice.detachedHead=false status", ALLOW),
+    ("xargs-targeted-restore", "printf src/config.py | xargs git restore", ALLOW),
+    ("xargs-literal-git", "printf HEAD | xargs echo 'git reset --hard'", ALLOW),
+    # Any forced clean deletes untracked content. Cover short clusters and long flags.
+    ("clean-force", "git clean -f", DENY),
+    ("clean-force-dir", "git clean -fd", DENY),
+    ("clean-force-excluded", "git clean -dxf", DENY),
+    ("clean-long-force", "git clean --force -d", DENY),
+    ("clean-dry-run", "git clean -ndx", ALLOW),
+    ("clean-interactive", "git clean -i", ALLOW),
+    ("clean-option-terminator", "git clean -- -f", ALLOW),
+    # Force deletion is destructive; ordinary deletion retains Git's merge check.
+    ("branch-force-delete", "git branch -D old-work", DENY),
+    ("branch-force-delete-cluster", "git branch -Df old-work", DENY),
+    ("branch-force-delete-long", "git branch --delete --force old-work", DENY),
+    ("branch-safe-delete", "git branch -d merged-work", ALLOW),
+    ("branch-list", "git branch --list", ALLOW),
+    ("branch-option-terminator", "git branch -- -D", ALLOW),
+    # Whole-tree overwrite is blocked; targeted recovery remains available.
+    ("checkout-dot", "git checkout -- .", DENY),
+    ("checkout-head-dot", "git checkout HEAD -- .", DENY),
+    ("checkout-root-pathspec", "git checkout -- :/", DENY),
+    ("restore-dot", "git restore .", DENY),
+    ("restore-root-pathspec", "git restore --source=HEAD -- :/", DENY),
+    ("restore-root-slash-glob", "git restore ':/*'", DENY),
+    ("restore-top-glob-magic", "git restore ':(glob,top)**/*'", DENY),
+    ("checkout-file", "git checkout -- src/config.py", ALLOW),
+    ("checkout-branch", "git checkout feature/safe", ALLOW),
+    ("restore-file", "git restore src/config.py", ALLOW),
+    ("restore-targeted-pathspec", "git restore ':(top)src/config.py'", ALLOW),
+    ("restore-staged-file", "git restore --staged src/config.py", ALLOW),
+    ("restore-staged-whole-index", "git restore --staged .", ALLOW),
+    ("restore-staged-and-worktree", "git restore --staged --worktree .", DENY),
+    # Literal Git text passed to a display command is data, not execution.
+    ("echo-literal", "echo 'git reset --hard'", ALLOW),
+    ("echo-literal-separator", "echo 'safe; git reset --hard'", ALLOW),
+    ("single-quoted-substitution", "echo '$(git reset --hard)'", ALLOW),
+    # Branch switching must not use flags that discard tracked work.
+    ("checkout-force", "git checkout -f main", DENY),
+    ("checkout-force-long", "git checkout --force main", DENY),
+    ("switch-discard", "git switch --discard-changes main", DENY),
+    ("switch-normal", "git switch feature/safe", ALLOW),
+    ("checkout-normal-main", "git checkout main", ALLOW),
+    # Prevent persistence of a destructive alias; unrelated aliases stay valid.
+    ("persistent-destructive-alias", "git config alias.nuke 'reset --hard'", DENY),
+    ("persistent-safe-alias", "git config alias.st 'status --short'", ALLOW),
+]
+
+
+class TestDestructiveGitOperations:
+    @pytest.mark.parametrize(("case_id", "command", "expected"), DESTRUCTIVE_GIT_CASES)
+    def test_destructive_git_case(self, case_id, command, expected):
+        with patch.object(mod, "_load_guard_whitelist", return_value=[]):
+            assert _run_main(_event("Bash", command=command)) == expected, case_id
+
+    def test_shell_command_payload_is_checked(self):
+        assert mod._destructive_git_operation("bash -lc 'git reset --hard'")
+
+    def test_preexisting_persistent_destructive_alias_is_blocked(self, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "config", "alias.nuke", "reset --hard"], cwd=repo, check=True)
+        assert mod._destructive_git_operation("git nuke", cwd=str(repo))
+
+    def test_preexisting_persistent_safe_alias_is_allowed(self, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "config", "alias.st", "status --short"], cwd=repo, check=True)
+        assert mod._destructive_git_operation("git st", cwd=str(repo)) is None
+
+    def test_persistent_alias_uses_event_cwd(self, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "config", "alias.nuke", "reset --hard"], cwd=repo, check=True)
+        payload = json.dumps({"tool_name": "Bash", "cwd": str(repo), "tool_input": {"command": "git nuke"}})
+        assert _run_main(payload) == DENY
+
+    def test_builtin_git_command_skips_alias_lookup(self):
+        with patch.object(mod.subprocess, "run") as run:
+            assert mod._destructive_git_operation("git status") is None
+            run.assert_not_called()
+
+    def test_alias_lookup_error_fails_open(self):
+        with patch.object(mod.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 0.05)):
+            assert mod._destructive_git_operation("git unknown-alias") is None
 
 
 COMPOUND_TOKEN_CASES = [
