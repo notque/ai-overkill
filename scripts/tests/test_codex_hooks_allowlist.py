@@ -3,7 +3,7 @@
 
 ADR-182's six-hook Bash-only allowlist was correct for the older Codex hook
 surface. Codex now supports apply_patch aliases and more lifecycle events.
-These tests pin the reviewed 73-registration accounting so a new Claude hook
+These tests pin the reviewed 76-registration accounting so a new Claude hook
 cannot silently create or remove Codex coverage.
 """
 
@@ -61,14 +61,14 @@ def _claude_registrations() -> set[tuple[str, str]]:
     return registrations
 
 
-def test_inventory_accounting_is_73_equals_25_plus_35_plus_13() -> None:
+def test_inventory_accounting_is_74_equals_26_plus_35_plus_13() -> None:
     """Every Claude registration has one reviewed current Codex decision."""
     entries = _entries()
     classes = Counter(entry["classification"] for entry in entries)
-    assert len(entries) == 60
-    assert classes == {"native": 25, "adapted": 35}
+    assert len(entries) == 61
+    assert classes == {"native": 26, "adapted": 35}
     assert len(UNSUPPORTED_REGISTRATIONS) == 13
-    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 73
+    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 74
 
 
 def test_supported_and_unsupported_sets_partition_claude_settings() -> None:

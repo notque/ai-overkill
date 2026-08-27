@@ -45,7 +45,7 @@ What it does: installs agents, skills, hooks, commands, and scripts into `~/.cla
 
 ### Codex hook coverage
 
-Codex integration requires v0.144.1+. The original six-hook allowlist was correct for v0.114, when Codex tool hooks intercepted only Bash. Current Codex support classifies the 73 Claude hook registrations as 25 native, 35 adapter-backed, and 13 unsupported (60 supported); the counts are registrations, not unique files.
+Codex integration requires v0.144.1+. The original six-hook allowlist was correct for v0.114, when Codex tool hooks intercepted only Bash. Current Codex support classifies the 74 Claude hook registrations as 26 native, 35 adapter-backed, and 13 unsupported (61 supported); the counts are registrations, not unique files.
 
 The adapter translates Codex `apply_patch` operations into Write/Edit events for existing VexJoy guards. It cannot cover writes through `unified_exec`, unmatched MCP tools, WebSearch, or other unsupported paths. Codex also omits Claude's `conversation_history` at PreCompact and `session_data` at Stop, so those adapted hooks run with degraded telemetry. This is not full Claude parity.
 

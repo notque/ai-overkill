@@ -82,6 +82,7 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
         "allow",
         "pretool-branch-safety.py",
         "ci-merge-gate.py",
+        "pretool-ruff-format-gate.py",
         "pretool-private-name-leak-gate.py",
         "security-review-hook.py",
         "pretool-unified-gate.py",
@@ -662,18 +663,10 @@ def _cleanup_global_state(session_id: str, evidence: dict[str, object] | None = 
 
 
 def test_runtime_inventory_contains_all_supported_registrations() -> None:
-    assert len(REGISTRATIONS) == 60, "runtime matrix must execute every supported registration"
+    assert len(REGISTRATIONS) == 61, "runtime matrix must execute every supported registration"
     registrations = {(item["event"], item["filename"]) for item in REGISTRATIONS}
-    assert len(registrations) == 60
+    assert len(registrations) == 61
     assert set(SEMANTIC_CONTRACTS) == registrations, "every registration needs one explicit semantic contract"
-
-
-def test_retired_ruff_checker_has_no_runtime_registration_contract() -> None:
-    """The optional checker is not an active Codex hook interceptor."""
-    ruff_registration = ("PreToolUse", "pretool-ruff-format-gate.py")
-    registrations = {(item["event"], item["filename"]) for item in REGISTRATIONS}
-    assert ruff_registration not in registrations
-    assert ruff_registration not in SEMANTIC_CONTRACTS
 
 
 @pytest.mark.parametrize("registration", REGISTRATIONS, ids=_case_id)

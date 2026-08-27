@@ -25,15 +25,12 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-def test_checker_is_not_registered_as_a_shell_interceptor():
-    """Push validation belongs to repository test plans/CI, not Bash text parsing."""
+def test_checker_remains_registered_as_a_push_gate():
+    """The scoped checker must remain active in Claude and Codex installs."""
     settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
     commands = [hook.get("command", "") for group in settings["hooks"]["PreToolUse"] for hook in group.get("hooks", [])]
-    assert not any("pretool-ruff-format-gate.py" in command for command in commands)
-    assert (
-        "PreToolUse:pretool-ruff-format-gate.py"
-        not in (REPO_ROOT / "scripts" / "codex-hooks-allowlist.txt").read_text()
-    )
+    assert any("pretool-ruff-format-gate.py" in command for command in commands)
+    assert "PreToolUse:pretool-ruff-format-gate.py" in (REPO_ROOT / "scripts" / "codex-hooks-allowlist.txt").read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -443,14 +440,20 @@ class TestEndToEndWorktreeScope:
         subprocess.run(["git", "add", "."], cwd=path, check=True)
         subprocess.run(["git", "commit", "-qm", "baseline"], cwd=path, check=True)
 
-    def test_real_changed_malformed_python_is_blocked(self, tmp_path):
+    def test_real_changed_python_is_selected_and_blocked(self, tmp_path):
         self._init_repo(tmp_path)
         (tmp_path / "changed.py").write_text("result={'bad':1}\n")
 
-        code, parsed = _run_main(_make_bash_event("git push origin feature", cwd=str(tmp_path)))
+        with patch.object(
+            mod,
+            "_run_ruff_format_check",
+            return_value=(1, "Would reformat: changed.py\n"),
+        ) as formatter:
+            code, parsed = _run_main(_make_bash_event("git push origin feature", cwd=str(tmp_path)))
 
         assert code == 2
         assert "changed.py" in parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        formatter.assert_called_once_with(tmp_path, [Path("changed.py")])
 
     def test_real_dirty_fenced_markdown_is_allowed(self, tmp_path):
         self._init_repo(tmp_path)

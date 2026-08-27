@@ -12,7 +12,7 @@
 # entry is explicit; generator legacy parsing exists only for upgrade errors.
 #
 # Accounting against .claude/settings.json:
-#   73 registrations = 25 native + 35 adapted + 13 unsupported.
+#   76 registrations = 26 native + 36 adapted + 14 unsupported.
 
 # Native SessionStart (12)
 SessionStart:afk-mode.py matcher=startup|resume|clear|compact class=native mode=native failure=open
@@ -45,6 +45,7 @@ UserPromptSubmit:codex-auto-review.py class=adapted mode=prompt failure=open
 # Native PreToolUse Bash enforcement (5)
 PreToolUse:pretool-branch-safety.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:ci-merge-gate.py matcher=Bash class=native mode=native failure=closed
+PreToolUse:pretool-ruff-format-gate.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:pretool-private-name-leak-gate.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:security-review-hook.py matcher=Bash class=native mode=native failure=closed
 
