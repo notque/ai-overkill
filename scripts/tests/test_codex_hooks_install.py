@@ -16,6 +16,10 @@ from pathlib import Path
 
 import pytest
 
+# Shells out to the full install.sh. Deselected from the default local run
+# by the marker filter in pyproject.toml; CI still runs it via `-m ""`.
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 # tomllib is stdlib on Python 3.11+. On 3.10, skip the subset of tests that
 # use it to parse the post-install config.toml. Other tests still run.
 try:

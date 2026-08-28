@@ -15,6 +15,10 @@ from pathlib import Path
 
 import pytest
 
+# Shells out to the full install.sh. Deselected from the default local run
+# by the marker filter in pyproject.toml; CI still runs it via `-m ""`.
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 INSTALL_SH = REPO_ROOT / "install.sh"
 CONFIGURE = REPO_ROOT / "scripts" / "configure-profile.py"

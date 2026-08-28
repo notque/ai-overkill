@@ -75,7 +75,9 @@ jobs:
       - run: pip install -r requirements.lock pytest pillow numpy
       # INDEX.json is generated (untracked); tests that read the real index need it.
       - run: python scripts/generate-skill-index.py && python scripts/generate-agent-index.py
-      - run: python -m pytest --tb=short -q
+      # -m "" clears the default marker filter in pyproject.toml, so CI still
+      # runs the install.sh end-to-end tests and the performance benchmarks.
+      - run: python -m pytest --tb=short -q -m ""
 
   routing-benchmark:
     runs-on: ubuntu-latest

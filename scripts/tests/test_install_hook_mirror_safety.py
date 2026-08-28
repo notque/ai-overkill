@@ -10,6 +10,10 @@ from typing import cast
 
 import pytest
 
+# Shells out to the full install.sh. Deselected from the default local run
+# by the marker filter in pyproject.toml; CI still runs it via `-m ""`.
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOK_NAME = "user-correction-capture.py"
 BASH_PATH = shutil.which("bash")

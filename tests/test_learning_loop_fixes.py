@@ -458,14 +458,22 @@ class TestGetDbDirExported:
             result = get_db_dir()
             assert result == custom
 
-    def test_get_db_dir_default(self):
-        from learning_db_v2 import get_db_dir
+    def test_get_db_dir_falls_back_to_the_module_default(self, monkeypatch):
+        """With CLAUDE_LEARNING_DIR unset, get_db_dir() returns _DEFAULT_DB_DIR."""
+        import learning_db_v2
 
-        env = os.environ.copy()
-        with patch.dict(os.environ, {}, clear=True):
-            os.environ["HOME"] = env.get("HOME", "/tmp")
-            result = get_db_dir()
-            assert str(result).endswith(".claude/learning")
+        monkeypatch.delenv("CLAUDE_LEARNING_DIR", raising=False)
+        assert learning_db_v2.get_db_dir() == learning_db_v2._DEFAULT_DB_DIR
+
+    def test_module_default_is_the_claude_learning_dir(self):
+        """That default is ~/.claude/learning.
+
+        Asserted against the source, not the live constant: the repo-wide
+        conftest fixture repoints the constant at a tmp dir so that no test can
+        reach production data.
+        """
+        source = (HOOKS_DIR / "lib" / "learning_db_v2.py").read_text()
+        assert '_DEFAULT_DB_DIR = Path.home() / ".claude" / "learning"' in source
 
     def test_graduation_proposer_uses_get_db_dir(self):
         """knowledge-graduation-proposer.py must import get_db_dir, not
