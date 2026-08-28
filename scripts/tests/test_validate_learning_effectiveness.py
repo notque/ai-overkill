@@ -517,15 +517,75 @@ class TestRunAllSections:
 # ---------------------------------------------------------------------------
 
 
+def _run_cli(
+    argv: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> tuple[int, str]:
+    """Invoke main() with the given flags; return (exit code, stdout)."""
+    monkeypatch.setattr(sys, "argv", ["validate-learning-effectiveness.py", *argv])
+    code = 0
+    try:
+        vle.main()
+    except SystemExit as exc:
+        code = exc.code or 0
+    return code, capsys.readouterr().out
+
+
 class TestJsonOutput:
-    def test_json_parseable(self, isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_json_flag_emits_parseable_sections(
+        self, isolated_db: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """--json prints the report itself.
+
+        The previous version of this test printed json.dumps(...) from the test
+        body and asserted capsys could read it back, so it never called main()
+        and passed whatever --json actually emitted.
+        """
         learning_db_v2.init_db()
-        results = vle.run_all_sections()
-        print(json.dumps(results, indent=2))
-        output = capsys.readouterr().out
-        data = json.loads(output)
-        assert isinstance(data, dict)
-        assert "score" in data
+        _, output = _run_cli(["--json"], monkeypatch, capsys)
+        assert set(json.loads(output)) == {"routing", "confidence", "utilization", "staleness", "category", "score"}
+
+    def test_json_never_leaks_the_internal_score_key(
+        self, isolated_db: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A section filter computes "_score" for the exit code; callers never see it."""
+        learning_db_v2.init_db()
+        _, output = _run_cli(["--section", "routing", "--json"], monkeypatch, capsys)
+        assert set(json.loads(output)) == {"routing"}
+
+
+class TestExitCode:
+    """The score threshold is the only thing that makes this CLI fail a build."""
+
+    @pytest.mark.parametrize(("total", "expected"), [(0.0, 1), (49.9, 1), (50.0, 0), (50.1, 0), (100.0, 0)])
+    def test_exit_one_below_fifty_and_zero_at_or_above(
+        self,
+        total: float,
+        expected: int,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """50.0 is the boundary: passing. Flipping < to <= fails this row."""
+        monkeypatch.setattr(vle, "run_all_sections", lambda **_kw: {"score": {"total": total}})
+        code, _ = _run_cli(["--json"], monkeypatch, capsys)
+        assert code == expected, f"score {total} should exit {expected}"
+
+    def test_filtered_section_still_gates_on_the_hidden_score(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """With the score section suppressed, "_score" drives the exit code."""
+        monkeypatch.setattr(vle, "run_all_sections", lambda **_kw: {"routing": {}, "_score": {"total": 10.0}})
+        code, _ = _run_cli(["--section", "routing", "--json"], monkeypatch, capsys)
+        assert code == 1
+
+    def test_missing_score_does_not_fail_the_run(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """No score computed means no verdict, not a failed verdict."""
+        monkeypatch.setattr(vle, "run_all_sections", lambda **_kw: {"routing": {}})
+        code, _ = _run_cli(["--section", "routing", "--json"], monkeypatch, capsys)
+        assert code == 0
 
     def test_json_contains_all_sections(self, isolated_db: Path) -> None:
         learning_db_v2.init_db()

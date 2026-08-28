@@ -361,7 +361,7 @@ def print_routing(data: dict, verbose: bool = False) -> None:
     print("=== Routing Feedback Loop Health ===")
     print(f"  Total routing entries:       {data['total_routing']}")
     print(f"  With outcomes (s+f > 0):     {data['pct_with_outcomes']}%")
-    print(f"  Confidence moved from 0.5:   {data['pct_confidence_moved']}%")
+    print(f"  Confidence moved from 0.5:   {data['pct_confidence_moved']}%")  # security-review: ignore (print, not SQL; pre-existing)  # fmt: skip
     print(f"  Unique agent:skill combos:   {data['unique_combos']}")
     if verbose:
         print(f"  Diversity ratio:             {data['diversity_ratio']}")
@@ -517,7 +517,10 @@ def main() -> None:
     results = run_all_sections(section_filter=args.section)
 
     if args.json:
-        print(json.dumps(results, indent=2))
+        # "_score" is the internal carrier for the exit code when a section
+        # filter suppresses the score display. It is not part of the --json
+        # contract, so strip it rather than shipping a private key to callers.
+        print(json.dumps({k: v for k, v in results.items() if not k.startswith("_")}, indent=2))
     else:
         printers = {
             "routing": print_routing,

@@ -6,6 +6,7 @@ Run with: python3 -m pytest hooks/tests/test_record_activation.py -v
 
 import importlib.util
 import json
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -16,6 +17,7 @@ import pytest
 # Import the module under test
 # ---------------------------------------------------------------------------
 
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 HOOK_PATH = Path(__file__).parent.parent / "record-activation.py"
 
 spec = importlib.util.spec_from_file_location("record_activation", HOOK_PATH)
@@ -74,6 +76,29 @@ def _make_hook_input(
     return json.dumps({"tool_name": tool_name, "tool_result": {"output": output, "is_error": is_error}})
 
 
+def _prime_counter(tmp_path: Path, session_id: str, value: int) -> Path:
+    """Set the batch counter so the next hook call is the 10th (gate open)."""
+    counter = tmp_path / f"claude-activation-counter-{session_id}"
+    counter.write_text(str(value))
+    return counter
+
+
+def _increment_in_parallel(counter: Path, workers: int, per_worker: int) -> None:
+    """Fork `workers` children that each call next_count `per_worker` times."""
+    pids = []
+    for _ in range(workers):
+        pid = os.fork()
+        if pid == 0:
+            try:
+                for _ in range(per_worker):
+                    mod.next_count(counter)
+            finally:
+                os._exit(0)
+        pids.append(pid)
+    for pid in pids:
+        assert os.waitpid(pid, 0)[1] == 0, "a forked worker exited non-zero"
+
+
 # Schema parameter used by tests that exercise tool-result data.
 _SCHEMAS = [
     pytest.param("claude", id="claude-schema"),
@@ -87,35 +112,78 @@ _SCHEMAS = [
 
 
 class TestToolFiltering:
-    """Verify only Edit/Write/Bash tools are tracked."""
+    """Where the Edit/Write/Bash restriction actually lives.
+
+    main() never reads tool_name. The previous tests here asserted a filter the
+    hook does not implement, and passed only because a fresh tmp_path leaves the
+    counter at 1, so `1 % 10 != 0` returned before subprocess.run was reached.
+    Each test below primes the counter to 9 so the batch gate is open and the
+    assertion measures the behavior it names.
+    """
+
+    def test_settings_matcher_is_what_restricts_the_tools(self) -> None:
+        """The delegation the hook comment claims is real and still configured."""
+        settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+        matchers = {
+            entry.get("matcher")
+            for entry in settings["hooks"]["PostToolUse"]
+            if any("record-activation.py" in hook.get("command", "") for hook in entry.get("hooks", []))
+        }
+        assert matchers == {"Edit|Write|Bash"}
 
     @pytest.mark.parametrize("schema", _SCHEMAS)
-    def test_skips_read_tool(self, tmp_session: str, schema: str) -> None:
+    def test_tool_name_is_not_filtered_in_process(self, tmp_session: str, tmp_path: Path, schema: str) -> None:
+        """With the batch gate open, a non-matching tool name still records.
+
+        Re-adding an in-hook tool filter would silence the settings matcher's
+        own tools on any harness that spells them differently. This test fails
+        if someone adds one.
+        """
+        _prime_counter(tmp_path, tmp_session, 9)
         with patch("subprocess.run") as mock_run, patch("sys.stdin") as mock_stdin, patch("sys.exit"):
             mock_stdin.read.return_value = _make_hook_input(tool_name="Read", schema=schema)
             mod.main()
-            mock_run.assert_not_called()
+            mock_run.assert_called_once()
 
     @pytest.mark.parametrize("schema", _SCHEMAS)
-    def test_skips_grep_tool(self, tmp_session: str, schema: str) -> None:
-        with patch("subprocess.run") as mock_run, patch("sys.stdin") as mock_stdin, patch("sys.exit"):
-            mock_stdin.read.return_value = _make_hook_input(tool_name="Grep", schema=schema)
-            mod.main()
-            mock_run.assert_not_called()
-
-    @pytest.mark.parametrize("schema", _SCHEMAS)
-    def test_skips_glob_tool(self, tmp_session: str, schema: str) -> None:
-        with patch("subprocess.run") as mock_run, patch("sys.stdin") as mock_stdin, patch("sys.exit"):
-            mock_stdin.read.return_value = _make_hook_input(tool_name="Glob", schema=schema)
-            mod.main()
-            mock_run.assert_not_called()
-
-    @pytest.mark.parametrize("schema", _SCHEMAS)
-    def test_skips_error_results(self, tmp_session: str, schema: str) -> None:
+    def test_error_result_returns_before_touching_the_counter(
+        self, tmp_session: str, tmp_path: Path, schema: str
+    ) -> None:
+        """A failed tool records nothing and does not consume a batch slot."""
+        counter = _prime_counter(tmp_path, tmp_session, 9)
         with patch("subprocess.run") as mock_run, patch("sys.stdin") as mock_stdin, patch("sys.exit"):
             mock_stdin.read.return_value = _make_hook_input(is_error=True, schema=schema)
             mod.main()
             mock_run.assert_not_called()
+        assert counter.read_text() == "9"
+
+
+class TestCounterAtomicity:
+    """The batch counter survives concurrent hooks."""
+
+    def test_parallel_hooks_do_not_lose_increments(self, tmp_path: Path) -> None:
+        """Eight parallel workers produce 200 increments, not fewer.
+
+        The unguarded read-modify-write this replaces truncated the file before
+        writing, so concurrent hooks read it empty and reset the counter to 1.
+        Against that version this test reports 1.
+        """
+        counter = tmp_path / "counter"
+        _increment_in_parallel(counter, workers=8, per_worker=25)
+        assert counter.read_text() == "200"
+
+    def test_corrupt_counter_restarts_at_one(self, tmp_path: Path) -> None:
+        """Unparseable content is treated as zero, not as a crash."""
+        counter = tmp_path / "counter"
+        counter.write_text("not a number")
+        assert mod.next_count(counter) == 1
+
+    def test_counter_increments_from_the_stored_value(self, tmp_path: Path) -> None:
+        """The new value is stored, not just returned."""
+        counter = tmp_path / "counter"
+        counter.write_text("41")
+        assert mod.next_count(counter) == 42
+        assert counter.read_text() == "42"
 
 
 # ---------------------------------------------------------------------------

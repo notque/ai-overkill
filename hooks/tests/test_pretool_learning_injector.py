@@ -82,6 +82,25 @@ def _make_bash_event(command: str, cwd: str | None = None) -> str:
     return json.dumps(event)
 
 
+def _make_edit_event(file_path: str, old_string: str | None = None, cwd: str | None = None) -> str:
+    tool_input: dict = {"file_path": file_path}
+    if old_string is not None:
+        tool_input["old_string"] = old_string
+    event = {"tool_name": "Edit", "tool_input": tool_input}
+    if cwd:
+        event["cwd"] = cwd
+    return json.dumps(event)
+
+
+def _activations() -> list[tuple[str, str, str | None]]:
+    """Every recorded activation as (topic, key, session_id)."""
+    with db.get_connection() as conn:
+        return [
+            (r["topic"], r["key"], r["session_id"])
+            for r in conn.execute("SELECT topic, key, session_id FROM activations ORDER BY id")
+        ]
+
+
 def _run_main(stdin_payload: str, env: dict | None = None) -> dict | None:
     """Invoke mod.main() in-process. Returns parsed stdout JSON (or None)."""
     base_env = dict(os.environ)
@@ -366,6 +385,77 @@ class TestInjectorStillFires:
         _record("go-patterns", "low-conf", "Low confidence tip", category="error", confidence=0.4)
         parsed = _run_main(_make_bash_event("go test ./..."))
         assert _additional_context(parsed) == ""
+
+
+# ---------------------------------------------------------------------------
+# Edit branch: registered on matcher "Bash|Edit", previously untested end to end
+# ---------------------------------------------------------------------------
+
+
+class TestExtractEditTags:
+    """File path drives the tag set; an old_string adds the Edit-specific tag."""
+
+    @pytest.mark.parametrize(
+        ("file_path", "expected"),
+        [
+            ("cmd/server/main.go", {"go", "golang"}),
+            ("src/app.py", {"python"}),
+            ("src/App.tsx", {"typescript", "react"}),
+            ("src/index.ts", {"typescript"}),
+            ("web/app.js", {"javascript"}),
+            ("src/lib.rs", {"rust"}),
+            ("deploy/Dockerfile", {"docker"}),
+            ("k8s/deploy.yaml", {"yaml", "kubernetes"}),
+            ("k8s/deploy.yml", {"yaml", "kubernetes"}),
+        ],
+    )
+    def test_file_extension_maps_to_its_domain_tags(self, file_path, expected):
+        assert set(mod.extract_edit_tags({"file_path": file_path})) == expected
+
+    def test_unknown_extension_yields_no_tags(self):
+        """No domain signal means no query, so the hook stays silent."""
+        assert mod.extract_edit_tags({"file_path": "notes/README.md"}) == []
+
+    def test_missing_file_path_yields_no_tags(self):
+        assert mod.extract_edit_tags({}) == []
+
+    def test_old_string_adds_the_multiple_matches_tag(self):
+        """The Edit tool's multiple_matches failure is the one edit-shaped error."""
+        tags = mod.extract_edit_tags({"file_path": "main.go", "old_string": "func main"})
+        assert set(tags) == {"go", "golang", "multiple_matches"}
+
+    def test_empty_old_string_does_not_add_the_tag(self):
+        assert set(mod.extract_edit_tags({"file_path": "main.go", "old_string": ""})) == {"go", "golang"}
+
+
+class TestEditBranchEndToEnd:
+    """main()'s Edit branch: tags from the path, query, inject, record."""
+
+    def test_edit_on_a_go_file_injects_a_go_hint(self):
+        _record("go-patterns", "nil-map", "Assign to nil map -> make() the map first", category="error")
+        parsed = _run_main(_make_edit_event("cmd/server/main.go"))
+        assert "make() the map first" in _additional_context(parsed)
+
+    def test_edit_on_an_unmapped_file_injects_nothing(self):
+        _record("go-patterns", "nil-map", "Assign to nil map -> make() the map first", category="error")
+        parsed = _run_main(_make_edit_event("notes/README.md"))
+        assert _additional_context(parsed) == ""
+
+    def test_edit_injection_records_an_activation_for_this_session(self):
+        """The ROI pipeline's only writer, exercised through a real hook run.
+
+        A KeyError inside record_activations_safe is swallowed, so a broken
+        activation path is invisible everywhere except an assertion like this.
+        """
+        _record("go-patterns", "nil-map", "Assign to nil map -> make() the map first", category="error")
+        _run_main(_make_edit_event("cmd/server/main.go"), env={"CLAUDE_SESSION_ID": "sess-edit-1"})
+        assert _activations() == [("go-patterns", "nil-map", "sess-edit-1")]
+
+    def test_silent_edit_records_no_activation(self):
+        """Nothing injected means nothing activated — no phantom ROI credit."""
+        _record("go-patterns", "nil-map", "Assign to nil map -> make() the map first", category="error")
+        _run_main(_make_edit_event("notes/README.md"), env={"CLAUDE_SESSION_ID": "sess-edit-2"})
+        assert _activations() == []
 
 
 # ---------------------------------------------------------------------------

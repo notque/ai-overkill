@@ -16,6 +16,7 @@ Design:
 - Uses /tmp marker file to detect retro knowledge presence
 """
 
+import fcntl
 import json
 import os
 import subprocess
@@ -27,6 +28,32 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
 from hook_utils import get_session_id, get_tool_result, hook_error, is_tool_error
 from stdin_timeout import read_stdin
+
+
+def next_count(counter_file: Path) -> int:
+    """Increment the batch counter atomically and return the new value.
+
+    Parallel subagents fire this hook concurrently against one session counter.
+    The unguarded read-modify-write this replaces truncated the file before
+    writing, so a concurrent reader saw an empty file and reset the count to 1:
+    under load the counter never reached 10 and the batch stopped firing.
+    flock serializes the whole read-modify-write; the kernel drops the lock when
+    the fd closes, so a killed hook cannot strand it.
+    """
+    fd = os.open(counter_file, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            count = int(os.read(fd, 64).decode().strip() or 0)
+        except (ValueError, UnicodeDecodeError):
+            count = 0
+        count += 1
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.ftruncate(fd, 0)
+        os.write(fd, str(count).encode())
+        return count
+    finally:
+        os.close(fd)
 
 
 def main() -> None:
@@ -50,14 +77,7 @@ def main() -> None:
 
         # Batch: only record every 10th successful tool use to avoid spam
         counter_file = Path("/tmp") / f"claude-activation-counter-{session_id}"
-        count = 0
-        if counter_file.exists():
-            try:
-                count = int(counter_file.read_text().strip())
-            except (ValueError, OSError):
-                count = 0
-        count += 1
-        counter_file.write_text(str(count))
+        count = next_count(counter_file)
 
         if count % 10 != 0:
             return

@@ -338,21 +338,6 @@ def test_install_sh_uninstall_removes_hooks(fake_home: Path) -> None:
         )
 
 
-def test_install_sh_handles_missing_allowlist_gracefully() -> None:
-    """Skip: testing missing-allowlist path requires mutating the live repo.
-
-    The missing-allowlist path is tested by the bash branch in install.sh that
-    prints a warning and skips the hooks mirror. We cannot test it here without
-    renaming scripts/codex-hooks-allowlist.txt, which would break other tests
-    running in the same process. A targeted bash-level integration test would be
-    the right vehicle, but that is outside the pytest scope for this file.
-    """
-    pytest.skip(
-        "Cannot test missing-allowlist path without mutating the repo allowlist file. "
-        "Covered by the install.sh bash branch that prints a warning and continues."
-    )
-
-
 def test_per_item_install_refreshes_hooks_lib(fake_home: Path, tmp_path: Path) -> None:
     """Per-item hook installs must refresh hooks/lib, not preserve stale helpers."""
     src = tmp_path / "src"
