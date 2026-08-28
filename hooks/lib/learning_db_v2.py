@@ -31,7 +31,7 @@ from pathlib import Path
 
 _DEFAULT_DB_DIR = Path.home() / ".claude" / "learning"
 
-_CURRENT_SCHEMA_VERSION = 7
+_CURRENT_SCHEMA_VERSION = 9
 
 CATEGORY_DEFAULTS = {
     "error": 0.55,
@@ -95,6 +95,103 @@ DEFAULT_FIX_ACTIONS = {
     "memory": {"fix_type": "manual", "fix_action": "reduce_memory"},
     "multiple_matches": {"fix_type": "auto", "fix_action": "use_replace_all"},
 }
+
+# error-learner.py writes this as the solution half whenever it cannot map an
+# error onto a real fix. The result restates the error type and the tool and
+# carries no instruction, so an injector must not spend context on it.
+DEFAULT_FIX_SOLUTION_TEMPLATE = "Fix {error_type} error in {tool_name}: {error}"
+
+
+# ─── Contentless Hint Detection ────────────────────────────────
+
+# error-learner stores a learning as "<error> <arrow> <solution>" and re-records
+# nest it ("<error> <arrow> <previous value>"), so the LAST arrow marks the
+# solution. Unicode is the arrow in use (762 rows); 7 older rows use ASCII.
+_SOLUTION_SEPARATORS = (" → ", " -> ")
+
+# Per-placeholder matchers for the stub template. error_type and tool_name are
+# single tokens; the error snippet is free text and is absent from rows written
+# before the snippet was appended to the template.
+_STUB_FIELD_PATTERNS = {"error_type": r"\S+", "tool_name": r"\S+", "error": r".*"}
+_STUB_OPTIONAL_FIELDS = frozenset({"error"})
+
+
+def _stub_literal(text: str, loose: bool) -> str:
+    """Escape a template literal, turning each whitespace run into a matcher."""
+    whitespace = r"\s*" if loose else r"\s+"
+    out: list[str] = []
+    in_run = False
+    for char in text:
+        if char.isspace():
+            if not in_run:
+                out.append(whitespace)
+                in_run = True
+        else:
+            in_run = False
+            out.append(re.escape(char))
+    return "".join(out)
+
+
+def _build_stub_solution_pattern(template: str = DEFAULT_FIX_SOLUTION_TEMPLATE) -> "re.Pattern[str]":
+    """Compile the stub matcher from the template that writes stubs.
+
+    Deriving the matcher from DEFAULT_FIX_SOLUTION_TEMPLATE keeps one source of
+    truth: renaming the template updates the matcher in the same edit instead of
+    stranding a hardcoded regex that silently stops matching.
+    """
+    parts = re.split(r"\{(\w+)\}", template)
+    segments: list[str] = []
+    for index, part in enumerate(parts):
+        if index % 2 == 0:
+            segments.append(_stub_literal(part, loose=False))
+            continue
+        field = _STUB_FIELD_PATTERNS.get(part, r"\S+")
+        if part in _STUB_OPTIONAL_FIELDS:
+            # Fold the preceding literal into the optional group: the older rows
+            # stop at the tool name, with neither separator nor snippet.
+            literal = _stub_literal(parts[index - 1], loose=True)
+            segments[-1] = f"(?:{literal}{field})?"
+        else:
+            segments.append(field)
+    return re.compile("^" + "".join(segments) + "$")
+
+
+_STUB_SOLUTION_RE = _build_stub_solution_pattern()
+
+
+def solution_summary(value: object) -> str:
+    """Return the one-line solution half of a stored learning value.
+
+    Returns "" for anything that is not a string: a malformed row carries no
+    solution, and callers must not have to pre-check the type.
+
+    Searches the whole value, not just its first line: a captured error message
+    is usually multi-line, so the arrow sits on the last line. Reading only the
+    first line surfaced the raw capture instead -- nginx configs, ssh debug
+    output, diff hunks -- as the hint. Values with no arrow (prose gotchas) fall
+    back to their first line.
+    """
+    if not isinstance(value, str):
+        return ""
+    for separator in _SOLUTION_SEPARATORS:
+        if separator in value:
+            value = value.rsplit(separator, 1)[1]
+            break
+    line = value.split("\n")[0]
+    # Drop control characters (BEL, ANSI escapes) captured from tool output.
+    return "".join(ch for ch in line if ch >= " " or ch == "\t").strip()[:120]
+
+
+def hint_has_solution(value: object) -> bool:
+    """Report whether a stored learning carries an injectable solution.
+
+    False for an empty or malformed value and for a generic stub, both of which
+    cost context and return no instruction. The row itself stays in the database:
+    its recurrence and frequency signal still feeds error classification and the
+    auto-feedback loop, it is only unfit to inject.
+    """
+    summary = solution_summary(value)
+    return bool(summary) and not _STUB_SOLUTION_RE.match(summary)
 
 
 # ─── Database Connection ───────────────────────────────────────
@@ -244,6 +341,22 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute(
             "INSERT OR IGNORE INTO schema_migrations (version, description) "
             "VALUES (8, 'add pipeline column to evidence_route_decisions')"
+        )
+
+    if current < 9:
+        # v8 -> v9: record whether the observed dispatch was expected to carry
+        # the directive at all. Historical rows stay NULL — an unknown
+        # population, never folded into either bucket. The column may already
+        # exist from an ad-hoc ALTER on a live DB; the duplicate-column error is
+        # the expected no-op there.
+        try:
+            conn.execute("ALTER TABLE instruction_compliance ADD COLUMN directive_expected BOOLEAN")
+        except sqlite3.OperationalError:
+            pass  # column already present
+        conn.execute("PRAGMA user_version = 9")
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, description) "
+            "VALUES (9, 'add directive_expected column to instruction_compliance')"
         )
 
     conn.commit()
@@ -597,6 +710,7 @@ CREATE TABLE IF NOT EXISTS instruction_compliance (
     instruction_id TEXT NOT NULL,
     compliant BOOLEAN NOT NULL,
     session_id TEXT,
+    directive_expected BOOLEAN,
     timestamp TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -1713,6 +1827,7 @@ def record_instruction_compliance(
     instruction_id: str,
     compliant: bool,
     session_id: str | None = None,
+    directive_expected: bool | None = None,
 ) -> None:
     """Record a single instruction compliance observation.
 
@@ -1723,26 +1838,32 @@ def record_instruction_compliance(
         instruction_id: Instruction identifier (e.g. "M01").
         compliant: Whether the instruction was followed.
         session_id: Current session identifier.
+        directive_expected: Whether this dispatch was expected to carry the
+            directive at all. None means the caller cannot say.
     """
-    record_instruction_compliance_batch([(instruction_id, compliant, session_id)])
+    record_instruction_compliance_batch([(instruction_id, compliant, session_id, directive_expected)])
 
 
 def record_instruction_compliance_batch(
-    records: list[tuple[str, bool, str | None]],
+    records: list[tuple[str, bool, str | None]] | list[tuple[str, bool, str | None, bool | None]],
 ) -> None:
     """Record multiple instruction compliance observations in one transaction.
 
     Args:
-        records: List of (instruction_id, compliant, session_id) tuples.
+        records: List of (instruction_id, compliant, session_id) or
+            (instruction_id, compliant, session_id, directive_expected) tuples.
+            A 3-tuple records an unknown population (NULL): a caller that does
+            not state whether the directive was expected must not be guessed at.
     """
     if not records:
         return
     init_db()
     now = datetime.now().isoformat()
-    rows = [(instr_id, compliant, sid, now) for instr_id, compliant, sid in records]
+    rows = [(record[0], record[1], record[2], record[3] if len(record) > 3 else None, now) for record in records]
     with get_connection() as conn:
         conn.executemany(
-            "INSERT INTO instruction_compliance (instruction_id, compliant, session_id, timestamp) VALUES (?, ?, ?, ?)",
+            "INSERT INTO instruction_compliance "
+            "(instruction_id, compliant, session_id, directive_expected, timestamp) VALUES (?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
@@ -1751,11 +1872,19 @@ def record_instruction_compliance_batch(
 def query_instruction_skip_rate(days: int = 30) -> list[dict]:
     """Query instruction compliance skip rates from the dedicated table.
 
+    The skip rate is computed ONLY over observations where the directive was
+    expected (directive_expected = 1). Dispatches that never carried the
+    directive, and rows recorded before the flag existed, are counted and
+    reported separately — folding either into the rate would measure the wrong
+    population. skip_rate is None when the scored population is empty.
+
     Args:
         days: Look back window in days (default 30).
 
     Returns:
-        List of dicts with instruction_id, observations, non_compliant, skip_rate.
+        List of dicts with instruction_id, observations, non_compliant,
+        scored_observations, scored_non_compliant, not_expected, unknown,
+        and skip_rate.
     """
     init_db()
     with get_connection() as conn:
@@ -1763,7 +1892,11 @@ def query_instruction_skip_rate(days: int = 30) -> list[dict]:
             """
             SELECT instruction_id,
                    COUNT(*) as observations,
-                   SUM(CASE WHEN NOT compliant THEN 1 ELSE 0 END) as non_compliant
+                   SUM(CASE WHEN NOT compliant THEN 1 ELSE 0 END) as non_compliant,
+                   SUM(CASE WHEN directive_expected = 1 THEN 1 ELSE 0 END) as scored,
+                   SUM(CASE WHEN directive_expected = 1 AND NOT compliant THEN 1 ELSE 0 END) as scored_skipped,
+                   SUM(CASE WHEN directive_expected = 0 THEN 1 ELSE 0 END) as not_expected,
+                   SUM(CASE WHEN directive_expected IS NULL THEN 1 ELSE 0 END) as unknown
             FROM instruction_compliance
             WHERE timestamp > datetime('now', ?)
             GROUP BY instruction_id
@@ -1773,15 +1906,18 @@ def query_instruction_skip_rate(days: int = 30) -> list[dict]:
         ).fetchall()
         results = []
         for row in rows:
-            obs = row["observations"]
-            nc = row["non_compliant"]
-            skip_rate = (nc / obs * 100) if obs > 0 else 0.0
+            scored = row["scored"]
+            scored_skipped = row["scored_skipped"]
             results.append(
                 {
                     "instruction_id": row["instruction_id"],
-                    "observations": obs,
-                    "non_compliant": nc,
-                    "skip_rate": round(skip_rate, 1),
+                    "observations": row["observations"],
+                    "non_compliant": row["non_compliant"],
+                    "scored_observations": scored,
+                    "scored_non_compliant": scored_skipped,
+                    "not_expected": row["not_expected"],
+                    "unknown": row["unknown"],
+                    "skip_rate": round(scored_skipped / scored * 100, 1) if scored else None,
                 }
             )
         return results

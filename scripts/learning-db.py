@@ -1620,11 +1620,15 @@ def _observable_instructions() -> frozenset[str]:
 def cmd_skip_rate(args: argparse.Namespace) -> None:
     """Display instruction skip-rate report from the instruction_compliance table.
 
-    Queries the dedicated instruction_compliance table for per-observation
-    data and computes skip rate per instruction. Flags instructions with
-    >20% skip rate over 30+ observations for conversion to programmatic gates —
-    but only instructions the recording hook can actually observe. Unobservable
-    ones keep their historical rows and are reported as NOT MEASURABLE.
+    Two scoping rules keep the number honest, and the report states both.
+
+    Surface: only instructions the recording hook can observe are scored;
+    unobservable ones keep their historical rows and read NOT MEASURABLE.
+
+    Population: the rate counts only dispatches that were expected to carry the
+    directive (the prompt carried the `[do-route]` marker). Dispatches that
+    never carried it, and rows recorded before the marker was tracked, are
+    reported in their own columns and move nothing.
     """
     init_db()
 
@@ -1638,11 +1642,22 @@ def cmd_skip_rate(args: argparse.Namespace) -> None:
         "M06": "Density Injected",
     }
     observable = _observable_instructions()
+    denominator = "observations where the directive was expected ([do-route] marker present)"
 
-    def _status(instr_id: str, skip_rate: float, observations: int, gate_label: str) -> str:
-        if instr_id not in observable:
+    def _flagged(row: dict) -> bool:
+        return (
+            row["instruction_id"] in observable
+            and row["skip_rate"] is not None
+            and row["skip_rate"] > 20
+            and row["scored_observations"] >= 30
+        )
+
+    def _status(row: dict, gate_label: str) -> str:
+        if row["instruction_id"] not in observable:
             return "NOT MEASURABLE"
-        return gate_label if skip_rate > 20 and observations >= 30 else "OK"
+        if row["skip_rate"] is None:
+            return "NO EXPECTED OBS"
+        return gate_label if _flagged(row) else "OK"
 
     results = query_instruction_skip_rate(days=30)
 
@@ -1660,8 +1675,13 @@ def cmd_skip_rate(args: argparse.Namespace) -> None:
                     "name": instr_names.get(instr_id, instr_id),
                     "observations": r["observations"],
                     "non_compliant": r["non_compliant"],
+                    "scored_observations": r["scored_observations"],
+                    "scored_non_compliant": r["scored_non_compliant"],
+                    "not_expected": r["not_expected"],
+                    "unknown": r["unknown"],
                     "skip_rate": r["skip_rate"],
-                    "status": _status(instr_id, r["skip_rate"], r["observations"], "CONVERT_TO_GATE"),
+                    "denominator": denominator,
+                    "status": _status(r, "CONVERT_TO_GATE"),
                 }
             )
         print(json.dumps(report, indent=2))
@@ -1669,26 +1689,26 @@ def cmd_skip_rate(args: argparse.Namespace) -> None:
 
     # Human-readable output
     print("Instruction Skip Rate Report")
-    print("=" * 72)
-    print(f"{'ID':<6}{'Instruction':<22}{'Observations':>14}{'Skip Rate':>12}{'Status':>18}")
-    print("-" * 72)
+    print("=" * 92)
+    print(f"{'ID':<6}{'Instruction':<24}{'Scored':>8}{'Skip Rate':>12}{'Not expected':>14}{'Unknown':>10}{'Status':>18}")  # fmt: skip
+    print("-" * 92)
 
     for r in results:
         instr_id = r["instruction_id"]
         name = instr_names.get(instr_id, instr_id)
-        skip_rate = r["skip_rate"]
-        status = _status(instr_id, skip_rate, r["observations"], "CONVERT TO GATE")
+        rate = "n/a" if r["skip_rate"] is None else f"{r['skip_rate']:.1f}%"
+        print(f"{instr_id:<6}{name:<24}{r['scored_observations']:>8}{rate:>12}{r['not_expected']:>14}{r['unknown']:>10}{_status(r, 'CONVERT TO GATE'):>18}")  # fmt: skip
 
-        print(f"{instr_id:<6}{name:<22}{r['observations']:>14}{skip_rate:>11.1f}%{status:>17}")
-
-    print("-" * 72)
-    flagged = sum(
-        1 for r in results if r["instruction_id"] in observable and r["skip_rate"] > 20 and r["observations"] >= 30
-    )
+    print("-" * 92)
+    print("Scored = " + denominator + ".")
+    print("Not expected = dispatches the directive is never injected into (reviewer fan-out,")
+    print("nested subagents). Unknown = rows recorded before the marker was tracked.")
+    print("Neither moves the rate.")
+    flagged = sum(1 for r in results if _flagged(r))
     if flagged:
-        print(f"{flagged} instruction(s) flagged for conversion to programmatic gates (>20% skip, 30+ obs)")
+        print(f"{flagged} instruction(s) flagged for conversion to programmatic gates (>20% skip, 30+ scored obs)")
     else:
-        print("No instructions flagged. Threshold: >20% skip rate over 30+ observations.")
+        print("No instructions flagged. Threshold: >20% skip rate over 30+ scored observations.")
     unmeasurable = sorted(r["instruction_id"] for r in results if r["instruction_id"] not in observable)
     if unmeasurable:
         print(

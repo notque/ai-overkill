@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.2.0
 """PostToolUse Hook: Instruction Compliance Measurement
 
 Fires after Agent tool dispatches to check whether MANDATORY instructions
@@ -14,11 +14,18 @@ its own reply is unmeasurable here and is declared `observable: False`. Those
 instructions are not recorded at all: a skip rate computed from a surface that
 structurally cannot show compliance measures the surface, not the behavior.
 
+POPULATION — which dispatches a reading applies to. scripts/build-dispatch.py
+injects the M04/M05/M06 directives into /do-routed prompts only. Reviewer
+fan-out and nested subagent dispatches legitimately carry none, so a non-match
+there is expected, not a skip. Each observation records whether the dispatch
+carried the `[do-route]` marker (`injected_by_do_route` says which instructions
+that gates), and the skip-rate report scores only the expected population.
+
 Design Principles:
 - Informational only (always exits 0, never blocks)
 - Lightweight string-presence checks (<50ms)
 - Multiple signal patterns per instruction for reduced false negatives
-- Record only what this surface can observe
+- Record only what this surface can observe, against the population it applies to
 """
 
 import json
@@ -29,9 +36,10 @@ from pathlib import Path
 
 # Add lib directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "lib"))
 from hook_utils import empty_output, get_session_id, get_tool_output, get_tool_result, hook_error
 from learning_db_v2 import record_instruction_compliance_batch
+from route_types import has_do_route_marker
 from stdin_timeout import read_stdin
 
 EVENT_NAME = "PostToolUse"
@@ -41,6 +49,11 @@ EVENT_NAME = "PostToolUse"
 # `observable` declares whether THIS hook's surface (dispatch prompt + subagent
 # report) can show the signal. False => the patterns stay for reference, but no
 # observation is recorded, because a non-match proves nothing about behavior.
+#
+# `injected_by_do_route` declares whether the directive reaches a prompt ONLY
+# via scripts/build-dispatch.py, which runs for /do-routed dispatches. True =>
+# the observation counts toward the skip rate only when the dispatch carried the
+# `[do-route]` marker. False => the directive is expected on every dispatch.
 INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
     "M01": {
         "name": "Phase Banners",
@@ -48,6 +61,7 @@ INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
         # from both the dispatch prompt and the subagent report. Measuring them
         # needs a main-thread surface (a Stop-event transcript reader).
         "observable": False,
+        "injected_by_do_route": False,
         "patterns": [
             re.compile(r"##\s*Phase\s+\d", re.IGNORECASE),
             re.compile(r"Phase\s+\d\s*:", re.IGNORECASE),
@@ -58,6 +72,7 @@ INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
         # Unobservable: the routing banner is main-thread orchestrator output,
         # printed before dispatch. Same correct surface as M01.
         "observable": False,
+        "injected_by_do_route": False,
         "patterns": [
             re.compile(r"^={3,}\s*$", re.MULTILINE),
             re.compile(r"(?:^|\s)ROUTING\s*:", re.IGNORECASE | re.MULTILINE),
@@ -69,6 +84,8 @@ INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
         # Observable: the reference-loading directive and an agent's own
         # reference-table mentions both land in the scanned strings.
         "observable": True,
+        # build-dispatch.py injects it; a non-/do dispatch never carries it.
+        "injected_by_do_route": True,
         "patterns": [
             re.compile(r"Reference\s+Loading", re.IGNORECASE),
             re.compile(r"reference.*table", re.IGNORECASE),
@@ -81,6 +98,7 @@ INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
         # whether the agent delivered a complete result. Renamed to say so.
         "name": "Completeness Injected",
         "observable": True,
+        "injected_by_do_route": True,
         "patterns": [
             re.compile(r"deliver\s+the\s+finished\s+product", re.IGNORECASE),
             re.compile(r"ship\s+the\s+complete\s+thing", re.IGNORECASE),
@@ -93,6 +111,7 @@ INSTRUCTIONS: dict[str, dict[str, str | bool | list[re.Pattern[str]]]] = {
         # the output was written dense. Renamed to say so.
         "name": "Density Injected",
         "observable": True,
+        "injected_by_do_route": True,
         "patterns": [
             re.compile(r"write\s+dense", re.IGNORECASE),
             re.compile(r"high\s+fidelity,?\s+minimum\s+words", re.IGNORECASE),
@@ -127,9 +146,22 @@ def is_observable(instr_id: str) -> bool:
     return bool(INSTRUCTIONS.get(instr_id, {}).get("observable", False))
 
 
+def directive_expected(instr_id: str, do_routed: bool | None) -> bool | None:
+    """Report whether this dispatch was expected to carry the directive.
+
+    None when the caller cannot say whether the dispatch was /do-routed: the
+    reading is real but its population is unknown, and the report must say so
+    rather than fold it into either bucket.
+    """
+    if not INSTRUCTIONS.get(instr_id, {}).get("injected_by_do_route", False):
+        return True
+    return do_routed
+
+
 def record_compliance_batch(
     results: dict[str, bool],
     session_id: str,
+    do_routed: bool | None = None,
 ) -> None:
     """Record observable instruction compliance observations in one transaction.
 
@@ -139,8 +171,14 @@ def record_compliance_batch(
     Args:
         results: Dict mapping instruction ID to compliance boolean.
         session_id: Current session identifier.
+        do_routed: Whether the dispatch prompt carried the `[do-route]` marker.
+            None (the default) records an unknown population.
     """
-    records = [(instr_id, compliant, session_id) for instr_id, compliant in results.items() if is_observable(instr_id)]
+    records = [
+        (instr_id, compliant, session_id, directive_expected(instr_id, do_routed))
+        for instr_id, compliant in results.items()
+        if is_observable(instr_id)
+    ]
     record_instruction_compliance_batch(records)
 
 
@@ -171,21 +209,33 @@ def main() -> None:
         else:
             output_text = ""
 
-        # Also check tool_input (agent prompt) for M04/M05/M06
-        tool_input = event.get("tool_input", event.get("input", ""))
-        if isinstance(tool_input, dict):
-            tool_input = json.dumps(tool_input)
-        elif not isinstance(tool_input, str):
-            tool_input = ""
+        # Also check tool_input (agent prompt) for M04/M05/M06. The marker is
+        # anchored to the start of a line, so keep the raw prompt too:
+        # json.dumps() escapes its newlines and the anchor never matches.
+        raw_input = event.get("tool_input", event.get("input", ""))
+        if isinstance(raw_input, dict):
+            prompt = raw_input.get("prompt")
+            tool_input = json.dumps(raw_input)
+        elif isinstance(raw_input, str):
+            prompt = tool_input = raw_input
+        else:
+            prompt = tool_input = ""
+        if not isinstance(prompt, str):
+            prompt = ""
 
         combined_text = f"{tool_input}\n{output_text}"
 
         if not combined_text.strip():
             empty_output(EVENT_NAME).print_and_exit()
 
+        # Read the population off the PROMPT only. The subagent report can quote
+        # the marker back; counting that would mark an unrouted dispatch as
+        # expected and reintroduce the denominator error.
+        do_routed = has_do_route_marker(prompt)
+
         # Check and record compliance for all instructions in one transaction
         results = check_compliance(combined_text)
-        record_compliance_batch(results, session_id)
+        record_compliance_batch(results, session_id, do_routed)
 
         empty_output(EVENT_NAME).print_and_exit()
 

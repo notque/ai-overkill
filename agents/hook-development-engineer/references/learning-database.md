@@ -215,6 +215,38 @@ boosted, so it never crosses the floor. Both injectors import the constant;
 
 ---
 
+## Second Injection Gate: A Hint Must Carry a Solution
+
+Confidence says a learning recurs. It does not say the learning tells you
+anything. `error-learner.py` writes `DEFAULT_FIX_SOLUTION_TEMPLATE` — "Fix
+<error_type> error in <tool>: <snippet>" — whenever it cannot map an error to a
+real fix, and those rows never acquire a real solution. They dominated the
+injectable pool (99 of 126 rows), so injection spent context to restate the
+error type back to the agent.
+
+Both injectors gate on `hint_has_solution(value)` after the confidence filter:
+
+```python
+from learning_db_v2 import hint_has_solution
+
+results = [r for r in results if hint_has_solution(r.get("value", ""))]
+```
+
+Three rules hold this together:
+
+- The matcher is derived from `DEFAULT_FIX_SOLUTION_TEMPLATE`, the same string
+  that writes the stubs. Renaming the template updates the matcher in the same
+  edit; a hardcoded regex would silently stop matching.
+- Stub rows stay in the database. Their recurrence and frequency still feed
+  error classification and the auto-feedback loop; they are only unfit to inject.
+- Fetch more candidates than you inject. Most of the pool is stubs, so a query
+  limited to the injection cap returns stubs alone and drops a real hint that
+  ranked just below them.
+
+Emitting no hint is the correct outcome when only stubs match.
+
+---
+
 ## Graduation
 
 When a learning is mature enough to embed directly into an agent:

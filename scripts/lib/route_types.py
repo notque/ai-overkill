@@ -6,13 +6,47 @@ Defines the structured return types and input shapes used across:
   - Step 1.5: health-aware re-rank (HealthAdjustResult)
   - routing-decision-recorder hook (HealthGateInputs)
 
+Also owns the `[do-route]` marker itself: one regex, read by every hook that
+needs to know whether a dispatch came from /do.
+
 All types use TypedDict so callers get static type-checking without
 runtime overhead. Import from here; do not redefine these shapes.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Literal, TypedDict
+
+# ---------------------------------------------------------------------------
+# The /do routing marker
+# ---------------------------------------------------------------------------
+
+# /do (SKILL.md Phase 4 Step 2) prepends this line to every agent prompt IT
+# routes. Its presence is the SOLE signal that a dispatch came from /do:
+#   [do-route] agent=python-general-engineer skill=test-driven-development ...
+# skill may be empty, "-", or absent (agent-only routing). Sub-agent fan-out
+# (reviewer rosters, nested dispatches) carries no marker.
+#
+# Anchored to line start (^\s*, MULTILINE) so a quoted or forwarded marker
+# mid-prose (a user pasting "...the [do-route] line...") does not count — only a
+# marker /do itself emitted at the head of a line does.
+#
+# One definition, two readers: routing-decision-recorder.py parses agent and
+# skill out of it, instruction-compliance.py tests only for its presence. A
+# second copy would drift and silently mis-scope one of them.
+DO_ROUTE_MARKER_RE = re.compile(
+    r"^\s*\[do-route\]\s+agent=([a-z0-9][a-z0-9-]*)(?:\s+skill=([a-z0-9-]*|-)?)?",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def has_do_route_marker(prompt: str | None) -> bool:
+    """Report whether a dispatch prompt carries the /do routing marker."""
+    if not prompt or "[do-route]" not in prompt.lower():
+        return False
+    return DO_ROUTE_MARKER_RE.search(prompt) is not None
+
 
 # ---------------------------------------------------------------------------
 # Step 0: semantic routing decision (held by the orchestrator LLM)

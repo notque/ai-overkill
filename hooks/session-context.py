@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 2.1.0
+# hook-version: 2.2.0
 """
 SessionStart Hook: Learning Context Loader
 
@@ -13,6 +13,7 @@ Design Principles:
 - SILENT unless meaningful patterns found
 - Project-aware (loads patterns for current directory)
 - Confidence-gated by learning_db_v2.INJECTION_MIN_CONFIDENCE
+- Counts only rows that carry a real solution (learning_db_v2.hint_has_solution)
 - Fast execution (<50ms target)
 - Non-blocking (always exits 0)
 - Pure file reader for dream integration — no LLM work, no learning.db queries
@@ -30,6 +31,7 @@ from hook_utils import context_output, empty_output, get_session_id, hook_error,
 from learning_db_v2 import (
     INJECTION_MIN_CONFIDENCE,
     get_stats,
+    hint_has_solution,
     query_learnings,
     sanitize_for_context,
 )
@@ -47,6 +49,11 @@ DREAM_PAYLOAD_MAX_CHARS = 7000
 
 # Dream report notice is surfaced if dream ran within the last 24 hours
 DREAM_REPORT_MAX_AGE_HOURS = 24
+
+# Max learnings summarized in the injected context, and max rows fetched before
+# the contentless ones are dropped.
+MAX_LEARNINGS = 10
+MAX_CANDIDATES = 40
 
 
 def _project_hash(cwd: str) -> str:
@@ -161,8 +168,14 @@ def main():
             category="error",
             min_confidence=INJECTION_MIN_CONFIDENCE,
             project_path=cwd,
-            limit=10,
+            limit=MAX_CANDIDATES,
         )
+
+        # Drop rows whose solution half is a generic stub. Most error rows carry
+        # one, and a count of contentless rows ("Loaded 34 high-confidence
+        # patterns") reports a pool the session can do nothing with. Fetching
+        # MAX_CANDIDATES first keeps real solutions from being crowded out.
+        learnings = [ln for ln in learnings if hint_has_solution(ln.get("value", ""))][:MAX_LEARNINGS]
 
         if learnings:
             # Record activations for ROI tracking

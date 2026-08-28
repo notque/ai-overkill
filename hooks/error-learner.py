@@ -28,6 +28,7 @@ from feedback_tracker import check_pending_feedback, set_pending_feedback
 from hook_utils import get_tool_error, get_tool_output, get_tool_result, is_tool_error
 from learning_db_v2 import (
     DEFAULT_FIX_ACTIONS,
+    DEFAULT_FIX_SOLUTION_TEMPLATE,
     boost_confidence,
     decay_confidence,
     generate_signature,
@@ -241,7 +242,9 @@ def main():
             fix_info = DEFAULT_FIX_ACTIONS.get(error_type, {"fix_type": "manual", "fix_action": "investigate"})
             fix_type = fix_info["fix_type"]
             fix_action = fix_info["fix_action"]
-            solution = f"Fix {error_type} error in {tool_name}: {error_message[:80].strip()}"
+            solution = DEFAULT_FIX_SOLUTION_TEMPLATE.format(
+                error_type=error_type, tool_name=tool_name, error=error_message[:80].strip()
+            )
 
             print(f"[new-error] {error_type}: {error_message[:100]}")
             if fix_type == "auto":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.1.0
+# hook-version: 1.2.0
 """
 PreToolUse Hook: Proactive Learning Injection
 
@@ -15,6 +15,7 @@ Design Principles:
 - Non-blocking (always exits 0)
 - Lightweight output (max 500 chars to avoid context bloat)
 - Only injects at or above learning_db_v2.INJECTION_MIN_CONFIDENCE
+- Only injects rows that carry a real solution (learning_db_v2.hint_has_solution)
 """
 
 import json
@@ -31,7 +32,12 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 # confidence starves the pool: a new learning never injects, so it never gets
 # boosted, so it never crosses the floor.
 from hook_utils import context_output, empty_output, get_session_id, record_activations_safe
-from learning_db_v2 import INJECTION_MIN_CONFIDENCE, sanitize_for_context
+from learning_db_v2 import (
+    INJECTION_MIN_CONFIDENCE,
+    hint_has_solution,
+    sanitize_for_context,
+    solution_summary,
+)
 from stdin_timeout import read_stdin
 
 EVENT_NAME = "PreToolUse"
@@ -39,8 +45,14 @@ EVENT_NAME = "PreToolUse"
 # Max characters in the injected context to stay lightweight
 MAX_CONTEXT_CHARS = 500
 
-# Max DB results to fetch
+# Max hints to inject
 MAX_RESULTS = 3
+
+# Max DB rows to fetch before the contentless ones are dropped. Most of the pool
+# carries a generic stub solution (99 of 126 rows when this was measured), so
+# fetching only MAX_RESULTS would usually return stubs alone and inject nothing
+# even when a real hint ranks just below them.
+MAX_CANDIDATES = 12
 
 # Keywords extracted from commands that map to learnable domains.
 # These are intentionally broad — the DB query narrows via tag matching.
@@ -169,30 +181,6 @@ def extract_edit_tags(tool_input: dict) -> list[str]:
     return list(tags)[:10]
 
 
-# error-learner stores a learning as "<error> <arrow> <solution>" and re-records
-# nest it ("<error> <arrow> <previous value>"), so the LAST arrow marks the
-# solution. Unicode is the arrow in use (762 rows); 7 older rows use ASCII.
-_SOLUTION_SEPARATORS = (" \u2192 ", " -> ")
-
-
-def _solution_summary(value: str) -> str:
-    """Return the one-line solution half of a stored learning value.
-
-    Searches the whole value, not just its first line: a captured error message
-    is usually multi-line, so the arrow sits on the last line. Reading only the
-    first line surfaced the raw capture instead -- nginx configs, ssh debug
-    output, diff hunks -- as the hint. Values with no arrow (prose gotchas) fall
-    back to their first line.
-    """
-    for separator in _SOLUTION_SEPARATORS:
-        if separator in value:
-            value = value.rsplit(separator, 1)[1]
-            break
-    line = value.split("\n")[0]
-    # Drop control characters (BEL, ANSI escapes) captured from tool output.
-    return "".join(ch for ch in line if ch >= " " or ch == "\t").strip()[:120]
-
-
 def format_hints(results: list[dict]) -> str:
     """Format DB results as a compact hint string.
 
@@ -203,9 +191,9 @@ def format_hints(results: list[dict]) -> str:
     seen: set[str] = set()
 
     for r in results:
-        summary = _solution_summary(sanitize_for_context(r.get("value", "")))
-        # Distinct rows often carry the same generic solution ("Fix timeout
-        # error in Bash"). Emit it once -- repeats only eat the char budget.
+        summary = solution_summary(sanitize_for_context(r.get("value", "")))
+        # Distinct rows can share one solution (the same fix recorded against
+        # several captures). Emit it once -- repeats only eat the char budget.
         if not summary or summary in seen:
             continue
         seen.add(summary)
@@ -268,12 +256,18 @@ def main():
             exclude_graduated=True,
             categories=INJECTABLE_CATEGORIES,
             project_path=cwd,
-            limit=MAX_RESULTS,
+            limit=MAX_CANDIDATES,
         )
+
+        # Drop rows whose solution half is a generic stub before anything else
+        # reads them: a stub costs context and returns no instruction, and an
+        # activation recorded for a hint that was never shown is a false ROI
+        # signal. Emitting nothing is the correct outcome when only stubs match.
+        results = [r for r in results if hint_has_solution(r.get("value", ""))][:MAX_RESULTS]
 
         if not results:
             if debug:
-                print(f"[pretool] No patterns for tags={tags}", file=sys.stderr)
+                print(f"[pretool] No injectable patterns for tags={tags}", file=sys.stderr)
             empty_output(EVENT_NAME).print_and_exit()
 
         # Format and inject

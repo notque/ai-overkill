@@ -36,11 +36,25 @@ record_compliance_batch = _module.record_compliance_batch
 INSTRUCTIONS = _module.INSTRUCTIONS
 
 
-def record_compliance(instr_id: str, instr_name: str, compliant: bool, session_id: str) -> None:
-    """Thin wrapper for tests: single-observation convenience using batch API."""
+def record_compliance(
+    instr_id: str,
+    instr_name: str,
+    compliant: bool,
+    session_id: str,
+    directive_expected: bool | None = True,
+) -> None:
+    """Thin wrapper for tests: single-observation convenience using batch API.
+
+    Defaults to the /do-routed population — the one the skip rate is scored over.
+    """
     from learning_db_v2 import record_instruction_compliance
 
-    record_instruction_compliance(instruction_id=instr_id, compliant=compliant, session_id=session_id)
+    record_instruction_compliance(
+        instruction_id=instr_id,
+        compliant=compliant,
+        session_id=session_id,
+        directive_expected=directive_expected,
+    )
 
 
 # ─── check_compliance unit tests ──────────────────────────────────
@@ -407,4 +421,6 @@ class TestSkipRateCommand:
         m01 = next(r for r in data if r["id"] == "M01")
         assert m01["observations"] == 5
         assert m01["non_compliant"] == 2
+        assert m01["scored_observations"] == 5
         assert m01["skip_rate"] == 40.0
+        assert "[do-route]" in m01["denominator"]

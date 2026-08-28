@@ -139,11 +139,12 @@ class TestSkipRateGateVerdict:
     """The gate recommendation reads only instructions this hook can observe."""
 
     def _seed(self, instruction_id: str, compliant: int, non_compliant: int) -> None:
+        """Seed /do-routed observations — the population the rate is scored over."""
         from learning_db_v2 import record_instruction_compliance_batch
 
         record_instruction_compliance_batch(
-            [(instruction_id, True, "seed") for _ in range(compliant)]
-            + [(instruction_id, False, "seed") for _ in range(non_compliant)]
+            [(instruction_id, True, "seed", True) for _ in range(compliant)]
+            + [(instruction_id, False, "seed", True) for _ in range(non_compliant)]
         )
 
     def _run(self, db_dir: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
