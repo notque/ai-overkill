@@ -74,7 +74,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "lib"))
 from hook_utils import hook_error
-from route_types import HealthGateInputs
+from route_types import DO_ROUTE_MARKER_RE, HealthGateInputs
 from routing_outcome_state import append_pending_outcome, claim_dispatch
 from stdin_timeout import read_stdin
 
@@ -91,10 +91,8 @@ EVENT_NAME = "PostToolUse"
 # Anchored to line start (^\s*, MULTILINE) so a quoted/forwarded marker
 # mid-prose (e.g. a user pasting "...the [do-route] line...") doesn't get
 # recorded — only a marker /do itself emitted at the head of a line counts.
-_DO_ROUTE_RE = re.compile(
-    r"^\s*\[do-route\]\s+agent=([a-z0-9][a-z0-9-]*)(?:\s+skill=([a-z0-9-]*|-)?)?",
-    re.IGNORECASE | re.MULTILINE,
-)
+# Defined in route_types so instruction-compliance.py reads the SAME marker.
+_DO_ROUTE_RE = DO_ROUTE_MARKER_RE
 
 # Optional complexity field on the same marker line, recorded into the T3 event
 # log for replay. Absent => "".
