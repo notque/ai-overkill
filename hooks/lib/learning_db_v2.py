@@ -211,6 +211,20 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             "VALUES (7, 'add agent evidence event and route decision tables')"
         )
 
+    if current < 8:
+        # v7 -> v8: carry the router's ` pipeline=<name>` marker token. The
+        # column may already exist from an ad-hoc ALTER on a live DB; the
+        # duplicate-column error is the expected no-op there.
+        try:
+            conn.execute("ALTER TABLE evidence_route_decisions ADD COLUMN pipeline TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already present
+        conn.execute("PRAGMA user_version = 8")
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, description) "
+            "VALUES (8, 'add pipeline column to evidence_route_decisions')"
+        )
+
     conn.commit()
 
 
@@ -420,6 +434,7 @@ CREATE TABLE IF NOT EXISTS evidence_route_decisions (
     outcome_basis        TEXT,
     request_snippet      TEXT,
     stack                TEXT,
+    pipeline             TEXT,
     alternates           TEXT,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
@@ -1089,6 +1104,7 @@ def record_evidence_route_decision(
     model: str | None = None,
     request_snippet: str | None = None,
     stack: list[str] | tuple[str, ...] | str | None = None,
+    pipeline: str | None = None,
     health: float | None = None,
     n: int | None = None,
     failure: bool | None = None,
@@ -1122,10 +1138,10 @@ def record_evidence_route_decision(
             INSERT INTO evidence_route_decisions (
                 decision_id, session_id, route_key, agent, skill, complexity, model, action,
                 health, n, failure, gate_inputs_present, outcome, outcome_basis,
-                request_snippet, stack, alternates, created_at, updated_at
+                request_snippet, stack, pipeline, alternates, created_at, updated_at
             )
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')
             )
             ON CONFLICT(decision_id) DO UPDATE SET
                 session_id = excluded.session_id,
@@ -1143,6 +1159,7 @@ def record_evidence_route_decision(
                 outcome_basis = excluded.outcome_basis,
                 request_snippet = excluded.request_snippet,
                 stack = excluded.stack,
+                pipeline = excluded.pipeline,
                 alternates = excluded.alternates,
                 updated_at = datetime('now')
             """,
@@ -1163,6 +1180,7 @@ def record_evidence_route_decision(
                 _bounded_text(outcome_basis, 120),
                 _bounded_text(request_snippet, 1000),
                 stack_text,
+                _bounded_text(pipeline, 160),
                 alternates_text,
             ),
         )

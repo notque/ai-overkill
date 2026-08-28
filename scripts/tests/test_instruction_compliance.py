@@ -256,7 +256,11 @@ class TestRecordCompliance:
                 assert len(rows) == 3
 
     def test_batch_recording(self, tmp_path: Path) -> None:
-        """Batch recording inserts all results in one transaction."""
+        """Batch recording inserts the observable results in one transaction.
+
+        M01/M03 are declared unobservable from this hook's surface and are
+        dropped. Full contract: hooks/tests/test_instruction_observability.py.
+        """
         with patch.dict(os.environ, {"CLAUDE_LEARNING_DIR": str(tmp_path)}):
             import learning_db_v2
 
@@ -269,9 +273,9 @@ class TestRecordCompliance:
 
             with learning_db_v2.get_connection() as conn:
                 rows = conn.execute("SELECT * FROM instruction_compliance").fetchall()
-                assert len(rows) == 5
+                assert len(rows) == 3
                 ids = {r["instruction_id"] for r in rows}
-                assert ids == {"M01", "M03", "M04", "M05", "M06"}
+                assert ids == {"M04", "M05", "M06"}
 
 
 # ─── Hook stdin integration tests ────────────────────────────────
