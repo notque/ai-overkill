@@ -95,17 +95,12 @@ If `BLOCK`: explain blocking issues.
    echo "VALIDATION_REPORT" | python3 ~/.claude/scripts/feature-state.py checkpoint FEATURE validate
    ```
 
-2. **Record learnings** -- if this phase produced non-obvious insights, record them:
-   ```bash
-   python3 ~/.claude/scripts/learning-db.py record TOPIC KEY "VALUE" --category design
-   ```
-
-3. If validation passed, advance:
+2. If validation passed, advance:
    ```bash
    python3 ~/.claude/scripts/feature-state.py advance FEATURE
    ```
 
-4. Suggest next step:
+3. Suggest next step:
    ```
    Validation passed. Run /feature-lifecycle to continue to the release phase.
    ```

@@ -769,15 +769,15 @@ def _parse_timestamp(value: object) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def check_hook_error_repeat_offenders(
+def _count_hook_errors(
     *,
-    lookback_hours: float = DEFAULT_HOOK_ERROR_LOOKBACK_HOURS,
-    now: datetime | None = None,
-) -> list[str]:
-    """Surface hooks that repeatedly errored within the lookback window."""
+    lookback_hours: float,
+    now: datetime | None,
+) -> dict[str, int]:
+    """Count errors per hook name inside the lookback window."""
     path = _hook_errors_path()
     if not path.is_file():
-        return []
+        return {}
     current = now or datetime.now(tz=timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
@@ -800,17 +800,57 @@ def check_hook_error_repeat_offenders(
             except (AttributeError, json.JSONDecodeError, TypeError):
                 continue
     except OSError:
-        return []
+        return {}
+    return counts
 
+
+def _hook_file_exists(hook: str) -> bool:
+    """True when `hooks/<hook>.py` is still present in the repo."""
+    if not hook or "/" in hook or "\\" in hook or hook.startswith("."):
+        return False
+    return (HOOKS_DIR / f"{hook}.py").is_file()
+
+
+def check_hook_error_repeat_offenders(
+    *,
+    lookback_hours: float = DEFAULT_HOOK_ERROR_LOOKBACK_HOURS,
+    now: datetime | None = None,
+) -> list[str]:
+    """Fail on hooks that repeatedly errored and still exist in the repo.
+
+    A retired hook keeps its historical errors inside the lookback window for up
+    to a week after deletion, and no maintainer action can clear them. Those are
+    reported by `hook_error_repeat_offender_notes` as informational lines
+    instead of being dropped, so an unrecognised hook name stays visible.
+    """
+    counts = _count_hook_errors(lookback_hours=lookback_hours, now=now)
     msgs: list[str] = []
     for hook, count in sorted(counts.items(), key=lambda x: -x[1]):
-        if count >= _REPEAT_THRESHOLD:
+        if count >= _REPEAT_THRESHOLD and _hook_file_exists(hook):
             msgs.append(
                 f"REPEAT-OFFENDER: hooks/{hook}.py has {count} errors in hook-errors.jsonl "
                 f"in the last {lookback_hours:g} hours (threshold: {_REPEAT_THRESHOLD}). "
                 "Investigate and fix the root cause."
             )
     return msgs
+
+
+def hook_error_repeat_offender_notes(
+    *,
+    lookback_hours: float = DEFAULT_HOOK_ERROR_LOOKBACK_HOURS,
+    now: datetime | None = None,
+) -> list[str]:
+    """Informational lines for repeat offenders with no hook file on disk."""
+    counts = _count_hook_errors(lookback_hours=lookback_hours, now=now)
+    notes: list[str] = []
+    for hook, count in sorted(counts.items(), key=lambda x: -x[1]):
+        if count >= _REPEAT_THRESHOLD and not _hook_file_exists(hook):
+            notes.append(
+                f"RETIRED-HOOK: hooks/{hook}.py has {count} historical errors in "
+                f"hook-errors.jsonl in the last {lookback_hours:g} hours but no longer "
+                "exists in the repo. No action needed; the entries age out of the window."
+            )
+    return notes
 
 
 def run_all(
@@ -865,6 +905,9 @@ def main() -> int:
         checks.append("matcher-liveness")
         checks.append("liveness")
     print(f"hook-health: ran {len(checks)} checks ({', '.join(checks)})")
+
+    for note in hook_error_repeat_offender_notes(lookback_hours=args.hook_error_lookback_hours):
+        print(f"hook-health: note: {note}")
 
     if failures:
         print(f"\n{len(failures)} FAILURE(S):", file=sys.stderr)

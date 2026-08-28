@@ -472,7 +472,6 @@ ALL_REFERENCE_FILES = _all_reference_files()
 
 
 _KNOWN_OVERSIZED: set[str] = {
-    "hook-development-engineer/references/code-examples.md",
     "typescript-debugging-engineer/references/debugging-workflows.md",
 }
 

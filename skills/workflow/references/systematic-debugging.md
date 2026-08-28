@@ -9,7 +9,7 @@ success-criteria:
   - "Root cause identified with evidence (not speculation)"
   - "Fix verified by running the reproduction step"
   - "No regressions in related test suite"
-  - "Debug pattern recorded to learning.db"
+  - "Debug pattern recorded to the knowledge base"
 routing:
   triggers:
     - "debug"
@@ -239,9 +239,9 @@ Testing: reproduction passes, edge cases pass, full suite passes
 
 ### Phase 5: RECORD
 
-**Goal**: Update learning database with pattern and fix for future sessions.
+**Goal**: Record the pattern and fix in the repo's knowledge base for future sessions.
 
-**Artifact**: Updated `.debug-knowledge-base.md` and learning.db entry
+**Artifact**: Updated `.debug-knowledge-base.md`
 
 **Step 1: Record to knowledge base**
 
@@ -256,17 +256,13 @@ Append entry to `.debug-knowledge-base.md`:
 **Files**: [Which files were involved]
 ```
 
-**Step 2: Update learning.db**
-
-Record the bug pattern and fix to the learning database for automated future lookup.
-
-**Step 3: Clean up**
+**Step 2: Clean up**
 
 - Remove `.debug-session.md` (investigation complete)
 - Remove temporary debug logs and profiling output
 - Keep only the regression test and knowledge base entry
 
-**Output**: `[learning] Bug pattern recorded.`
+**Output**: `Bug pattern recorded in .debug-knowledge-base.md.`
 
 **GATE**: Knowledge base entry exists with keywords, symptom, root cause, and resolution. `.debug-session.md` cleaned up. Temporary files removed.
 

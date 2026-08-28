@@ -59,10 +59,12 @@ ls skills/ | grep [name]
 **Step 2**: Call the Skill tool with `agent-evaluation`. Evaluate the target file to get the baseline score (0–100) and grade (A/B/C/F).
 This is critical because without a baseline, there is no way to verify improvement. "Looks better" is not a quality claim.
 
-**Step 3**: Scan for retro entries targeting this agent:
+**Step 3**: Read the telemetry and the registry for this agent:
 ```bash
-python3 ~/.claude/scripts/learning-db.py search "[agent-name]" 2>/dev/null || echo "No retro candidates found"
+python3 ~/.claude/scripts/learning-db.py route-stats --by agent 2>/dev/null || echo "No routing telemetry available"
+grep -n -i "[agent-name]" docs/what-didnt-work.md 2>/dev/null || echo "No recorded negative results"
 ```
+A high error rate names a gap worth fixing; a registry entry names a fix already tried and refuted.
 
 **Step 4**: Check for staleness markers in the target file:
 - Missing frontmatter fields: `context`, `model`, `user-invocable` (for skills)
@@ -118,9 +120,9 @@ For skills:
 | Default Behaviors | ? | ? |
 | Optional Behaviors | ? | ? |
 
-**Step 3**: Identify retro graduation candidates from Phase 1 scan. For each candidate:
-- Note the learning (what pattern or behavior should be embedded)
-- Identify where in the target it should be added (new hardcoded behavior, key pattern, error handling rule)
+**Step 3**: Turn the Phase 1 telemetry and registry findings into candidate edits. For each finding:
+- Note the pattern or behavior the agent lacked
+- Identify where in the target it belongs (new hardcoded behavior, key pattern, error handling rule)
 
 **Step 4**: Peer consistency check. Find 2–3 agents in the same category:
 ```bash
@@ -145,8 +147,8 @@ Outdated Patterns:
 Operator Context Gaps:
   - [missing behavior]: [description]
 
-Retro Graduation Candidates:
-  - [retro entry]: → [where it belongs in the agent]
+Telemetry and Registry Findings:
+  - [finding]: → [where it belongs in the agent]
 
 Peer Inconsistencies:
   - [pattern in peers]: [missing from target]
@@ -165,7 +167,7 @@ Peer Inconsistencies:
 | Tier | Criteria | Examples |
 |------|----------|---------|
 | **Critical** | Broken structure, missing required sections | No Operator Context, broken frontmatter |
-| **Important** | Missing patterns that meaningfully affect quality | Missing Hardcoded behaviors, ungraduated retro with score ≥ 6 |
+| **Important** | Missing patterns that meaningfully affect quality | Missing Hardcoded behaviors, an unaddressed telemetry or registry finding |
 | **Minor** | Style alignment, peer consistency, optional fields | Missing optional frontmatter field, peer wording alignment |
 
 **Step 2**: Present the ranked plan to the user:
@@ -183,7 +185,7 @@ CRITICAL (must fix):
   2. Add Error Handling section — 3 unhandled failure modes identified [~15min]
 
 IMPORTANT (should fix):
-  3. Graduate retro entry: "[learning summary]" → new Hardcoded behavior [~10min]
+  3. Embed telemetry finding: "[finding summary]" → new Hardcoded behavior [~10min]
   4. Add missing frontmatter field: `model: sonnet` [~2min]
 
 MINOR (nice to have):
@@ -216,9 +218,9 @@ Proceed with implementation? (or specify which items to include/exclude)
 - Operator Context: Add the three-subsection structure. Populate Hardcoded with behaviors that ARE enforced, Default with on-by-default behaviors, Optional with opt-in behaviors.
 - Error Handling: Add 2–4 concrete error cases with Cause + Solution format.
 
-**For retro graduations**:
-- Add the learning as a new Hardcoded behavior (if it should always apply) or a new pattern/rule in the relevant section.
-- Preserve the original voice and specificity of the retro entry — don't paraphrase it into generic advice. Only graduate retro entries with score ≥ 6 that are directly relevant to the target agent's domain.
+**For telemetry and registry findings**:
+- Add the finding as a new Hardcoded behavior (if it should always apply) or a new pattern/rule in the relevant section.
+- Keep the finding's original specificity — a paraphrase into generic advice carries nothing. Embed only findings directly relevant to the target agent's domain.
 
 **For outdated patterns**:
 - Update to current convention. Reference the peer agents or template for the correct form.
@@ -295,9 +297,9 @@ If the delta is positive, the upgrade is complete. If the delta is zero or negat
 Cause: The `agent-evaluation` skill has a dependency issue or the target file is malformed.
 Solution: Read the target file manually and apply the scoring rubric from the CLAUDE.md quality gates section (Structure 20pts, Operator Context 15pts, Error Handling 15pts, Reference Files 10pts, Validation Scripts 10pts, Content Depth 30pts). Produce a manual score. Note it as manually derived in the report.
 
-### Error: "No learning.db entries found for this agent"
-Cause: No relevant learnings in the database for this agent's domain.
-Solution: Skip retro graduation step and note it in the diff report. Learnings accumulate naturally during work.
+### Error: "No routing telemetry found for this agent"
+Cause: The agent has carried no routed dispatches, or telemetry is not populated in this environment.
+Solution: Proceed on the evaluation baseline alone and note the gap in the diff report. An agent with zero routes over a long window is a retirement candidate, not just an upgrade candidate.
 
 ### Error: "Agent template not found in repository"
 Cause: Template file not at expected path (`skills/meta/skill-creator/references/agent-template.md`).
@@ -318,4 +320,4 @@ Solution: Re-read the file before editing. If the baseline state has changed mat
 - [agent-evaluation](../../skills/meta/agent-evaluation/SKILL.md) - Objective scoring skill used in Phase 1 (baseline) and Phase 5 (re-evaluate)
 - [system-upgrade](../system-upgrade/SKILL.md) - Top-down multi-component upgrade pipeline (complements this bottom-up single-agent pipeline)
 - [agent-template](../../skill-creator/references/agent-template.md) - Structural template used for gap analysis in Phase 2
-- [learning-db.py](../../scripts/learning-db.py) - Script for querying retro graduation candidates
+- [learning-db.py](../../scripts/learning-db.py) - Read-only CLI for routing telemetry (`route-health`, `route-stats`)

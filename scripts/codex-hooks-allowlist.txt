@@ -12,7 +12,7 @@
 # entry is explicit; generator legacy parsing exists only for upgrade errors.
 #
 # Accounting against .claude/settings.json:
-#   76 registrations = 26 native + 36 adapted + 14 unsupported.
+#   64 registrations = 24 native + 29 adapted + 11 unsupported.
 
 # Native SessionStart (12)
 SessionStart:afk-mode.py matcher=startup|resume|clear|compact class=native mode=native failure=open
@@ -37,9 +37,8 @@ UserPromptSubmit:review-false-positive-capture.py class=native mode=native failu
 UserPromptSubmit:prompt-capture.py class=native mode=native failure=open
 UserPromptSubmit:routing-outcome-finalizer.py class=native mode=native failure=open
 
-# Adapted UserPromptSubmit: top-level prompt/userMessage normalization (3)
+# Adapted UserPromptSubmit: top-level prompt/userMessage normalization (2)
 UserPromptSubmit:pipeline-context-detector.py class=adapted mode=prompt failure=open
-UserPromptSubmit:user-correction-capture.py class=adapted mode=prompt failure=open
 UserPromptSubmit:codex-auto-review.py class=adapted mode=prompt failure=open
 
 # Native PreToolUse Bash enforcement (5)
@@ -49,11 +48,10 @@ PreToolUse:pretool-ruff-format-gate.py matcher=Bash class=native mode=native fai
 PreToolUse:pretool-private-name-leak-gate.py matcher=Bash class=native mode=native failure=closed
 PreToolUse:security-review-hook.py matcher=Bash class=native mode=native failure=closed
 
-# Adapted PreToolUse apply_patch/Edit|Write (11)
+# Adapted PreToolUse apply_patch/Edit|Write (9)
 PreToolUse:suggest-compact.py matcher=Edit|Write class=adapted mode=patch failure=open
 PreToolUse:pretool-unified-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-worktree-edit-guard.py matcher=Edit|Write class=adapted mode=patch failure=closed
-PreToolUse:pretool-learning-injector.py matcher=Edit|Write class=adapted mode=patch failure=open
 PreToolUse:pretool-synthesis-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-plan-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-prompt-injection-scanner.py matcher=Edit|Write class=adapted mode=patch failure=closed
@@ -61,13 +59,12 @@ PreToolUse:pipeline-phase-gate.py matcher=Edit|Write class=adapted mode=patch fa
 PreToolUse:pretool-adr-creation-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-file-backup.py matcher=Edit|Write class=adapted mode=patch failure=open
 
-# Native PostToolUse Bash observers (4)
-PostToolUse:retro-graduation-gate.py matcher=Bash class=native mode=native failure=open
+# Native PostToolUse Bash observers (3)
 PostToolUse:adr-lifecycle-on-merge.py matcher=Bash class=native mode=native failure=open
 PostToolUse:posttool-bash-injection-scan.py matcher=Bash class=native mode=native failure=open
 PostToolUse:posttool-rename-sweep.py matcher=Bash class=native mode=native failure=open
 
-# Adapted PostToolUse apply_patch/Edit|Write observers (13)
+# Adapted PostToolUse apply_patch/Edit|Write observers (10)
 PostToolUse:posttool-lint-hint.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:adr-enforcement.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-security-scan.py matcher=Edit|Write class=adapted mode=patch failure=open
@@ -77,9 +74,6 @@ PostToolUse:posttooluse-sync-skill-index.py matcher=Edit|Write class=adapted mod
 PostToolUse:posttooluse-sync-agent-index.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-docs-drift-alert.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:security-review-hook.py matcher=Edit|Write class=adapted mode=patch failure=open
-PostToolUse:record-activation.py matcher=Edit|Write class=adapted mode=patch failure=open
-PostToolUse:error-learner.py matcher=Edit|Write class=adapted mode=patch failure=open
-PostToolUse:record-waste.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-auto-test.py matcher=Edit|Write class=adapted mode=patch failure=open
 
 # Adapted PreCompact: Codex lacks Claude conversation_history telemetry (1)
@@ -89,14 +83,12 @@ PreCompact:precompact-archive.py matcher=manual|auto class=adapted mode=precompa
 SubagentStop:routing-outcome-recorder.py matcher=* class=native mode=native failure=open
 SubagentStop:subagent-completion-guard.py matcher=* class=adapted mode=subagent-stop failure=open
 
-# Stop (1 native, 5 adapted). Codex lacks Claude session_data telemetry.
-Stop:confidence-decay.py class=native mode=native failure=open
+# Stop (0 native, 4 adapted). Codex lacks Claude session_data telemetry.
 Stop:stop-drift-guard.py class=adapted mode=stop failure=open
 Stop:session-summary.py class=adapted mode=stop failure=open
-Stop:session-learning-recorder.py class=adapted mode=stop failure=open
-Stop:knowledge-graduation-proposer.py class=adapted mode=stop failure=open
 Stop:rules-distill-trigger.py class=adapted mode=stop failure=open
+Stop:routing-outcome-stop-fallback.py class=adapted mode=stop failure=open
 
-# Unsupported 14 remain explicit in scripts/tests/test_codex_hooks_allowlist.py:
-# four PreToolUse:Agent; six PostToolUse:Read/Skill/Agent/Workflow;
-# TaskCompleted; StopFailure; and PostCompact model-context reinjection.
+# Unsupported 11 remain explicit in scripts/tests/test_codex_hooks_allowlist.py:
+# four PreToolUse:Agent; five PostToolUse:Read/Skill/Agent/Workflow;
+# StopFailure; and PostCompact model-context reinjection.

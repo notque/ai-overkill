@@ -36,7 +36,7 @@ routing:
 
 Schedulable (nightly) or manually-invoked 7-phase pipeline for continuous toolkit self-improvement. Discovers gaps, diagnoses problems from evidence, proposes solutions, critiques via multi-persona review, builds winners on isolated branches, A/B tests, and promotes via PR.
 
-Nightly sibling of `auto-dream` (2:07 AM consolidates memories; 3:07 AM this skill diagnoses and builds). They feed each other: dream's graduated learnings inform evolution's diagnosis; evolution's results become dream's next input.
+Nightly sibling of `auto-dream` (2:07 AM consolidates memories; 3:07 AM this skill diagnoses and builds). They feed each other: dream's consolidated memories and injection payload inform evolution's diagnosis; evolution's results become dream's next input.
 
 Invoke: `/evolve`, `/evolve routing`, `/evolve hooks`, `/evolve --discover`. Cron setup in `references/evolve-preferred-patterns.md` § Scheduling.
 
@@ -90,11 +90,11 @@ Read-only `gh` queries over the last 30 merged PRs plus their review-comment thr
 
 **Goal**: Identify 5-10 evidence-backed improvement opportunities from multiple data sources.
 
-**Step 1: Query the learning database for recent failures and routing mismatches**
+**Step 1: Read routing telemetry for weak and failing routes**
 
-Run the 4 search queries from `references/diagnose-scripts.md` § DIAGNOSE Step 1.
+Run the queries from `references/diagnose-scripts.md` § DIAGNOSE Step 1.
 
-Look for: routing decision patterns, recurring routing failures and mismatches, skills that consistently underperform, error patterns without automated fixes.
+Look for: routes with many dispatches and a high error rate, skills that consistently underperform, and components carrying zero routes over a long window.
 
 **Step 2: Scan recent git history for patterns**
 
@@ -266,9 +266,9 @@ Win condition for each implementation:
 
 ---
 
-### Phase 6: EVOLVE -- Promote winners and record learnings
+### Phase 6: EVOLVE -- Promote winners and record outcomes
 
-**Goal**: Ship winners via PR, record all outcomes in the learning database.
+**Goal**: Ship winners via PR; record every outcome, win or loss, where the next cycle will read it.
 
 **Step 1: Handle winners (WIN status)**
 
@@ -315,10 +315,10 @@ Write the dated report to `evolution-reports/evolution-report-{YYYY-MM-DD}.md` u
 
 - `references/evolution-report-template.md` -- Template for the evolution report
 - `references/diagnose-scripts.md` -- Phase 0 and Phase 1 bash/Python commands
-- `references/evolve-scripts.md` -- Phase 6 PR, merge, cleanup, and learning DB commands
+- `references/evolve-scripts.md` -- Phase 6 PR, merge, cleanup, and outcome-recording steps
 - `references/evolve-preferred-patterns.md` -- Failure modes, error handling, cost, critique fallback, scheduling
-- `references/evolution-history.md` -- Graduated proposal ledger, shelved conditions, rejected proposals, cycle summaries
-- `skills/meta/auto-dream/SKILL.md` -- Nightly sibling: memory consolidation and learning graduation
+- `references/evolution-history.md` -- Shipped proposal ledger, shelved conditions, rejected proposals, cycle summaries
+- `skills/meta/auto-dream/SKILL.md` -- Nightly sibling: memory consolidation
 - `skills/meta/skill-eval/SKILL.md` -- Skill testing and benchmarking
 - `skills/research/multi-persona-critique/SKILL.md` -- Multi-persona evaluation (may not exist yet; inline fallback in references)
 - `skills/meta/skill-creator/SKILL.md` -- Skill creation methodology

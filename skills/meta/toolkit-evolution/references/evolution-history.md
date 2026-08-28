@@ -1,6 +1,6 @@
 # Evolution History -- Proposal Ledger and Distilled Lessons
 
-> **Scope**: Graduated learnings from evolution cycles 2026-05-09 through 2026-05-15. Prevents re-proposing failed ideas and preserves distilled decision criteria. Load this reference during Phase 1 DIAGNOSE (Step 5: check prior outcomes) and Phase 2 PROPOSE (dedup against history).
+> **Scope**: Distilled outcomes from evolution cycles 2026-05-09 through 2026-05-15. Prevents re-proposing failed ideas and preserves the decision criteria they produced. Load this reference during Phase 1 DIAGNOSE (Step 5: check prior outcomes) and Phase 2 PROPOSE (dedup against history).
 
 ---
 
@@ -17,7 +17,7 @@ These are the reusable decision criteria extracted from proposal evaluations. Ea
 | Pure doc fixes score low in critique; bundle them with functional fixes in the same PR | fix-routing-guide-dead-ref (MODERATE 1.67) |
 | Investigate hook logic before proposing cleanup; stale by date is not stale by reference | cleanup-adr-session-json (WEAK 1.0) |
 | Premature documentation of unimplemented systems is derivative, not authoritative; defer until implementation exists | sprite-pipeline-phase1-reference (WEAK 1.33) |
-| Improving an existing mechanism beats adding new ones; one-line quality fixes can be the unanimous outlier | error-learner-solution-field (STRONG 9/9) |
+| Improving an existing mechanism beats adding new ones; one-line quality fixes can be the unanimous outlier | hook-solution-field (STRONG 9/9, PR #644) |
 | Advisory hooks must not mutate git state; sync enforcement belongs at the commit/push boundary (PreToolUse gate) not the write boundary (PostToolUse side-effect) | hook-auto-stage-index (WEAK 1.33) |
 | Before padding triggers to pass a threshold, check whether the threshold itself is wrong for narrow-scope agent helpers | boost-undertriggered-entries (MODERATE 1.67) |
 
@@ -70,7 +70,7 @@ Proposals shelved with explicit conditions for re-proposal. Check these before r
 | skill-index-hook deployment | 2026-05-10 | STRONG 3.0 | #631 | posttooluse-sync-skill-index.py wired into settings.json |
 | bound unlimited-timeout hooks | 2026-05-11 | STRONG 3.0 | #638 | 11 hooks given explicit timeout bounds |
 | PostToolUse joy-check warn | 2026-05-11 | STRONG 3.0 | #639 | joy-check warning hook on Write/Edit |
-| error-learner solution field improvement | 2026-05-14 | STRONG 9/9 | #644 | Solution includes first 80 chars of error message |
+| hook solution field improvement | 2026-05-14 | STRONG 9/9 | #644 | Solution includes first 80 chars of error message |
 | smoke-test-hooks.py harness | 2026-05-15 | STRONG 3.0 | #646 | Reads hooks from settings.json, fires with mock stdin, asserts exit codes |
 | reference-loading-gate session dedup | 2026-05-15 | STRONG 3.0 | #647 | Warns once per component subtree per session |
 | stale stub hook deletion | 2026-05-15 | STRONG 2.67 | #647 | 3 stub hooks removed after settings.json verification |

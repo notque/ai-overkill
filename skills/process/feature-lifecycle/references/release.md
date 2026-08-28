@@ -85,18 +85,12 @@ Do not begin cleanup until the PR merge is confirmed. Deleting the branch or wor
    echo "RELEASE_NOTES" | python3 ~/.claude/scripts/feature-state.py checkpoint FEATURE release
    ```
 
-2. **Record learnings** -- final pass, capture insights from the full lifecycle:
-   ```bash
-   python3 ~/.claude/scripts/learning-db.py record TOPIC KEY "VALUE" --category design
-   ```
-   Focus on: architectural decisions, workflow improvements, agent performance, patterns to reuse.
-
-3. Report completion:
+2. Report completion:
    ```
    Feature [NAME] released successfully.
    - Design → Plan → Implement → Validate → Release: complete
    - PR: [URL]
-   - Retro findings: [N] recorded, [M] promoted to context
+   - Review findings: [N] resolved, [M] carried into the PR body
    ```
 
 ## Error Handling

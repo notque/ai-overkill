@@ -91,7 +91,7 @@ EVENT_NAME = "PostToolUse"
 # Anchored to line start (^\s*, MULTILINE) so a quoted/forwarded marker
 # mid-prose (e.g. a user pasting "...the [do-route] line...") doesn't get
 # recorded — only a marker /do itself emitted at the head of a line counts.
-# Defined in route_types so instruction-compliance.py reads the SAME marker.
+# Defined in route_types so every marker reader shares the SAME definition.
 _DO_ROUTE_RE = DO_ROUTE_MARKER_RE
 
 # Optional complexity field on the same marker line, recorded into the T3 event

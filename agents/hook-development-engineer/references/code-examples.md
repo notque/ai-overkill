@@ -76,389 +76,222 @@ if __name__ == "__main__":
 
 ---
 
-## Error Detection and Classification Hook
+## Routing Decision Recorder Hook
 
-Complete PostToolUse hook with error pattern detection and learning database integration.
-
-```python
-#!/usr/bin/env python3
-"""
-Smart error detector with pattern matching and solution injection.
-Detects errors, classifies them, queries learning database for solutions,
-and injects high-confidence solutions into Claude Code context.
-"""
-import json
-import sys
-import hashlib
-from pathlib import Path
-from datetime import datetime
-
-LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
-DEBUG_LOG = Path('/tmp/claude_hook_debug.log')
-
-def debug_log(message):
-    """Non-blocking debug logging."""
-    try:
-        with DEBUG_LOG.open('a') as f:
-            f.write(f"[{datetime.now().isoformat()}] {message}\\n")
-    except Exception:
-        pass
-
-def classify_error(tool_name, error_output):
-    """
-    Classify error type from tool output.
-
-    Args:
-        tool_name: Name of the tool that errored
-        error_output: Error message from tool
-
-    Returns:
-        str: Error classification (missing_file, permissions, etc.)
-    """
-    output_lower = error_output.lower()
-
-    # Classification rules
-    if 'no such file' in output_lower or 'filenotfound' in output_lower:
-        return 'missing_file'
-    elif 'permission denied' in output_lower:
-        return 'permissions'
-    elif 'multiple matches' in output_lower and tool_name == 'Edit':
-        return 'multiple_matches'
-    elif 'syntaxerror' in output_lower:
-        return 'syntax_error'
-    elif 'typeerror' in output_lower:
-        return 'type_error'
-    else:
-        return 'unknown'
-
-def generate_signature(tool_name, error_type, error_message):
-    """
-    Generate unique signature for error pattern.
-
-    Args:
-        tool_name: Tool that produced error
-        error_type: Classification of error
-        error_message: Error message (first 200 chars)
-
-    Returns:
-        str: MD5 signature for pattern matching
-    """
-    # Use first 200 chars to avoid signature pollution from dynamic data
-    message_snippet = error_message[:200]
-    signature_input = f"{tool_name}:{error_type}:{message_snippet}"
-    return hashlib.md5(signature_input.encode()).hexdigest()
-
-def query_learning_db(signature):
-    """
-    Query learning database for known pattern.
-
-    Args:
-        signature: Error signature to lookup
-
-    Returns:
-        dict: Pattern data if found and high confidence (>0.7), else None
-    """
-    try:
-        if not LEARNING_DB.exists():
-            return None
-
-        with LEARNING_DB.open('r') as f:
-            data = json.load(f)
-
-        patterns = data.get('patterns', [])
-        for pattern in patterns:
-            if pattern.get('signature') == signature:
-                confidence = pattern.get('confidence', 0.0)
-                if confidence > 0.7:  # High confidence threshold
-                    return pattern
-
-    except Exception as e:
-        debug_log(f"Learning DB query error: {e}")
-
-    return None
-
-def inject_solution(solution_data, event_name: str) -> None:
-    """
-    Inject solution into Claude Code context via stdout.
-
-    Args:
-        solution_data: Solution dict with description and command
-        event_name: Hook event name (e.g. "PostToolUse")
-    """
-    try:
-        from hook_utils import context_output
-        text = (
-            f"[auto-fix] action={solution_data.get('command', '')}\n"
-            f"description={solution_data.get('description', '')}\n"
-            f"confidence={solution_data.get('confidence', 0.0)}"
-        )
-        context_output(event_name, text).print_and_exit()
-    except Exception as e:
-        debug_log(f"Context injection error: {e}")
-
-def main():
-    """Main error detection logic."""
-    try:
-        # Parse event JSON
-        event = json.loads(sys.stdin.read())
-
-        # Extract tool info
-        tool_name = event.get('tool', '')
-        tool_output = event.get('output', '')
-        is_error = event.get('is_error', False)
-
-        # Only process if error occurred
-        if not is_error:
-            sys.exit(0)
-
-        debug_log(f"Error detected in {tool_name}")
-
-        # Classify error
-        error_type = classify_error(tool_name, tool_output)
-
-        # Generate signature
-        signature = generate_signature(tool_name, error_type, tool_output)
-
-        # Query learning database
-        pattern = query_learning_db(signature)
-
-        # Inject solution if high confidence pattern found
-        if pattern:
-            inject_solution(pattern)
-        else:
-            debug_log(f"No high-confidence solution for {error_type} error")
-
-    except Exception as e:
-        debug_log(f"Fatal error: {e}")
-    finally:
-        sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## Learning Database Update Hook
-
-Hook that tracks solution success/failure and updates confidence scores.
+Complete PostToolUse:Agent hook that records one dispatch per event.
 
 ```python
 #!/usr/bin/env python3
 """
-Continuous learner hook that updates learning database based on outcomes.
-Tracks solution application success/failure and adjusts confidence scores.
+PostToolUse:Agent hook. Records one routing decision per Agent dispatch.
+
+Reads the dispatch marker from the tool input, writes one row, exits 0 on
+every path. A telemetry write is never worth blocking a tool on.
 """
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
 
-LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
-DEBUG_LOG = Path('/tmp/claude_hook_debug.log')
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
+from learning_db_v2 import record_evidence_route_decision
+from stdin_timeout import read_stdin
+
+DEBUG_LOG = Path("/tmp/claude_hook_debug.log")
+
 
 def debug_log(message):
-    """Non-blocking debug logging."""
+    """Log without ever raising."""
     try:
-        with DEBUG_LOG.open('a') as f:
-            f.write(f"[{datetime.now().isoformat()}] {message}\\n")
+        with DEBUG_LOG.open("a") as f:
+            f.write(f"{message}\n")
     except Exception:
         pass
 
-def load_learning_db():
-    """Load learning database with error handling."""
-    try:
-        if LEARNING_DB.exists():
-            with LEARNING_DB.open('r') as f:
-                return json.load(f)
-    except Exception as e:
-        debug_log(f"DB load error: {e}")
 
-    # Return empty structure if load fails
-    return {'patterns': [], 'metadata': {'version': '1.0'}}
+def extract_route(event):
+    """Pull agent, skill, and marker out of the event.
 
-def save_learning_db(data):
-    """Save learning database with atomic operations."""
-    try:
-        # Ensure directory exists
-        LEARNING_DB.parent.mkdir(parents=True, exist_ok=True)
-
-        # Atomic write pattern
-        temp_path = LEARNING_DB.with_suffix('.tmp')
-        with temp_path.open('w') as f:
-            json.dump(data, f, indent=2)
-        temp_path.replace(LEARNING_DB)
-
-        debug_log("Learning DB updated successfully")
-
-    except Exception as e:
-        debug_log(f"DB save error: {e}")
-
-def update_confidence(pattern_id, success):
+    Returns None when the event carries no marker: route-fit scoring reads one
+    marker per event, so an unmarked dispatch is not a recordable decision.
     """
-    Update confidence score for a pattern.
-
-    Args:
-        pattern_id: ID of pattern to update
-        success: True if solution worked, False if failed
-    """
-    db = load_learning_db()
-
-    for pattern in db['patterns']:
-        if pattern.get('id') == pattern_id:
-            current_confidence = pattern.get('confidence', 0.0)
-
-            if success:
-                # Increase confidence on success
-                new_confidence = min(1.0, current_confidence + 0.1)
-            else:
-                # Decrease confidence on failure
-                new_confidence = max(0.0, current_confidence - 0.2)
-
-            pattern['confidence'] = new_confidence
-            pattern['last_updated'] = datetime.now().isoformat()
-
-            debug_log(f"Updated pattern {pattern_id}: {current_confidence} -> {new_confidence}")
-            break
-
-    save_learning_db(db)
-
-def store_new_pattern(tool_name, error_type, signature, solution):
-    """
-    Store a new error pattern in learning database.
-
-    Args:
-        tool_name: Tool that produced error
-        error_type: Classification of error
-        signature: Unique error signature
-        solution: Solution dict with description and command
-    """
-    db = load_learning_db()
-
-    # Check if pattern already exists
-    for pattern in db['patterns']:
-        if pattern.get('signature') == signature:
-            debug_log(f"Pattern {signature} already exists")
-            return
-
-    # Create new pattern with initial confidence 0.0
-    new_pattern = {
-        'id': f"{tool_name}_{error_type}_{len(db['patterns'])}",
-        'tool': tool_name,
-        'error_type': error_type,
-        'signature': signature,
-        'solution': solution,
-        'confidence': 0.0,
-        'created': datetime.now().isoformat(),
-        'last_updated': datetime.now().isoformat()
+    tool_input = event.get("tool_input", {})
+    marker = tool_input.get("marker") or event.get("marker")
+    if not marker:
+        return None
+    return {
+        "marker": marker,
+        "agent": tool_input.get("subagent_type"),
+        "skill": tool_input.get("skill"),
+        "session_id": event.get("session_id"),
     }
 
-    db['patterns'].append(new_pattern)
-    save_learning_db(db)
-
-    debug_log(f"Stored new pattern: {new_pattern['id']}")
 
 def main():
-    """Main learning update logic."""
     try:
-        # Parse event JSON
-        event = json.loads(sys.stdin.read())
-
-        # Check for learning update signals
-        if 'pattern_id' in event and 'success' in event:
-            # Update existing pattern confidence
-            update_confidence(event['pattern_id'], event['success'])
-        elif 'new_pattern' in event:
-            # Store new pattern
-            pattern_data = event['new_pattern']
-            store_new_pattern(
-                pattern_data['tool'],
-                pattern_data['error_type'],
-                pattern_data['signature'],
-                pattern_data['solution']
-            )
-
-    except Exception as e:
-        debug_log(f"Learning update error: {e}")
+        event = json.loads(read_stdin())
+        route = extract_route(event)
+        if route:
+            record_evidence_route_decision(**route)
+            debug_log(f"[routing-recorder] recorded {route['agent']}:{route['skill']}")
+    except Exception as exc:
+        debug_log(f"[routing-recorder] {exc}")
     finally:
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
 ```
 
+**What makes this correct**: one marker per event, every failure path swallowed, `sys.exit(0)` in a `finally` so no code path can exit non-zero, and no write outside the telemetry store.
+
 ---
 
-## Performance-Optimized Pattern Matching
+## Routing Outcome Finalizer Hook
 
-Hook optimized for sub-50ms execution with lazy loading and early exit.
+Hook that scores a pending outcome on the next user turn.
 
 ```python
 #!/usr/bin/env python3
 """
-Performance-optimized error pattern matcher.
-Uses lazy loading and early exit to maintain sub-50ms execution time.
+UserPromptSubmit hook. Scores the pending routing outcome three ways.
+
+Deterministic and free: failure on errors or rejection, success on explicit
+acceptance, neutral otherwise. Silence is neutral, never acceptance.
 """
 import json
 import sys
 from pathlib import Path
 
-LEARNING_DB = Path.home() / '.claude' / 'learnings' / 'error_patterns.json'
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
+from learning_db_v2 import update_evidence_route_outcome
+from stdin_timeout import read_stdin
 
-def find_pattern_lazy(signature, confidence_threshold=0.7):
+REJECTION_MARKERS = ("that's wrong", "no, ", "revert", "undo that")
+ACCEPTANCE_MARKERS = ("thanks", "perfect", "ship it")
+TASK_VERBS = ("add", "fix", "write", "run", "check", "make")
+MAX_CLAUSE_WORDS = 8
+
+
+def score(prompt, had_errors):
+    """Return success, failure, or neutral.
+
+    The asymmetry decides the guards: a missed acceptance stays neutral and
+    costs nothing, while a false acceptance corrupts the telemetry. So the
+    acceptance path carries stacked precision guards and the neutral path
+    carries none.
     """
-    Find pattern with lazy loading and early exit.
+    text = prompt.strip().lower()
+    if had_errors:
+        return "failure"
+    if any(text.startswith(m) for m in REJECTION_MARKERS):
+        return "failure"
+    for marker in ACCEPTANCE_MARKERS:
+        if not text.startswith(marker):
+            continue
+        rest = text[len(marker):].lstrip(" ,.!")
+        if not rest:
+            return "success"
+        if rest.split()[0] in TASK_VERBS:      # new instruction, not praise
+            return "neutral"
+        if len(rest.split()) > MAX_CLAUSE_WORDS:
+            return "neutral"
+        return "success"
+    return "neutral"
 
-    Args:
-        signature: Error signature to find
-        confidence_threshold: Minimum confidence (default 0.7)
-
-    Returns:
-        dict: Pattern if found, else None
-    """
-    try:
-        if not LEARNING_DB.exists():
-            return None
-
-        # Open file but don't load all at once
-        with LEARNING_DB.open('r') as f:
-            data = json.load(f)  # Unfortunately must load full JSON
-
-            # But we can early-exit on first match
-            for pattern in data.get('patterns', []):
-                if pattern.get('signature') == signature:
-                    if pattern.get('confidence', 0.0) >= confidence_threshold:
-                        return pattern
-                    else:
-                        # Found pattern but confidence too low
-                        return None
-
-    except Exception:
-        pass
-
-    return None
 
 def main():
-    """Optimized pattern matching."""
     try:
-        event = json.loads(sys.stdin.read())
-        signature = event.get('signature')
-
-        if signature:
-            pattern = find_pattern_lazy(signature)
-            if pattern:
-                print(json.dumps({'found': True, 'pattern': pattern}))
-
+        event = json.loads(read_stdin())
+        marker = event.get("pending_marker")
+        if marker:
+            outcome = score(event.get("prompt", ""), event.get("had_errors", False))
+            update_evidence_route_outcome(marker=marker, outcome=outcome)
     except Exception:
         pass
     finally:
         sys.exit(0)
 
+
 if __name__ == "__main__":
     main()
 ```
 
+Require golden fixtures in both directions: every acceptance marker fires, every veto case stays neutral. Evidence: `hooks/routing-outcome-finalizer.py`, PR #804.
+
 ---
+
+
+## Performance-Optimized Telemetry Read
+
+Hook read optimized for sub-50ms execution with lazy connection and early exit.
+
+```python
+#!/usr/bin/env python3
+"""
+Performance-optimized telemetry read inside a hook.
+
+Opens the connection only when the event warrants a read, sets busy_timeout so
+a concurrent writer never turns into a blocked tool call, and returns on the
+first row.
+"""
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
+from learning_db_v2 import get_connection
+
+BUSY_TIMEOUT_MS = 2000
+
+
+def route_outcome(route_key):
+    """Return the most recent outcome for a route, or None.
+
+    Lazy: the caller decides whether the event is worth a read, so a hook that
+    fires on every tool call pays nothing on the common path.
+    """
+    try:
+        conn = get_connection()
+        conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        row = conn.execute(
+            "SELECT outcome FROM evidence_route_decisions "
+            "WHERE agent || ':' || COALESCE(skill,'') = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (route_key,),
+        ).fetchone()
+        return row["outcome"] if row else None
+    except Exception:
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def main():
+    try:
+        event = json.loads(sys.stdin.read())
+        route_key = event.get("route_key")
+        if route_key:
+            outcome = route_outcome(route_key)
+            if outcome:
+                print(json.dumps({"route_key": route_key, "last_outcome": outcome}))
+    except Exception:
+        pass
+    finally:
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**Why `busy_timeout` is not optional**: hooks fire on every tool call and share this database with read-only CLI queries. Without a timeout, a concurrent writer raises `SQLITE_BUSY`; a hook that lets that propagate exits non-zero and blocks the tool.
+
+---
+
 
 ## Hook Registration in settings.json
 

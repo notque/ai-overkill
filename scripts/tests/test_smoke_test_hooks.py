@@ -21,7 +21,7 @@ def _load_smoke_module():
     return module
 
 
-@pytest.mark.parametrize("hook_name", ["record-activation.py", "record-waste.py", "posttool-rename-sweep.py"])
+@pytest.mark.parametrize("hook_name", ["posttool-rename-sweep.py"])
 def test_posttool_fixture_does_not_create_caught_hook_errors(
     hook_name: str,
     tmp_path: Path,

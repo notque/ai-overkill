@@ -11,7 +11,7 @@ AI agents skip steps.
 Harnesses have a second problem: given only a skill list, they do not route eagerly enough, or correctly enough. Good skills sit unused. So this toolkit connects the skills, agents, and workflows we want directly into the harness, automatically. You don't have to understand what is here. Say what you want in plain English and you get all the value we have put into it: the right specialist with the right methodology, behind gates that demand exit codes, not assertions.
 
 <!-- Counts here must match the Four Layers table (~line 143). Verify both: python3 scripts/validate-doc-counts.py -->
-44 domain agents, 123 workflow skills, 86 hooks, 137 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
+44 domain agents, 122 workflow skills, 76 hooks, 136 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
 
 Works across Claude Code (`/do`), Codex (`$do`), Factory (`/do`), Reasonix (`/do`).
 
@@ -36,10 +36,10 @@ The router reads intent, picks a Go agent paired with a debugging skill, and run
 ## The Pipeline
 
 ```
-  ROUTE        PLAN         EXECUTE      VERIFY       DELIVER      LEARN
+  ROUTE        PLAN         EXECUTE      VERIFY       DELIVER      RECORD
  ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐
- │ /do  │───▶│ Task │───▶│Agent │───▶│Tests │───▶│  PR  │───▶│Record│
- │Router│    │ Plan │    │+Skill│    │Gates │    │Branch│    │Evolve│
+ │ /do  │───▶│ Task │───▶│Agent │───▶│Tests │───▶│  PR  │───▶│Route │
+ │Router│    │ Plan │    │+Skill│    │Gates │    │Branch│    │Result│
  └──────┘    └──────┘    └──────┘    └──────┘    └──────┘    └──────┘
 ```
 
@@ -148,9 +148,9 @@ Strips built-in tool-use instructions. The toolkit's agents, skills, hooks, and 
 | Layer | Count | Does |
 |---|---|---|
 | Agents | 44 | Domain knowledge: idiom tables, failure mode catalogs, error-to-fix mappings |
-| Skills | 123 | Phased methodology with gates. Can't skip steps. Each phase has exit criteria requiring evidence. |
-| Hooks | 86 | Fire on lifecycle events. Block incomplete work. Zero LLM cost. |
-| Scripts | 137 | Determinism: test runners, linters, validators. No LLM judgment. |
+| Skills | 122 | Phased methodology with gates. Can't skip steps. Each phase has exit criteria requiring evidence. |
+| Hooks | 76 | Fire on lifecycle events. Block incomplete work. Zero LLM cost. |
+| Scripts | 136 | Determinism: test runners, linters, validators. No LLM judgment. |
 
 Full skill catalog: [docs/skills.md](docs/skills.md).
 
@@ -182,7 +182,7 @@ A game built entirely by Claude Code using these agents, skills, and pipelines:
 
 **[I'm a developer](docs/for-developers.md)** Architecture, extension points, adding agents and skills.
 
-**[I'm an AI power user](docs/for-ai-wizards.md)** Routing tables, pipelines, hooks, learning DB.
+**[I'm an AI power user](docs/for-ai-wizards.md)** Routing tables, pipelines, hooks, telemetry DB.
 
 **[I'm an AI agent](docs/for-claude-code.md)** Machine-dense inventory. Tables, paths, schemas.
 
@@ -201,10 +201,9 @@ Full design philosophy: **[PHILOSOPHY.md](docs/PHILOSOPHY.md)**
 
 ## Maintenance
 
-Two report-only scripts surface upkeep work; both print a digest and never edit, delete, or block.
+One report-only script surfaces upkeep work; it prints a digest and never edits, deletes, or blocks.
 
-- `python3 scripts/harvest-corrections.py` clusters captured user corrections by routed domain and suggests one-line doc fixes. Run weekly by habit, or schedule it via `/schedule`.
-- `python3 scripts/stale-skill-scan.py --top 20` ranks stale skills/agents as pruning candidates. Run quarterly; see [docs/deprecation-template.md](docs/deprecation-template.md).
+- `python3 scripts/stale-skill-scan.py --top 20` ranks stale skills and agents as pruning candidates. Run it quarterly; see [docs/deprecation-template.md](docs/deprecation-template.md).
 
 Scheduled work follows the same boundary as everything else: judgment uses agents; repeatable plumbing uses scripts.
 

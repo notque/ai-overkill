@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-# hook-version: 2.2.0
+# hook-version: 3.0.0
 """
-SessionStart Hook: Learning Context Loader
+SessionStart Hook: Dream Payload Injector (ADR-147)
 
-Loads relevant learned patterns at session start from unified learning database.
-Injects high-confidence solutions into context.
+Injects the pre-built dream payload (if present and fresh) and surfaces a
+one-line overnight dream notice (if dream ran recently).
 
-ADR-147 addition: also injects the pre-built dream payload (if present and fresh)
-and surfaces a one-line overnight dream notice (if dream ran recently).
+The learning-injection path was removed with the rest of the learning loop:
+this hook no longer queries learning.db and records no activations.
 
 Design Principles:
-- SILENT unless meaningful patterns found
-- Project-aware (loads patterns for current directory)
-- Confidence-gated by learning_db_v2.INJECTION_MIN_CONFIDENCE
-- Counts only rows that carry a real solution (learning_db_v2.hint_has_solution)
+- SILENT unless a fresh dream payload or notice exists
+- Project-aware (reads the payload for the current directory)
 - Fast execution (<50ms target)
 - Non-blocking (always exits 0)
-- Pure file reader for dream integration — no LLM work, no learning.db queries
+- Pure file reader — no LLM work, no learning.db queries
 """
 
 import os
@@ -27,14 +25,8 @@ from pathlib import Path
 # Add lib directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
-from hook_utils import context_output, empty_output, get_session_id, hook_error, record_activations_safe
-from learning_db_v2 import (
-    INJECTION_MIN_CONFIDENCE,
-    get_stats,
-    hint_has_solution,
-    query_learnings,
-    sanitize_for_context,
-)
+from hook_utils import context_output, empty_output, hook_error
+from learning_db_v2 import sanitize_for_context
 
 EVENT_NAME = "SessionStart"
 
@@ -49,11 +41,6 @@ DREAM_PAYLOAD_MAX_CHARS = 7000
 
 # Dream report notice is surfaced if dream ran within the last 24 hours
 DREAM_REPORT_MAX_AGE_HOURS = 24
-
-# Max learnings summarized in the injected context, and max rows fetched before
-# the contentless ones are dropped.
-MAX_LEARNINGS = 10
-MAX_CANDIDATES = 40
 
 
 def _project_hash(cwd: str) -> str:
@@ -147,7 +134,7 @@ def surface_dream_report() -> str:
 
 
 def main():
-    """Load learned patterns at session start."""
+    """Inject the overnight dream payload and notice at session start."""
     try:
         cwd = os.getcwd()
 
@@ -162,47 +149,6 @@ def main():
         dream_notice = surface_dream_report()
         if dream_notice:
             context_parts.append(dream_notice)
-
-        # Get high-confidence learnings from learning.db
-        learnings = query_learnings(
-            category="error",
-            min_confidence=INJECTION_MIN_CONFIDENCE,
-            project_path=cwd,
-            limit=MAX_CANDIDATES,
-        )
-
-        # Drop rows whose solution half is a generic stub. Most error rows carry
-        # one, and a count of contentless rows ("Loaded 34 high-confidence
-        # patterns") reports a pool the session can do nothing with. Fetching
-        # MAX_CANDIDATES first keeps real solutions from being crowded out.
-        learnings = [ln for ln in learnings if hint_has_solution(ln.get("value", ""))][:MAX_LEARNINGS]
-
-        if learnings:
-            # Record activations for ROI tracking
-            debug = bool(os.environ.get("CLAUDE_HOOKS_DEBUG"))
-            session_id = get_session_id()
-            record_activations_safe(learnings, session_id, debug=debug)
-
-            lines = []
-            lines.append(f"[learned-context] Loaded {len(learnings)} high-confidence patterns")
-
-            # Group by error type
-            by_type = {}
-            for learning in learnings:
-                et = learning.get("error_type") or learning.get("topic", "unknown")
-                by_type[et] = by_type.get(et, 0) + 1
-
-            type_summary = ", ".join(f"{et}({count})" for et, count in sorted(by_type.items()))
-            lines.append(f"[learned-context] Types: {type_summary}")
-
-            # Show stats
-            stats = get_stats()
-            total = stats.get("total_learnings", 0)
-            if total > 0:
-                high_conf = stats.get("high_confidence", 0)
-                lines.append(f"[learned-context] {high_conf}/{total} patterns at high confidence")
-
-            context_parts.append("\n".join(lines))
 
         if context_parts:
             context_output(EVENT_NAME, "\n\n".join(context_parts)).print_and_exit()

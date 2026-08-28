@@ -91,16 +91,12 @@ UNSUPPORTED_REGISTRATIONS = {
     ("PostToolUse", "review-capture.py"): (
         "Codex has no PostToolUse Agent result carrying the structured reviewer output this hook captures."
     ),
-    ("PostToolUse", "instruction-compliance.py"): (
-        "Codex has no PostToolUse Agent transcript result required for instruction-compliance scoring."
-    ),
     ("PostToolUse", "routing-decision-recorder.py"): (
         "Codex has no PostToolUse Agent or Workflow result containing the routed decision marker."
     ),
     ("PostToolUse", "agent-grade-on-change.py"): (
         "Codex copy installs omit evals/harness.py, and this hook emits an ad hoc message object outside the hook schema."
     ),
-    ("TaskCompleted", "task-completed-learner.py"): ("Codex 0.144.1 does not publish a TaskCompleted lifecycle event."),
     ("StopFailure", "stop-failure-handler.py"): ("Codex 0.144.1 does not publish a StopFailure lifecycle event."),
     ("PostCompact", "postcompact-handler.py"): (
         "Codex PostCompact cannot inject the model-visible plan context that is this hook's core behavior."

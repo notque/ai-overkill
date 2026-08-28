@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "validate-do-references.py"
 SKILL_FILE = REPO_ROOT / "skills" / "meta" / "do" / "SKILL.md"
 REFS_DIR = SKILL_FILE.parent / "references"
-COLD_REFS = ("error-handling.md", "learning-capture.md")
+COLD_REFS = ("error-handling.md", "routing-telemetry.md")
 SKILLS_INDEX = REPO_ROOT / "skills" / "INDEX.json"
 AGENTS_INDEX = REPO_ROOT / "agents" / "INDEX.json"
 
@@ -127,7 +127,7 @@ def test_phantom_in_cold_reference_fails(tmp_path: Path) -> None:
 def test_missing_cold_reference_fails(tmp_path: Path) -> None:
     """Deleting a scanned cold reference fails loudly — coverage cannot drop."""
     modified = _skill_copy(tmp_path, "# /do - Smart Router", "# /do - Smart Router")
-    (tmp_path / "references" / "learning-capture.md").unlink()
+    (tmp_path / "references" / "routing-telemetry.md").unlink()
     result = _run(modified)
     assert result.returncode == 1
     assert "cold reference not found" in result.stdout

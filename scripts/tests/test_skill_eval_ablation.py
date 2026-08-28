@@ -20,6 +20,7 @@ Run with: python3 -m pytest scripts/tests/test_skill_eval_ablation.py -v
 
 import importlib.util
 import json
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -233,24 +234,14 @@ def test_record_with_envelope_writes_telemetry_run(temp_db_with_envelope, tmp_pa
     assert rows[0]["storage"] == "telemetry_runs"
     assert any(r.get("git_sha") == head for r in rows)
     assert all(r.get("git_sha") == head for r in rows)
-    # The human summary row still lands in learnings for queryability.
-    res2 = subprocess.run(
-        [
-            sys.executable,
-            str(LEARNING_DB_CLI),
-            "query",
-            "--topic",
-            "eval:evals/new-skills-ab-test",
-            "--format",
-            "json",
-        ],
-        capture_output=True,
-        text=True,
-        env={**_clean_env(), "CLAUDE_LEARNING_DIR": str(temp_db_with_envelope.parent)},
-    )
-    assert res2.returncode == 0, res2.stderr
-    learn_rows = json.loads(res2.stdout)
-    assert any(f"git_commit_sha={head}" in r.get("value", "") for r in learn_rows)
+    # The human summary row still lands in learnings for queryability. Read the
+    # table directly: the `query` subcommand retired with the learning loop.
+    with sqlite3.connect(temp_db_with_envelope) as conn:
+        learn_values = [
+            row[0]
+            for row in conn.execute("SELECT value FROM learnings WHERE topic = ?", ("eval:evals/new-skills-ab-test",))
+        ]
+    assert any(f"git_commit_sha={head}" in value for value in learn_values)
 
 
 def test_record_with_envelope_no_log_written(temp_db_with_envelope, tmp_path, monkeypatch):

@@ -691,7 +691,7 @@
         "adapt workflow",
         "system health"
       ],
-      "not_for": "upgrading one named agent or skill \u2014 that is agent-upgrade. Pick this only when an external change (a Claude Code release, a stated goal shift, or graduated learnings) requires adapting many components at once.",
+      "not_for": "upgrading one named agent or skill \u2014 that is agent-upgrade. Pick this only when an external change (a Claude Code release, a stated goal shift, or routing telemetry showing many weak routes) requires adapting many components at once.",
       "category": "meta",
       "user_invocable": false,
       "version": "1.0.0",

@@ -233,11 +233,11 @@ Hooks fire on harness events and enforce gates the model cannot rationalize past
 | Event | Fires when | Typical gates |
 |-------|------------|---------------|
 | `SessionStart` | Session opens | Inject learned context, detect operator mode |
-| `UserPromptSubmit` | User sends a message | Detect pipeline requests, capture corrections |
+| `UserPromptSubmit` | User sends a message | Detect pipeline requests, score the pending routing outcome |
 | `PreToolUse` | Before any tool call | Safety gates, ADR checks, branch safety |
 | `PostToolUse` | After any tool call | Quality checks, INDEX sync, framing validation |
-| `PreCompact` | Before context compaction | Archive session learnings |
-| `Stop` | Session ends | Record metrics, graduate learnings |
+| `PreCompact` | Before context compaction | Archive the session transcript |
+| `Stop` | Session ends | Record metrics, score any unresolved routing outcome |
 
 **Hook safety rule**: Hooks that enforce advisory policies exit 0. Hooks that enforce hard gates exit 2. A hook that exits non-zero on every call will deadlock the agent loop.
 

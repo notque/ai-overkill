@@ -99,7 +99,7 @@ Scope provides additional context about what part of the codebase is affected.
 feat(agents): add systematic-debugging agent
 fix(skills): resolve validation error in git-commit-flow
 docs(commands): add usage examples for /do command
-refactor(hooks): simplify error-learner pattern matching
+refactor(hooks): simplify routing-outcome scoring logic
 ```
 
 **When to omit scope:**
@@ -259,15 +259,15 @@ enable reuse across multiple scripts.
 
 ### Example 5: Multiple Related Changes
 ```
-feat: implement error-learner hook system
+feat: implement routing-outcome hook system
 
-Adds automatic error pattern learning with:
-- Pattern detection from error messages
-- Confidence-based fix suggestions
+Adds automatic routing outcome scoring with:
+- Dispatch capture at PostToolUse:Agent
+- Three-way outcome scoring on the next user turn
 - Automatic feedback loop (success/failure tracking)
-- Manual pattern teaching via /learn command
+- Stop-time fallback for sessions with no following turn
 
-This enables self-improving error resolution over time.
+This enables route-health reporting over time.
 ```
 
 ### Example 6: Breaking Change

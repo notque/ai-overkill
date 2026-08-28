@@ -7,7 +7,7 @@
 ```
 Claude Code Session
     ↓
-Event Generation (PostToolUse, PreToolUse, SessionStart)
+Event Generation (PostToolUse, PreToolUse, SessionStart, SubagentStop, Stop)
     ↓
 Hook Registry (settings.json)
     ↓
@@ -19,41 +19,43 @@ Hook Registry (settings.json)
 │    - Execution results and errors                       │
 │    - Context and session data                           │
 ├─────────────────────────────────────────────────────────┤
-│ 2. Error Detection & Classification                     │
-│    - Pattern matching against known errors              │
-│    - Error signature generation (MD5)                   │
-│    - Classification into predefined types               │
+│ 2. Gate or Classify                                     │
+│    - Gates: allow, or deny with a reason (PreToolUse)   │
+│    - Classifiers: read the event into an outcome        │
+│    - Guards stack on the expensive direction only       │
 ├─────────────────────────────────────────────────────────┤
-│ 3. Learning Database Query                              │
-│    - Lookup existing patterns by signature              │
-│    - Check solution confidence scores (>0.7)            │
-│    - Retrieve high-confidence solutions                 │
+│ 3. Telemetry Write (append-only)                        │
+│    - One dispatch marker per event                      │
+│    - Outcome recorded with the basis it was scored on   │
+│    - busy_timeout set on every connection               │
 ├─────────────────────────────────────────────────────────┤
-│ 4. Solution Injection                                   │
-│    - Format solutions for Claude Code context          │
-│    - Call context_output(EVENT, text).print_and_exit() │
+│ 4. Optional Context Injection                           │
+│    - Format text for Claude Code context                │
+│    - Call context_output(EVENT, text).print_and_exit()  │
 │    - hook_utils handles JSON encoding to stdout         │
 ├─────────────────────────────────────────────────────────┤
-│ 5. Learning Updates                                     │
-│    - Track solution application success/failure         │
-│    - Update confidence scores (+0.1/-0.2)              │
-│    - Store new patterns with initial confidence 0.0     │
+│ 5. Exit 0                                               │
+│    - Every path, including every failure path           │
+│    - sys.exit(0) in a finally block                     │
 └─────────────────────────────────────────────────────────┘
     ↓
 Context Available to Claude Code Next Tool Use
 ```
 
-## Learning Database Directory Structure
+A hook records and gates. It never edits an agent or skill file: a pipeline that writes to a component on its own takes unbounded risk against an unproven benefit, so knowledge reaches a component through a reviewed human edit.
+
+## Telemetry Directory Structure
 
 ```
-~/.claude/learnings/
-├── error_patterns.json         # Main learning database
-├── error_patterns.json.bak     # Backup for recovery
-├── error_patterns.lock         # File lock for atomic operations
-└── debug/
-    ├── classification_log.json  # Error classification history
-    ├── confidence_history.json  # Confidence score evolution
-    └── pattern_evolution.json   # Pattern discovery timeline
+~/.claude/learning/
+└── learning.db                 # SQLite (WAL mode) — routing, evidence, governance
+~/.claude/state/
+├── dream-injection-{hash}.md   # Pre-built session-start payload
+└── last-dream.md               # Overnight consolidation summary
+/tmp/
+└── claude_hook_debug.log       # Non-blocking debug log
 ```
 
-See [learning-database.md](learning-database.md) for schema and operations.
+Two other `learning.db` files exist on disk with an older schema. Resolve the path through `learning_db_v2.get_db_path()` rather than hardcoding it.
+
+See [telemetry-database.md](telemetry-database.md) for schema and operations.

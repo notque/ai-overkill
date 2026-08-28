@@ -20,12 +20,12 @@ Reference for Phase 3 CRITIQUE (fallback), failure modes, error handling, and co
 ## Error Handling
 
 ### Error: "learning-db.py not found"
-Cause: Learning database scripts not installed.
-Solution: The learning DB is at `~/.claude/scripts/learning-db.py`. If missing, skip learning DB queries and rely on git log + dream reports for diagnosis. Record this gap as an improvement opportunity.
+Cause: Telemetry scripts not installed.
+Solution: The CLI is at `~/.claude/scripts/learning-db.py`. If missing, skip the telemetry queries and diagnose from git log and dream reports. Record this gap as an improvement opportunity.
 
 ### Error: "No dream reports found"
 Cause: Auto-dream has not run yet or state directory is empty.
-Solution: Proceed without dream insights. Use git log and learning DB as primary data sources. Note that enabling auto-dream would improve future evolution cycles.
+Solution: Proceed without dream insights. Use git log and routing telemetry as primary data sources. Note that enabling auto-dream would improve future evolution cycles.
 
 ### Error: "No STRONG proposals after critique"
 Cause: All proposals received MODERATE or WEAK consensus.
@@ -80,7 +80,7 @@ Brief all 5 agents with the same baseline data from `references/diagnose-scripts
 
 | Agent | Perspective | What it looks for |
 |-------|------------|-------------------|
-| **The User** | Analyzes learning.db for unmatched routing requests (`python3 scripts/learning-db.py search "routing decision" --limit 20`), error patterns, and requests that had no agent match. "What did users ask for that we couldn't handle?" |
+| **The User** | Reads routing telemetry for weak and error-prone routes (`python3 scripts/learning-db.py route-health`, then `route-stats --by errors`) and requests that landed on `general-purpose` with no specialist. "What did users ask for that we couldn't handle?" |
 | **The Operator** | Examines the active projects (check git repos in `~/`) for repeated manual workflows that could be skills. "What am I doing by hand that should be automated?" |
 | **The Strategist** | Uses the business-ops skill's (formerly csuite) EVALUATION mode thinking: what decision-support, content, or process skills would make the owner more effective? Reads `skills/business/business-ops/SKILL.md` for framework. "What high-leverage skills are we missing?" |
 | **The Community** | Web-searches for what people are building and requesting in AI coding communities (Claude Code GitHub issues, Reddit, X/Twitter). "What does the market want?" |

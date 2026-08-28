@@ -29,37 +29,9 @@ Gather all findings from Phase 2 (REVIEW) and Phase 4b (REVIEW-FIX LOOP) that we
 
 For each finding, identify the **responsible agent or skill** -- the component whose instructions should have prevented the issue.
 
-### Step 2: Record Learnings
+### Step 2: Embed in the responsible agent or skill
 
-For each finding, record a retro entry scoped to the responsible agent or skill:
-
-```bash
-# For agent-scoped findings (e.g., python-general-engineer produced bad code)
-python3 ~/.claude/scripts/learning-db.py learn --agent {agent-name} "pattern description from review finding"
-
-# For skill-scoped findings (e.g., reddit-moderate missed a test requirement)
-python3 ~/.claude/scripts/learning-db.py learn --skill {skill-name} "pattern description from review finding"
-```
-
-### Step 3: Immediate Graduation
-
-Per /do Phase 5 policy, boost each entry to 1.0 confidence and graduate immediately. This is NOT a slow-burn learning -- review findings in this repo are structural fixes.
-
-```bash
-# Boost confidence to 1.0 (run boost 3x -- each boost applies a multiplier)
-python3 ~/.claude/scripts/learning-db.py boost "agent:{agent-name}" "{key}"
-python3 ~/.claude/scripts/learning-db.py boost "agent:{agent-name}" "{key}"
-python3 ~/.claude/scripts/learning-db.py boost "agent:{agent-name}" "{key}"
-
-# Graduate -- marks as embedded, excludes from future prompt injection
-python3 ~/.claude/scripts/learning-db.py graduate "agent:{agent-name}" "{key}" "agents/{agent-name}.md"
-# Or for skills:
-python3 ~/.claude/scripts/learning-db.py graduate "skill:{skill-name}" "{key}" "skills/{skill-name}/SKILL.md"
-```
-
-### Step 4: Embed in Agent/Skill
-
-Update the responsible agent or skill file with the graduated pattern:
+Write the finding into the component that should have prevented it, in this PR, as a reviewed edit. A review finding in this repo is a structural fix, so it lands in the file directly — no staging store in between.
 
 | Finding Target | Update Location | Section to Modify |
 |---------------|----------------|-------------------|
@@ -70,7 +42,7 @@ Update the responsible agent or skill file with the graduated pattern:
 
 Write the pattern at the right abstraction level -- generalize from the specific bug to the class of bug (e.g., "validate all CLI inputs" not "validate subreddit names in _cmd_classify").
 
-### Step 5: Stage Retro Changes
+### Step 3: Stage Retro Changes
 
 ```bash
 # Stage updated agent/skill files alongside the code changes

@@ -328,6 +328,60 @@ class TestRuntimeIndexMerge:
         assert (dst / "INDEX.local.json").resolve() == (src / "INDEX.local.json").resolve()
 
 
+class TestCodexRuntimeSkillIndex:
+    """Codex indexes must describe the deployed flat mirror, not repo paths."""
+
+    def test_rewrites_nested_paths_and_prunes_undeployed_entries(self, tmp_path: Path) -> None:
+        src = tmp_path / "repo-skills"
+        dst = tmp_path / "codex-skills"
+        src.mkdir()
+        dst.mkdir()
+        (src / "INDEX.json").write_text(
+            json.dumps(
+                {
+                    "version": "2.0",
+                    "skills": {
+                        "demo-skill": {"file": "skills/content/demo-skill/SKILL.md"},
+                        "missing": {"file": "skills/content/missing/SKILL.md"},
+                    },
+                }
+            )
+        )
+        deployed = dst / "demo-skill"
+        deployed.mkdir()
+        (deployed / "SKILL.md").write_text("---\nname: demo-skill\n---\n")
+
+        changed = sync_mod._sync_codex_runtime_skill_indexes(src, dst)
+
+        assert changed == 2
+        for filename in ("INDEX.json", "INDEX.local.json"):
+            index = json.loads((dst / filename).read_text())
+            assert set(index["skills"]) == {"demo-skill"}
+            assert index["skills"]["demo-skill"]["file"] == "skills/demo-skill/SKILL.md"
+
+    def test_promoted_cleanup_removes_only_repo_owned_mirror(self, tmp_path: Path) -> None:
+        repo_skills = tmp_path / "repo" / "skills"
+        replacement = repo_skills / "content" / "replacement"
+        promoted = repo_skills / "content" / "old-skill"
+        replacement.mkdir(parents=True)
+        promoted.mkdir(parents=True)
+        (replacement / "SKILL.md").write_text("---\nname: replacement\n---\n")
+        source_md = promoted / "SKILL.md"
+        source_md.write_text("---\nname: old-skill\npromoted_to: replacement\n---\n")
+
+        dst = tmp_path / "codex" / "skills"
+        owned = dst / "old-skill"
+        owned.mkdir(parents=True)
+        (owned / "SKILL.md").symlink_to(source_md)
+        assert sync_mod._clean_codex_promoted_skills(repo_skills, dst) == 1
+        assert not owned.exists()
+
+        owned.mkdir()
+        (owned / "SKILL.md").write_text("---\nname: user-owned\n---\n")
+        assert sync_mod._clean_codex_promoted_skills(repo_skills, dst) == 0
+        assert owned.is_dir()
+
+
 class TestSupportDirSurvivesCleanup:
     """Support dirs (reference .md files, no SKILL.md) must enter
     expected_names, or the stale-cleanup loop unlinks them every

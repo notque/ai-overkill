@@ -64,31 +64,27 @@ git branch -r --merged origin/main | grep "origin/feat/evolve-" | while read bra
 done
 ```
 
-## Step 2: Record Failed Proposal
+## Step 2: Record a failed proposal
 
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --topic "evolution-result" \
-  "Failed proposal: {description}. Hypothesis: {what we expected}. Result: {what happened}. Lesson: {what we learned}."
+A proposal that was built and lost is a negative result. Append it to `docs/what-didnt-work.md` in the registry's six-field format, newest first:
+
+```
+## {YYYY-MM-DD} {description}
+- Expectation: {what we expected}
+- What happened: {what happened}
+- Evidence: {file:line, eval path, or PR number}
+- Decision: rejected | deferred | revisit-if {condition}
 ```
 
-## Step 3: Record Full Cycle Summary
+Name an evidence location, never a bare claim. One lookup here prevents re-running a settled experiment next cycle.
 
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --topic "evolution-cycle" \
-  "toolkit-evolution cycle: {N} proposals evaluated, {M} built, {W} winners, {L} losses. Top win: {description}. Focus: {area or 'general'}."
-```
+## Step 3: Record the cycle summary
 
-## Early Exit Record
+Append the cycle result to `references/evolution-history.md`: `{N}` proposals evaluated, `{M}` built, `{W}` winners, `{L}` losses, top win `{description}`, focus `{area or 'general'}`.
 
-When no STRONG proposals are found, record before stopping:
+## Early exit record
 
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --topic "evolution-cycle" \
-  "early-exit: no STRONG proposals found. {N} proposals evaluated ({list of titles}). Top scores: {top_score}. Consider: {what prevented STRONG consensus}."
-```
+When no STRONG proposals are found, append to `references/evolution-history.md` before stopping: `{N}` proposals evaluated (`{list of titles}`), top score `{top_score}`, and what prevented STRONG consensus. Recording the shelved titles is what stops the next cycle re-proposing them.
 
 ## Build Dispatch
 

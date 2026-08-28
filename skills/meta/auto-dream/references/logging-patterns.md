@@ -70,7 +70,7 @@ cat ~/.claude/state/last-dream.md
 head -3 ~/.claude/state/last-dream.md
 
 # Count memories processed vs deferred
-grep -E 'consolidated|archived|deferred|synthesized|graduated' ~/.claude/state/last-dream.md
+grep -E 'consolidated|archived|deferred|synthesized' ~/.claude/state/last-dream.md
 ```
 
 **Why**: `last-dream.md` is overwritten each cycle, not versioned. It's the authoritative summary of what the most recent cycle did. The dated `dream-scan-` and `dream-analysis-` files preserve the per-cycle audit trail but require matching by date.

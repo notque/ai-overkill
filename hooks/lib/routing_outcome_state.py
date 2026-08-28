@@ -11,7 +11,7 @@ next-turn signal is available:
   - UserPromptSubmit (routing-outcome-finalizer.py): on the next user turn,
     finalizes still-pending entries from tool-errors + user reaction + re-route,
     applying boost/decay ONCE then clearing them (idempotent).
-  - Stop (session-learning-recorder.py fallback): resolves any STILL-pending
+  - Stop (routing-outcome-stop-fallback.py): resolves any STILL-pending
     entries via the error flag alone (the deterministic floor) so autonomous /
     no-next-prompt runs still record an outcome.
 

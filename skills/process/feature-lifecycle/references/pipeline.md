@@ -115,7 +115,7 @@ This pipeline orchestrates the full feature lifecycle by invoking phases in sequ
 
 ### Phase 6: RECORD
 
-**Goal**: Log feature lifecycle pattern to learning database for future features.
+**Goal**: Record the feature lifecycle pattern in the repo for future features.
 
 **Step 1: Record feature pattern**
 
@@ -129,17 +129,13 @@ This pipeline orchestrates the full feature lifecycle by invoking phases in sequ
 **Gotcha**: [what almost went wrong or required extra care]
 ```
 
-**Step 2: Update learning.db**
-
-Record the feature lifecycle pattern and outcome to the learning database.
-
-**Step 3: Retrospective notes**
+**Step 2: Retrospective notes**
 
 Document what went well, what could improve, and any process adjustments for next time.
 
-**Output**: `[learning] Feature pattern recorded.`
+**Output**: `Feature pattern recorded.`
 
-**GATE**: Learning database entry exists with phase outcomes, key decisions, and gotchas. Retrospective notes captured.
+**GATE**: The recorded summary names phase outcomes, key decisions, and gotchas. Retrospective notes captured.
 
 ---
 

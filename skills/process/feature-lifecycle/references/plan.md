@@ -213,17 +213,12 @@ If gate is `auto`: verify all checklist items pass.
    echo "PLAN_CONTENT" | python3 ~/.claude/scripts/feature-state.py checkpoint FEATURE plan
    ```
 
-2. **Record learnings** -- if this phase produced non-obvious insights, record them:
-   ```bash
-   python3 ~/.claude/scripts/learning-db.py record TOPIC KEY "VALUE" --category design
-   ```
-
-3. Advance:
+2. Advance:
    ```bash
    python3 ~/.claude/scripts/feature-state.py advance FEATURE
    ```
 
-4. Suggest next step:
+3. Suggest next step:
    ```
    Plan complete. Run /feature-lifecycle to continue to the implement phase.
    ```

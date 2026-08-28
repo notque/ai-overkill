@@ -58,8 +58,8 @@ The full cycle, in order:
 2. **Implement** changes
 3. **Wave review** via `/pr-review` (parallel reviewer agents)
 4. **Fix** findings (up to 3 iterations)
-5. **Retro** captures learnings
-6. **Graduate** validated learnings into permanent files
+5. **Record** any dead end in `docs/what-didnt-work.md` with its evidence location
+6. **Edit** the agent or skill file yourself when a finding should change behavior
 7. **Commit** (conventional format, no AI attribution)
 8. **Push** to remote
 9. **PR** via `gh pr create`
