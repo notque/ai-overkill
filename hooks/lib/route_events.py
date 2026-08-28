@@ -71,6 +71,7 @@ def record_decision_event(
     complexity: str = "",
     complexity_invalid: str = "",
     stack: list[str] | None = None,
+    pipeline: str | None = None,
     model: str | None = None,
     health_at_decision: float | None = None,
     n: int | None = None,
@@ -101,6 +102,7 @@ def record_decision_event(
     (e.g. "Low") — written only when non-empty, so the bad value is kept for
     audit instead of dropped. stack is the parsed ` stack={s1,s2}` marker token;
     written only when present, so stack-free markers write unchanged events.
+    pipeline is the parsed ` pipeline=<name>` token, written on the same terms.
     """
     event: dict[str, Any] = {
         "type": "decision",
@@ -121,6 +123,8 @@ def record_decision_event(
         event["complexity_invalid"] = complexity_invalid
     if stack is not None:
         event["stack"] = stack
+    if pipeline is not None:
+        event["pipeline"] = pipeline
     if model is not None:
         event["model"] = model
     _append(event)

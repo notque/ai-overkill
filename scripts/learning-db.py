@@ -1447,23 +1447,60 @@ def cmd_backfill_routing_outcomes(args: argparse.Namespace) -> None:
     print(f"  Unchanged: {unchanged}")
 
 
+# The recording hook owns the observability declaration; this mirror is used
+# only when it cannot be imported (cross-repo copy, missing file).
+_OBSERVABLE_FALLBACK = frozenset({"M04", "M05", "M06"})
+
+
+def _observable_instructions() -> frozenset[str]:
+    """Instruction IDs the recording hook declares it CAN observe.
+
+    Source of truth: hooks/instruction-compliance.py INSTRUCTIONS. Anything not
+    in this set is unobservable, including an ID the hook no longer declares.
+    Unobservable rows stay in the table — they are history — but a skip rate
+    measured on a surface that cannot show compliance must never recommend a
+    blocking gate.
+    """
+    try:
+        import importlib.util
+
+        hook = _repo_root / "hooks" / "instruction-compliance.py"
+        spec = importlib.util.spec_from_file_location("instruction_compliance", hook)
+        if spec is None or spec.loader is None:
+            return _OBSERVABLE_FALLBACK
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return frozenset(i for i, d in mod.INSTRUCTIONS.items() if d.get("observable", False))
+    except Exception:
+        return _OBSERVABLE_FALLBACK
+
+
 def cmd_skip_rate(args: argparse.Namespace) -> None:
     """Display instruction skip-rate report from the instruction_compliance table.
 
     Queries the dedicated instruction_compliance table for per-observation
     data and computes skip rate per instruction. Flags instructions with
-    >20% skip rate over 30+ observations for conversion to programmatic gates.
+    >20% skip rate over 30+ observations for conversion to programmatic gates —
+    but only instructions the recording hook can actually observe. Unobservable
+    ones keep their historical rows and are reported as NOT MEASURABLE.
     """
     init_db()
 
-    # Instruction ID -> human-readable name mapping
+    # Instruction ID -> human-readable name mapping. M05/M06 measure whether the
+    # directive reached the prompt, not whether the output followed it.
     instr_names: dict[str, str] = {
         "M01": "Phase Banners",
         "M03": "Routing Decision",
         "M04": "Reference Loading",
-        "M05": "Completeness",
-        "M06": "Density Standard",
+        "M05": "Completeness Injected",
+        "M06": "Density Injected",
     }
+    observable = _observable_instructions()
+
+    def _status(instr_id: str, skip_rate: float, observations: int, gate_label: str) -> str:
+        if instr_id not in observable:
+            return "NOT MEASURABLE"
+        return gate_label if skip_rate > 20 and observations >= 30 else "OK"
 
     results = query_instruction_skip_rate(days=30)
 
@@ -1482,7 +1519,7 @@ def cmd_skip_rate(args: argparse.Namespace) -> None:
                     "observations": r["observations"],
                     "non_compliant": r["non_compliant"],
                     "skip_rate": r["skip_rate"],
-                    "status": "CONVERT_TO_GATE" if r["skip_rate"] > 20 and r["observations"] >= 30 else "OK",
+                    "status": _status(instr_id, r["skip_rate"], r["observations"], "CONVERT_TO_GATE"),
                 }
             )
         print(json.dumps(report, indent=2))
@@ -1498,20 +1535,24 @@ def cmd_skip_rate(args: argparse.Namespace) -> None:
         instr_id = r["instruction_id"]
         name = instr_names.get(instr_id, instr_id)
         skip_rate = r["skip_rate"]
-
-        if skip_rate > 20 and r["observations"] >= 30:
-            status = "CONVERT TO GATE"
-        else:
-            status = "OK"
+        status = _status(instr_id, skip_rate, r["observations"], "CONVERT TO GATE")
 
         print(f"{instr_id:<6}{name:<22}{r['observations']:>14}{skip_rate:>11.1f}%{status:>17}")
 
     print("-" * 72)
-    flagged = sum(1 for r in results if r["skip_rate"] > 20 and r["observations"] >= 30)
+    flagged = sum(
+        1 for r in results if r["instruction_id"] in observable and r["skip_rate"] > 20 and r["observations"] >= 30
+    )
     if flagged:
         print(f"{flagged} instruction(s) flagged for conversion to programmatic gates (>20% skip, 30+ obs)")
     else:
         print("No instructions flagged. Threshold: >20% skip rate over 30+ observations.")
+    unmeasurable = sorted(r["instruction_id"] for r in results if r["instruction_id"] not in observable)
+    if unmeasurable:
+        print(
+            f"NOT MEASURABLE, so not scored: {', '.join(unmeasurable)} — "
+            "the recording hook cannot observe these; see hooks/instruction-compliance.py"
+        )
 
 
 _BASIS_LABELS = (

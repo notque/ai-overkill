@@ -186,7 +186,9 @@ All Critical/High findings were fixed on the original branch before the split.
 ## Reproduce (sensor)
 
 ```bash
-# Signal check: expect exit 0 (NO-SIGNAL) today
+# Signal check: exits 3 (SIGNAL) today — 1 routing-relevant failure,
+# 81 decisions with health_at_decision, 0 would-demote. The re-propose
+# condition above is met; the actuator has not been re-proposed yet.
 python3 scripts/route-signal-check.py
 
 # Test suite

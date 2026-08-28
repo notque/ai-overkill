@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.3.0
+# hook-version: 1.4.0
 """
 PostToolUse Hook: Routing Decision Recorder (action A, formerly /do Phase 5)
 
@@ -111,6 +111,13 @@ _VALID_COMPLEXITY = frozenset({"trivial", "simple", "medium", "complex"})
 # the router composed for this dispatch. Instrumentation only: parsed onto the
 # decision event as a list; absent token => no field. Same charset as alts=.
 _STACK_RE = re.compile(r"\bstack=\{([a-z0-9:_,-]*)\}", re.IGNORECASE)
+
+# Pipeline token on the marker line: ` pipeline=<name>` — the workflow pipeline
+# the router picked (build-dispatch.py resolve_pipeline, validated against
+# pipeline-index.json before it is emitted). Absent or `-` => None. Every
+# pipeline pick was invisible until this parser existed: the router emitted the
+# token, nothing read it, so evidence_route_decisions.pipeline stayed NULL.
+_PIPELINE_RE = re.compile(r"\bpipeline=([a-z0-9-]+)", re.IGNORECASE)
 
 # Model token on the marker line: `model=opus` or `model=-`. GPT-5.6 selections
 # carry an additional `effort=` token. Valid values match build-dispatch.py;
@@ -266,6 +273,21 @@ def parse_stack(marker_text: str) -> list[str] | None:
         return None
     items = [s for s in m.group(1).split(",") if s]
     return items or None
+
+
+def parse_pipeline(marker_text: str) -> str | None:
+    """Read the optional ` pipeline=<name>` token off the marker LINE, or None.
+
+    None when the token is absent (the majority of dispatches) or `pipeline=-`.
+    Scoped to the marker line (same rationale as parse_stack): task prose
+    mentioning `pipeline=` must never be read as the router's pick.
+    """
+    line = _marker_line(marker_text)
+    m = _PIPELINE_RE.search(line)
+    if not m:
+        return None
+    name = m.group(1).lower()
+    return None if name == "-" else name
 
 
 def parse_model(marker_text: str) -> str | None:
@@ -710,6 +732,7 @@ def main() -> None:
             # swallows write errors so the hook stays non-blocking.
             complexity, complexity_invalid = parse_marker_complexity(marker_text)
             stack = parse_stack(marker_text)
+            pipeline = parse_pipeline(marker_text)
             health = parse_health_inputs(marker_text)
             model = parse_model(marker_text)
             effort = parse_model_effort(marker_text)
@@ -735,6 +758,7 @@ def main() -> None:
                 complexity=complexity,
                 complexity_invalid=complexity_invalid,
                 stack=stack,
+                pipeline=pipeline,
                 model=recorded_model,
                 health_at_decision=health["health"],  # real gate inputs from the marker (Step 1.5)
                 n=health["n"],
@@ -778,6 +802,7 @@ def main() -> None:
                     model=recorded_model,
                     request_snippet=request_snippet,
                     stack=stack,
+                    pipeline=pipeline,
                     health=health["health"],
                     n=health["n"],
                     failure=bool(has_errors),
