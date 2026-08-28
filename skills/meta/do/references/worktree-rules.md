@@ -128,11 +128,44 @@ bash scripts/worktree-cleanup.sh --force
 
 `git worktree remove` frees the materialized checkout while preserving its branch for recovery. The cleanup script then prunes stale records and removes merged harness branches.
 
+## Dispatcher Rules
+
+These two rules bind the orchestrator that dispatches agents, not the worktree agent itself. `hooks/pretool-worktree-edit-guard.py` blocks a worktree agent from writing into the shared main tree. Nothing stops an orchestrator from putting two writers in that tree to begin with.
+
+### Rule D1: Give Every File-Writing Agent Its Own Worktree
+
+Dispatch any agent that writes files with `isolation: "worktree"` when you also run git commands in the main tree, or when another writing agent is already running there. Agents that only read are safe to run concurrently in the main tree.
+
+Two writers in one tree contend for `HEAD` and the index. Observed damage: a `git reset --hard` during one agent's rebase dropped a sibling agent's committed branch, recoverable only through the reflog.
+
+When agents must share a tree, sequence their git index operations and record a recovery ref before any rebase:
+
+```bash
+git branch backup/$(git branch --show-current)-$(date +%s)
+```
+
+### Rule D2: Validate an Agent's PR Against origin, Not Your Working Tree
+
+Reset the branch to its pushed state before you grep or test a background agent's work locally:
+
+```bash
+git fetch origin
+git reset --hard origin/<branch>
+```
+
+The main tree can carry staged files left over from earlier worktree juggling. Those files silently revert the agent's commit, so local greps and test runs read code the agent never wrote — and a correct agent looks broken. The committed blob is the authority. Read it directly when you need one file:
+
+```bash
+git show <sha>:<path>
+```
+
 ## Failure Modes This Prevents
 
 | Failure | Rule | Without It |
 |---------|------|-----------|
 | Agent edits main repo files | 1, 6 | Changes leak to main, get stashed/lost |
+| Two agents corrupt each other's branches | D1 | A rebase drops a sibling's commits; reflog is the only recovery |
+| Local validation reads stale staged files | D2 | The agent's correct work is reported as broken |
 | Context wasted on task_plan.md | 4 | Implementation budget consumed by planning |
 | Commit on wrong branch | 2 | Orchestrator merges wrong content |
 | PR has changes from 2 ADRs | 5, 6 | Cross-contamination between agents |

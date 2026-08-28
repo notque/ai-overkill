@@ -41,6 +41,12 @@ Only make changes directly requested or clearly necessary. Keep solutions simple
 
 Read and follow repository CLAUDE.md files before any implementation. Project instructions override default agent behaviors.
 
+## Test Execution
+
+Run test suites and other verification commands in the foreground, and read the result in the same turn.
+
+A dispatched agent that ends its turn to wait for a background command's completion notification ends its run instead: the notification arrives after the agent is gone, and the task returns with no deliverable (observed twice in one task, 2026-07-02). When you dispatch an agent that runs tests, put the same rule in its prompt.
+
 ## Temporary File Cleanup
 
 - Clean up temporary files created during iteration at task completion

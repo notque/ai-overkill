@@ -231,6 +231,37 @@ Regenerate `agents/INDEX.json` immediately after any agent add, rename, or delet
 
 ---
 
+### Move All Four Registration Invariants Together
+
+A PR that adds a skill plus a hook has to update four places at once. Each holds its own copy of facts the others also hold, and CI fails on whichever one lags.
+
+**Detection**:
+```bash
+# Both skill-path maps carry their own copy of the mapping table
+grep -c SKILL_MAPPING scripts/fix-skill-paths.py scripts/migrate-skills-to-folders.py
+
+# Both routers carry their own semantic-guard table
+grep -n "^SEMANTIC_GUARDS" scripts/pre-route.py scripts/index-router.py
+
+# Counts claimed in prose vs counts on disk
+python3 scripts/validate-doc-counts.py
+```
+
+**Signal**: CI fails on a doc-count claim; or the new skill force-routes from one router and falls through the other; or a path-fixing script rewrites every skill path except the new one.
+
+| Invariant | Lives in | Fails as |
+|-----------|----------|----------|
+| Component counts | `README.md`, `docs/*.md` — checked by `scripts/validate-doc-counts.py` | CI count mismatch |
+| `SKILL_MAPPING` | `scripts/fix-skill-paths.py` **and** `scripts/migrate-skills-to-folders.py` | Path rewrites skip the new skill |
+| `SEMANTIC_GUARDS` | `scripts/pre-route.py` **and** `scripts/index-router.py` | Routing differs between the two routers |
+| Trigger specificity | The new skill's `routing.triggers` | A single-word `force_route` trigger hijacks unrelated requests (see Trigger Phrase Specificity above) |
+
+**Why this matters**: Each pair duplicates the same fact in two files. Updating one and not its twin produces a component that is half-registered — it routes in one code path and vanishes in the other, with no error anywhere.
+
+**Preferred action**: Update all four before pushing, then run `validate-doc-counts.py` **after** merging main. Two branches that each add a component both bump the same README number from 78 to 79, and git reports a conflict where both sides read 79 while the true merged value is 80. Resolving that conflict by taking either side leaves the count wrong; recount from the filesystem instead.
+
+---
+
 ### Remove Self-References from pairs_with
 
 **Detection**:

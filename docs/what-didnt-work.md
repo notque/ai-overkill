@@ -102,6 +102,13 @@ Experiments recorded after the seed set. Same four bold fields; `###` headings k
 - **Evidence**: branch `feat/review-contract-provenance` (pushed, unmerged); workflow run `wf_d2f09dbd-850`; master list `tmp/agent-scripts-master-list.json`.
 - **Decision**: rejected. Keep baseline `systematic-code-review`/`parallel-code-review` unchanged; revisit-if a stronger variant and a larger A/B.
 
+### 2026-05-23 Parity-audit agent cited source values that exist in no source file
+
+- **Expectation**: an audit agent comparing a Go port against its VB6 original would report real divergences, citable by file and line.
+- **What happened**: the audit reported a progression table as "live VB6" whose values appear in no `.frm` file; the Go code already matched the real ones. 5 of 6 reported divergences were audit errors. Acting on them would have deleted live behavior. Requiring the fix agents to re-read the VB6 source before editing caught it.
+- **Evidence**: `learning.db` `skill:vb6-to-go-backend-port/16afac8918b8`; the port itself lives outside this repo.
+- **Decision**: rejected as-is. An agent-produced citation is a claim, not evidence. Re-read the cited authority before acting on a finding. This applies to any review or audit agent that quotes line numbers, not only this port.
+
 ## 2026-06-05 Provenance footers on every answer
 
 - **Expectation**: per-answer footers (source tier, confidence, reviewed-by, freshness, owner) improve auditability.

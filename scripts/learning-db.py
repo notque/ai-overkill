@@ -19,6 +19,8 @@ Usage:
     python3 scripts/learning-db.py boost TOPIC KEY [--delta 0.15]
     python3 scripts/learning-db.py prune --category error --dry-run
     python3 scripts/learning-db.py prune --topic unknown --max-confidence 0.5 --older-than 90 --apply
+    python3 scripts/learning-db.py dedupe [--category voice] [--prefix 120] [--json]
+    python3 scripts/learning-db.py dedupe --apply
     python3 scripts/learning-db.py stale [--min-age-days 30] [--json]
     python3 scripts/learning-db.py stale-prune --dry-run [--min-age-days 30]
     python3 scripts/learning-db.py stale-prune --confirm [--min-age-days 30]
@@ -456,6 +458,183 @@ def cmd_prune(args):
         total_after = conn.execute("SELECT COUNT(*) FROM learnings").fetchone()[0]
         conn.execute("VACUUM")
     print(f"Deleted {deleted} entries. Total learnings: {total_before} -> {total_after}.")
+
+
+# ─── Deduplication ─────────────────────────────────────────────
+
+# Values that match after this normalization are treated as the same learning.
+# Lowercasing and dropping non-alphanumerics absorbs re-recording noise
+# (whitespace, an added "→", a trailing period); the prefix bounds the
+# comparison so a shared preamble with a divergent tail still collapses.
+DEDUPE_PREFIX_CHARS = 120
+_DEDUPE_NOISE_RE = re.compile(r"[^a-z0-9]")
+
+
+def normalize_learning_value(value: object, prefix: int = DEDUPE_PREFIX_CHARS) -> str:
+    """Return the cluster key for a learning value: lowercase alphanumerics, truncated."""
+    if not isinstance(value, str):
+        return ""
+    return _DEDUPE_NOISE_RE.sub("", value.lower())[:prefix]
+
+
+def _survivor_rank(row: sqlite3.Row) -> tuple:
+    """Sort key that puts the row to keep first.
+
+    Highest confidence wins. Ties break on most observations, then earliest
+    first_seen, then lowest id — so the same cluster always yields the same
+    survivor, which keeps a dry run an honest preview of --apply.
+    """
+    return (
+        -(row["confidence"] or 0.0),
+        -(row["observation_count"] or 0),
+        row["first_seen"] or "",
+        row["id"],
+    )
+
+
+def find_duplicate_clusters(
+    conn: sqlite3.Connection,
+    *,
+    category: str | None = None,
+    prefix: int = DEDUPE_PREFIX_CHARS,
+) -> list[list[sqlite3.Row]]:
+    """Group rows into near-duplicate clusters of 2 or more, survivor first.
+
+    Rows graduated or read by route-weights are excluded, matching `prune`.
+    Rows whose normalized value is empty are skipped, because an empty key
+    would collapse every punctuation-only value into one cluster.
+    """
+    sql = (
+        "SELECT id, topic, key, category, value, confidence, observation_count, "
+        f"first_seen, last_seen, source FROM learnings WHERE {_PRUNE_PROTECT_SQL}"  # security-review: ignore (fixed clause; user values bound as ?)
+    )
+    params: list = []
+    if category is not None:
+        sql += " AND category = ?"
+        params.append(category)
+
+    groups: dict[tuple[str, str], list[sqlite3.Row]] = {}
+    for row in conn.execute(sql, params):
+        norm = normalize_learning_value(row["value"], prefix)
+        if not norm:
+            continue
+        groups.setdefault((row["category"], norm), []).append(row)
+
+    clusters = [sorted(members, key=_survivor_rank) for members in groups.values() if len(members) > 1]
+    clusters.sort(key=lambda members: (-len(members), members[0]["id"]))
+    return clusters
+
+
+def _collapse_cluster(conn: sqlite3.Connection, members: list[sqlite3.Row]) -> int:
+    """Fold a cluster into its survivor and delete the rest. Returns activations re-pointed.
+
+    The survivor inherits the cluster's earliest first_seen, latest last_seen,
+    and highest observation_count, so age and frequency signal survive. Each
+    victim's activations rows re-point to the survivor's (topic, key) before the
+    delete, so ROI history is not lost.
+    """
+    survivor, victims = members[0], members[1:]
+    conn.execute(
+        "UPDATE learnings SET first_seen = ?, last_seen = ?, observation_count = ? WHERE id = ?",
+        (
+            min((m["first_seen"] for m in members if m["first_seen"]), default=survivor["first_seen"]),
+            max((m["last_seen"] for m in members if m["last_seen"]), default=survivor["last_seen"]),
+            max((m["observation_count"] or 0) for m in members),
+            survivor["id"],
+        ),
+    )
+    repointed = 0
+    for victim in victims:
+        cursor = conn.execute(
+            "UPDATE activations SET topic = ?, key = ? WHERE topic = ? AND key = ?",
+            (survivor["topic"], survivor["key"], victim["topic"], victim["key"]),
+        )
+        repointed += cursor.rowcount
+        conn.execute("DELETE FROM learnings WHERE id = ?", (victim["id"],))
+    return repointed
+
+
+def _fts_integrity_ok(conn: sqlite3.Connection) -> bool:
+    """Run the FTS5 integrity-check on learnings_fts.
+
+    The check is written as an INSERT, so it opens a transaction that must be
+    closed before a caller can VACUUM.
+    """
+    try:
+        conn.execute("INSERT INTO learnings_fts(learnings_fts) VALUES ('integrity-check')")
+        return True
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        conn.commit()
+
+
+def cmd_dedupe(args):
+    """Collapse near-duplicate learnings. Dry-run by default; --apply deletes + VACUUM.
+
+    Hook capture re-records the same text under a fresh key, so one insight can
+    occupy hundreds of rows and crowd every injection budget that reads the table.
+    """
+    init_db()
+    with get_connection() as conn:
+        total_before = conn.execute("SELECT COUNT(*) FROM learnings").fetchone()[0]
+        clusters = find_duplicate_clusters(conn, category=args.category, prefix=args.prefix)
+        redundant = sum(len(members) - 1 for members in clusters)
+
+        report = {
+            "clusters": len(clusters),
+            "rows_removed": redundant,
+            "total_before": total_before,
+            "total_after": total_before - redundant,
+            "applied": bool(args.apply),
+            "activations_repointed": 0,
+            "fts_integrity_ok": None,
+        }
+
+        if args.apply and clusters:
+            repointed = sum(_collapse_cluster(conn, members) for members in clusters)
+            conn.commit()
+            report["activations_repointed"] = repointed
+            report["total_after"] = conn.execute("SELECT COUNT(*) FROM learnings").fetchone()[0]
+            report["fts_integrity_ok"] = _fts_integrity_ok(conn)
+            conn.execute("VACUUM")
+
+        if args.json:
+            report["top_clusters"] = [
+                {
+                    "size": len(members),
+                    "category": members[0]["category"],
+                    "keep": {"id": members[0]["id"], "topic": members[0]["topic"], "key": members[0]["key"]},
+                    "sample": (members[0]["value"] or "")[:120],
+                }
+                for members in clusters[: args.top]
+            ]
+            print(json.dumps(report, indent=2, default=str))
+            return
+
+        print(f"Total learnings before: {total_before}")
+        print(f"Near-duplicate clusters: {len(clusters)} (match on first {args.prefix} normalized chars)")
+        print(f"Redundant rows: {redundant}")
+        for members in clusters[: args.top]:
+            survivor = members[0]
+            print(
+                f"  n={len(members):<4} [{survivor['category']}] keep id={survivor['id']} "
+                f"{survivor['topic']}/{survivor['key']}"
+            )
+            print(f"        {(survivor['value'] or '')[:100]}")
+        if len(clusters) > args.top:
+            print(f"  … {len(clusters) - args.top} more clusters")
+
+        if not args.apply:
+            print()
+            print("DRY RUN — nothing deleted. Re-run with --apply to collapse.")
+            print("Back up the database first: cp <db> <db>.bak-$(date +%Y%m%d)")
+            return
+
+        print()
+        print(f"Removed {redundant} rows. Total learnings: {total_before} -> {report['total_after']}.")
+        print(f"Activations re-pointed to survivors: {report['activations_repointed']}")
+        print(f"FTS integrity check: {'PASS' if report['fts_integrity_ok'] else 'FAIL'}")
 
 
 def _query_stale_entries(conn: sqlite3.Connection, min_age_days: int) -> list[dict]:
@@ -2487,6 +2666,24 @@ def main():
     p_prune_mode.add_argument("--dry-run", action="store_true", help="Preview counts (default)")
     p_prune_mode.add_argument("--apply", action="store_true", help="Delete matched rows, then VACUUM")
     p_prune.set_defaults(func=cmd_prune)
+
+    # dedupe (collapse near-duplicate learnings)
+    p_dedupe = subparsers.add_parser(
+        "dedupe", help="Collapse near-duplicate learnings (dry-run default; --apply deletes)"
+    )
+    p_dedupe.add_argument("--category", help="Restrict to one category (e.g., voice)")
+    p_dedupe.add_argument(
+        "--prefix",
+        type=int,
+        default=DEDUPE_PREFIX_CHARS,
+        help=f"Normalized characters compared (default: {DEDUPE_PREFIX_CHARS})",
+    )
+    p_dedupe.add_argument("--top", type=int, default=10, help="Clusters to list (default: 10)")
+    p_dedupe.add_argument("--json", action="store_true", help="Output as JSON")
+    p_dedupe_mode = p_dedupe.add_mutually_exclusive_group()
+    p_dedupe_mode.add_argument("--dry-run", action="store_true", help="Preview clusters (default)")
+    p_dedupe_mode.add_argument("--apply", action="store_true", help="Collapse clusters, then VACUUM")
+    p_dedupe.set_defaults(func=cmd_dedupe)
 
     # stale (show stale entries)
     p_stale = subparsers.add_parser("stale", help="Show entries that appear stale")

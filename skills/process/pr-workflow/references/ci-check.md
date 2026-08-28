@@ -133,6 +133,15 @@ Future extension point: if `skills/process/pr-workflow/references/pr-risk-policy
 ### Conflicting PR: "no checks reported"
 A same-repo PR in `mergeable=CONFLICTING` state fires no workflow run on push, so `gh pr checks` shows "no checks reported" — a missing run, not a failure. Merge `origin/main` into the branch first; CI triggers on that push. (Evidence: PRs #789/#791/#797, 2026-06-11.)
 
+### Fork PR: "no checks reported"
+A fork PR is silent for two independent reasons, and approval alone fixes only one. Workflow runs from a fork wait for maintainer approval, and GitHub cannot build `refs/pull/N/merge` while the PR conflicts — so a conflicting fork PR reports nothing even after you approve it. Read both fields before you conclude CI is broken:
+
+```bash
+gh pr view "$PR" --json mergeable,mergeStateStatus,headRepositoryOwner,isCrossRepository
+```
+
+Resolve the conflict first (`mergeStateStatus: DIRTY`), then approve the pending run. Approving a conflicting fork PR leaves it silent and looks like an approval that did not take.
+
 ### Error: "No workflow runs found"
 **Cause**: Workflow not triggered, branch has no workflows, or checked too early
 **Solution**:

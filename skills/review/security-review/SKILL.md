@@ -178,7 +178,7 @@ This skill is the on-demand (PULL) path. The same review also runs automatically
 | Event | Behavior |
 |-------|----------|
 | **PreToolUse** (Bash `git commit`) | Scans STAGED files with the same scanner. A HIGH/CRITICAL finding blocks the commit (deny). Clean commits pass. |
-| **Stop** | Re-wakes the session with the working-tree diff and an instruction to run this pipeline. Advisory — never blocks. |
+| **Stop** | Re-wakes the session with the working-tree diff and an instruction to run this pipeline. Advisory — never blocks. Fires only when a source file gained at least one line. Pure deletions, doc-only diffs (`.md`, `.txt`, `.rst`, `.json`, `.mdx`), mode-only, and rename-only diffs carry no new code for the deep pass, so silence there is the hook working; the edit-time and commit-block gates still scan docs for secrets. |
 
 **Bypass / kill switches** (commit-time block only, deliberate overrides):
 

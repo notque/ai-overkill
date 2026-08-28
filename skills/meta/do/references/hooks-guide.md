@@ -22,6 +22,15 @@
 | `once: true` | Hook runs only once per session |
 | `timeout` | Maximum execution time in ms |
 | Cascading output | Hooks can inject context into prompts |
+| Async rewake | Hand LLM-grade work back to the session model from a hook |
+
+## Async Rewake
+
+A hook that needs judgment rather than a pattern match re-wakes the session agent and lets it do the work. `async_rewake(message, summary)` in `hooks/lib/hook_utils.py` writes `{"rewakeSummary": ...}` to stdout, the full context to stderr, and exits 2.
+
+This costs no SDK and no metered API key — the session model already running does the work. `hooks/security-review-hook.py` uses it on `Stop` to hand a working-tree diff back for review.
+
+Reserve it for work a script cannot decide. A hook that re-wakes on every event turns one tool call into a full model turn.
 
 ## Error Learning
 

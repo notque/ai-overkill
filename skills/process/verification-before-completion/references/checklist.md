@@ -263,6 +263,23 @@ Use this when running language-specific quality gates:
 
 ---
 
+## Tuned-Threshold Feature Checklist
+
+Use this when a feature is correct only if a user actually reaches something during normal use: a progress meter, an unlock, a rate limit, a difficulty curve, an onboarding funnel.
+
+### Reachability Verification
+- [ ] **Threshold reached live**: Drive the real app and hit the threshold through normal use
+- [ ] **Turn or step count recorded**: Note how long it took, not just that it happened
+- [ ] **Opposing forces modeled**: Decay, cooldowns, costs, and timeouts included in the check
+- [ ] **Representative input used**: An average case, not a best-case deck, dataset, or profile
+- [ ] **Regression test locks the result**: Encode the reached threshold as a test
+
+**Why**: unit and integration gates assert that the mechanics compute correctly. They say nothing about whether the value ever climbs high enough. A meter mechanic once passed every unit and integration gate and three review workflows; driving the real app showed the charge thresholds were unreachable in normal play, because flat decay outran the gains. Simulation modeled the mechanic and under-modeled the economy around it.
+
+**Measure before you tune**: check reachability first. If the threshold is already reached, the fix is a regression test that locks the behavior, not an economy change.
+
+---
+
 ## Hotfix/Emergency Change Checklist
 
 ### Minimal Viable Verification (Emergency Only)
