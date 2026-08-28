@@ -79,19 +79,19 @@ Read the combined output for three signals:
 
 Each signal needs 2+ distinct PRs as evidence (Triple-Validation recurrence check) before it becomes a proposal. Format proposals like other DISCOVER output: one-sentence description, evidence (PR numbers), estimated impact. Tag source `[PR-HISTORY]`.
 
-## DIAGNOSE Step 1: Learning DB Search Queries
+## DIAGNOSE Step 1: Routing telemetry queries
 
-Run these five queries to surface recent failures, routing mismatches, and prior cycle history:
+Run these queries to surface weak routes, error-prone dispatches, and reviewer cost:
 
 ```bash
-python3 ~/.claude/scripts/learning-db.py search "routing decision" --min-confidence 0.0 --limit 20
-python3 ~/.claude/scripts/learning-db.py search "routing gap mismatch reroute" --min-confidence 0.3 --limit 20
-python3 ~/.claude/scripts/learning-db.py search "error pattern failure bug" --min-confidence 0.3 --limit 20
-python3 ~/.claude/scripts/learning-db.py search "skill gap missing improvement" --min-confidence 0.3 --limit 20
-python3 ~/.claude/scripts/learning-db.py search "toolkit evolution" --min-confidence 0.0 --limit 5
+python3 ~/.claude/scripts/learning-db.py route-health
+python3 ~/.claude/scripts/learning-db.py route-stats --by agent
+python3 ~/.claude/scripts/learning-db.py route-stats --by skill
+python3 ~/.claude/scripts/learning-db.py route-stats --by errors
+python3 ~/.claude/scripts/learning-db.py review-roi
 ```
 
-Note: The first query uses `--min-confidence 0.0` because `effectiveness` entries (routing decisions recorded by /do) start at 0.5-0.6 confidence. The FTS5 tokenizer splits hyphens, so use space-separated terms, not `routing-decision`. The fifth query surfaces prior cycle summaries and deferred proposals — use it to avoid re-proposing ideas that already received MODERATE consensus or were explicitly shelved.
+Read `route-health` first: it reports the outcome basis, and a per-route error rate computed mostly from neutral outcomes describes the scorer rather than the router. A route with many dispatches and a high error rate is a routing gap; a component with zero dispatches over a long window is shelf-ware. For prior cycle history and already-shelved proposals, read `docs/what-didnt-work.md` and `references/evolution-history.md` — re-proposing a rejected idea is the failure this step prevents.
 
 ## DIAGNOSE Step 2: Git History Scan
 

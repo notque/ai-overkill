@@ -185,11 +185,12 @@ def test_install_sh_generates_valid_hooks_json(fake_home: Path) -> None:
     assert has_bash_post_tool_use, "hooks.json has no PostToolUse entry with matcher='Bash'"
 
     commands = [entry["command"] for groups in data["hooks"].values() for group in groups for entry in group["hooks"]]
-    assert len(commands) == 61
+    assert len(commands) == 53
     assert all("codex-hook-adapter.py" in command for command in commands)
     script_count = len(list((REPO_ROOT / "scripts").glob("*.py")))
     assert f"Codex scripts: {script_count} mirrored scripts" in result.stdout
-    assert "Hooks: 86 automation hooks" in result.stdout
+    hook_count = len(list((REPO_ROOT / "hooks").glob("*.py")))
+    assert f"Hooks: {hook_count} automation hooks" in result.stdout
     assert f"Scripts: {script_count} utility scripts" in result.stdout
 
     tool_matchers = {

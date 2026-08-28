@@ -28,13 +28,13 @@ Populate five fields — `completed_tasks` (specific: "Implemented scoring modul
 
 **GATE**: All handoff fields populated with specific, actionable content. No vague entries like "continue work" or "finish implementation."
 
-### Phase 3: EXTRACT LEARNINGS
+### Phase 3: EXTRACT DECISIONS
 
-**Goal**: Query session learnings from learning.db, filter for architectural decisions that warrant ADRs, and draft ADR skeletons for each candidate. This phase runs before WRITE so that ADR data is available for inclusion in both handoff files — passing extracted data downstream is cheaper than appending to files after the fact.
+**Goal**: Take the decisions this session made, filter for the ones that warrant ADRs, and draft ADR skeletons for each candidate. This phase runs before WRITE so that ADR data is available for inclusion in both handoff files — passing extracted data downstream is cheaper than appending to files after the fact.
 
-Steps (query `learning-db.py query --format json --limit 20`, filter with the decision-vs-tip heuristic table, get next ADR number via `adr-query.py next-number`, draft ADR skeletons to `adr/{N}-{slug}.md`, pass `drafted_adrs` list to Phase 4): `pause-extract-learnings.md`. The ADR skeleton template and filter heuristic live in that same reference.
+Steps (collect this session's decisions from the Phase 2 `decisions` field, filter with the decision-vs-tip heuristic table, get next ADR number via `adr-query.py next-number`, draft ADR skeletons to `adr/{N}-{slug}.md`, pass `drafted_adrs` list to Phase 4): `pause-extract-decisions.md`. The ADR skeleton template and filter heuristic live in that same reference.
 
-**GATE**: learning.db queried. Candidates filtered using the decision-vs-tip heuristic. ADR skeleton files written to disk for any candidates found. `drafted_adrs` data available for Phase 4.
+**GATE**: Session decisions collected. Candidates filtered using the decision-vs-tip heuristic. ADR skeleton files written to disk for any candidates found. `drafted_adrs` data available for Phase 4.
 
 ### Phase 4: WRITE
 
@@ -58,7 +58,7 @@ Full handoff summary banner (completed/remaining/blockers/uncommitted/false-comp
 
 ## Error Handling
 
-Common errors (not in a git repository, cannot determine session work, learning-db.py query fails, HANDOFF.json already exists) and solutions: `pause-confirm-and-errors.md`.
+Common errors (not in a git repository, cannot determine session work, no decisions found to extract, HANDOFF.json already exists) and solutions: `pause-confirm-and-errors.md`.
 
 ## References
 
@@ -66,7 +66,7 @@ Common errors (not in a git repository, cannot determine session work, learning-
 |-----------|-------------|---------|
 | `pause-gather-steps.md` | Phase 1 GATHER | Git state commands, placeholder-marker scan, task_plan.md + .adr-session.json reads |
 | `pause-synthesize-fields.md` | Phase 2 SYNTHESIZE | Field-by-field guidance for completed_tasks, remaining_tasks, decisions, next_action, context_notes |
-| `pause-extract-learnings.md` | Phase 3 EXTRACT | learning-db.py query, decision-vs-tip filter heuristic, ADR skeleton template |
+| `pause-extract-decisions.md` | Phase 3 EXTRACT | Session-decision collection, decision-vs-tip filter heuristic, ADR skeleton template |
 | `pause-write-templates.md` | Phase 4 WRITE | Full HANDOFF.json template, .continue-here.md template, WIP-commit warning |
 | `pause-confirm-and-errors.md` | Phase 5, Error Handling | Summary banner template, error matrix with causes and solutions |
 

@@ -30,7 +30,7 @@
           {
             "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/session-context.py\"",
-            "description": "Load learned patterns from previous sessions",
+            "description": "Inject the pre-built overnight dream payload and dream notice (ADR-147)",
             "timeout": 5000,
             "once": true
           },
@@ -131,12 +131,6 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/user-correction-capture.py\"",
-            "description": "Detect user corrections and record to learning DB",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/codex-auto-review.py\"",
             "description": "Auto-inject Codex cross-model review for PR review operations",
             "timeout": 3000
@@ -221,17 +215,6 @@
             "command": "python3 \"$HOME/.claude/hooks/security-review-hook.py\"",
             "description": "Security review gate: blocks git commit when staged files have HIGH/CRITICAL findings (VEXJOY_SECURITY_REVIEW_SKIP=1 to override)",
             "timeout": 30000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/pretool-learning-injector.py\"",
-            "description": "Inject known error patterns before Bash/Edit tools run",
-            "timeout": 3000
           }
         ]
       },
@@ -387,12 +370,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/retro-graduation-gate.py\"",
-            "description": "Warn about ungraduated retro entries when creating PRs in toolkit repo",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/adr-lifecycle-on-merge.py\"",
             "description": "Check ADR implementation status after merge operations",
             "timeout": 5000
@@ -408,17 +385,6 @@
             "command": "python3 \"$HOME/.claude/hooks/posttool-bash-injection-scan.py\"",
             "description": "Advisory scan of files written by Bash commands for prompt-injection patterns (ADR-121); never blocks",
             "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/record-activation.py\"",
-            "description": "Record session activation stats for ROI tracking (ADR-032)",
-            "timeout": 2000
           }
         ]
       },
@@ -450,14 +416,8 @@
           {
             "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/review-capture.py\"",
-            "description": "Capture CRITICAL/HIGH review findings to learning DB",
+            "description": "Capture CRITICAL/HIGH review findings for the human-read review reports",
             "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/instruction-compliance.py\"",
-            "description": "Instruction compliance measurement after agent dispatch",
-            "timeout": 5000
           }
         ]
       },
@@ -469,28 +429,6 @@
             "command": "python3 \"$HOME/.claude/hooks/routing-decision-recorder.py\"",
             "description": "Record routing-decision rows per Agent dispatch and per [do-route] marker in a Workflow script (replaces /do Phase 5 action A)",
             "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Write|Edit|Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/error-learner.py\"",
-            "description": "Learn from tool errors and suggest solutions",
-            "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/record-waste.py\"",
-            "description": "Record wasted tokens from tool failures for ROI tracking (ADR-032)",
-            "timeout": 2000
           }
         ]
       },
@@ -512,20 +450,8 @@
           {
             "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/precompact-archive.py\"",
-            "description": "Archive session learnings before context compression",
+            "description": "Inject the ADR survival anchor before context compression so a pipeline session can recover",
             "timeout": 5000
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/task-completed-learner.py\"",
-            "description": "Record task completion metadata for effectiveness tracking",
-            "timeout": 3000
           }
         ]
       }
@@ -583,21 +509,9 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/confidence-decay.py\"",
-            "description": "Decay stale learnings and prune dead entries",
+            "command": "python3 \"$HOME/.claude/hooks/routing-outcome-stop-fallback.py\"",
+            "description": "Resolve still-pending routing outcomes at session end (autonomous runs with no next user turn)",
             "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/session-learning-recorder.py\"",
-            "description": "Record session learnings and warn on zero-learning sessions",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/knowledge-graduation-proposer.py\"",
-            "description": "Propose graduation of high-confidence learnings into agent/skill files",
-            "timeout": 5000
           },
           {
             "type": "command",

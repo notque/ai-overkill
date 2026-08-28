@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Tests for the five learning-loop defect fixes.
+"""Tests for the shared learning-DB storage layer and routing-outcome telemetry.
 
-TDD: each test was written BEFORE its fix and verified to FAIL on the
-unfixed code, then PASS after the fix. Grouped by defect number.
+Formerly test_learning_loop_fixes.py. The learning loop was retired; the
+classes that covered its deleted hooks went with it. What remains covers
+subsystems that survive on top of learning_db_v2: the context sanitizers,
+routing-outcome finalization (next-turn finalizer plus the Stop fallback),
+and the shared get_db_dir() path resolver.
 """
 
 from __future__ import annotations
@@ -45,111 +48,8 @@ def tmp_learning_dir(tmp_path):
         learning_db_v2._initialized = False
 
 
-@pytest.fixture()
-def seeded_db(tmp_learning_dir):
-    """Learning DB with a seeded high-confidence error pattern.
-
-    source="manual-seed" (not "test*") -- search_learnings() defaults to
-    excluding source LIKE 'test%' rows (ADR: pretool-injector-scoping,
-    parity with query_learnings()'s ADR-191 exclude_test_sources), and this
-    row is meant to exercise the real end-to-end injection path, not that
-    filter.
-    """
-    import learning_db_v2
-
-    learning_db_v2.init_db()
-    learning_db_v2.record_learning(
-        topic="python",
-        key="test-import-error",
-        value="ModuleNotFoundError: No module named 'foo' -> pip install foo",
-        category="error",
-        confidence=0.9,
-        tags=["python", "import_error"],
-        source="manual-seed",
-        error_type="import_error",
-        error_signature="test-sig-001",
-    )
-    return tmp_learning_dir
-
-
 # ===========================================================================
-# DEFECT 1: Dead injector (NameError on sanitize_for_context)
-# ===========================================================================
-
-
-class TestDeadInjector:
-    """pretool-learning-injector.py calls sanitize_for_context at line 124,
-    but the import lives inside main() at line 181. format_hints() at module
-    scope cannot see it -> NameError swallowed by catch-all -> feature dead.
-
-    Fix: module-level import of sanitize_for_context from learning_db_v2.
-    """
-
-    def test_format_hints_calls_sanitize(self, seeded_db):
-        """format_hints must call sanitize_for_context without NameError."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "pretool_learning_injector",
-            str(HOOKS_DIR / "pretool-learning-injector.py"),
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        # Build a fake result matching what search_learnings returns
-        results = [
-            {
-                "value": "ModuleNotFoundError -> pip install foo",
-                "category": "error",
-                "error_type": "import_error",
-                "topic": "python",
-            }
-        ]
-        # This must NOT raise NameError
-        output = mod.format_hints(results)
-        assert output, "format_hints returned empty string for valid results"
-        assert "import_error" in output or "pip install" in output
-
-    def test_injector_emits_hint_for_seeded_row(self, seeded_db):
-        """End-to-end: the hook must emit non-empty JSON output for a Bash
-        command matching a seeded DB pattern (python/import_error).
-        """
-        event = {
-            "hook_event_name": "PreToolUse",
-            "tool_name": "Bash",
-            "tool_input": {"command": "pip install something"},
-        }
-        env = os.environ.copy()
-        env["CLAUDE_LEARNING_DIR"] = str(seeded_db)
-        result = subprocess.run(
-            [sys.executable, str(HOOKS_DIR / "pretool-learning-injector.py")],
-            input=json.dumps(event),
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=10,
-        )
-        assert result.returncode == 0, f"Hook exited non-zero: {result.stderr}"
-        # Must produce non-empty JSON with additionalContext or description
-        stdout = result.stdout.strip()
-        assert stdout, f"Hook produced no output. stderr: {result.stderr}"
-        parsed = json.loads(stdout)
-        # The output should have context (additionalContext or description)
-        # Check all possible nesting levels for context
-        hso = parsed.get("hookSpecificOutput", {})
-        has_content = bool(
-            parsed.get("additionalContext")
-            or parsed.get("description")
-            or parsed.get("result", {}).get("additionalContext")
-            or parsed.get("result", {}).get("description")
-            or hso.get("additionalContext")
-            or hso.get("description")
-        )
-        assert has_content, f"Hook output has no context/description: {parsed}"
-
-
-# ===========================================================================
-# DEFECT 2: Case-sensitive sanitizer + untested
+# Context sanitizers (learning_db_v2, consumed by session-context.py)
 # ===========================================================================
 
 
@@ -213,69 +113,7 @@ class TestSanitizeFtsQuery:
 
 
 # ===========================================================================
-# DEFECT 3: Untrusted replay in error-learner
-# ===========================================================================
-
-
-class TestUntrustedReplay:
-    """error-learner.py replays stored solutions verbatim. They must be
-    wrapped in <untrusted-content> + SECURITY preamble.
-    """
-
-    def test_existing_solution_wrapped(self, seeded_db):
-        """When error-learner replays a stored solution, the output must
-        contain the untrusted-content wrapper.
-        """
-        import learning_db_v2
-
-        # Seed with the EXACT signature that lookup_error_solution will
-        # generate from the error message, so the lookup finds the row.
-        error_msg = "ModuleNotFoundError: No module named 'bar'"
-        error_type = learning_db_v2.classify_error(error_msg)
-        sig = learning_db_v2.generate_signature(error_msg, error_type)
-
-        learning_db_v2.record_learning(
-            topic=error_type,
-            key=sig,
-            value=f"{error_msg[:200]} -> pip install bar",
-            category="error",
-            confidence=0.9,
-            source="test-seed",
-            error_signature=sig,
-            error_type=error_type,
-            fix_type="auto",
-            fix_action="install_module",
-        )
-
-        event = {
-            "hook_event_name": "PostToolUse",
-            "tool_name": "Bash",
-            "tool_input": {"command": "python3 test.py"},
-            "tool_result": {
-                "error": error_msg,
-                "is_error": True,
-            },
-        }
-        env = os.environ.copy()
-        env["CLAUDE_LEARNING_DIR"] = str(seeded_db)
-        result = subprocess.run(
-            [sys.executable, str(HOOKS_DIR / "error-learner.py")],
-            input=json.dumps(event),
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=10,
-        )
-        assert result.returncode == 0
-        combined = result.stdout + result.stderr
-        # The replayed solution must be wrapped
-        assert "<untrusted-content>" in combined or "SECURITY:" in combined, (
-            f"Replayed solution not wrapped as untrusted. Output: {combined[:500]}"
-        )
-
-
-# ===========================================================================
-# DEFECT 4: Open outcome loop (coverage, not sensitivity)
+# Routing-outcome finalization: every pending dispatch reaches a terminal state
 # ===========================================================================
 
 
@@ -323,16 +161,23 @@ class TestOutcomeFinalizerCoverage:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "session_learning_recorder",
-            str(HOOKS_DIR / "session-learning-recorder.py"),
+            "routing_outcome_stop_fallback",
+            str(HOOKS_DIR / "routing-outcome-stop-fallback.py"),
         )
-        slr = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(slr)
-        slr.finalize_routing_outcomes(session_id)
+        stop_fallback = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stop_fallback)
+        stop_fallback.finalize_routing_outcomes(session_id)
 
         # After Stop: pending must be empty
         remaining = peek_pending_outcomes(session_id)
         assert len(remaining) == 0, f"Stop left {len(remaining)} pending outcomes unresolved"
+
+        # T4 deterministic floor: a CLEAN autonomous run carries no acceptance
+        # evidence, so resolving it must be a no-op -- never a boost.
+        from routing_outcome_score import _current_confidence
+
+        conf = _current_confidence("test-agent:test-skill")
+        assert conf == 0.5, f"clean Stop run must not change confidence, got {conf}"
 
     def test_fixture_replay_three_decisions(self, tmp_learning_dir, routing_state_dir):
         """Three decisions (error, clean, clean) -> finalizer resolves all three.
@@ -372,12 +217,12 @@ class TestOutcomeFinalizerCoverage:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "session_learning_recorder",
-            str(HOOKS_DIR / "session-learning-recorder.py"),
+            "routing_outcome_stop_fallback",
+            str(HOOKS_DIR / "routing-outcome-stop-fallback.py"),
         )
-        slr = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(slr)
-        slr.finalize_routing_outcomes(session_id)
+        stop_fallback = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stop_fallback)
+        stop_fallback.finalize_routing_outcomes(session_id)
 
         # All resolved
         remaining = peek_pending_outcomes(session_id)
@@ -435,7 +280,7 @@ class TestOutcomeFinalizerCoverage:
 
 
 # ===========================================================================
-# DEFECT 5: DB-path dedup (get_db_dir exported)
+# Shared DB-path resolution: get_db_dir() is the single exported path source
 # ===========================================================================
 
 
@@ -474,20 +319,6 @@ class TestGetDbDirExported:
         """
         source = (HOOKS_DIR / "lib" / "learning_db_v2.py").read_text()
         assert '_DEFAULT_DB_DIR = Path.home() / ".claude" / "learning"' in source
-
-    def test_graduation_proposer_uses_get_db_dir(self):
-        """knowledge-graduation-proposer.py must import get_db_dir, not
-        inline the path logic.
-        """
-        source = (HOOKS_DIR / "knowledge-graduation-proposer.py").read_text()
-        assert "get_db_dir" in source, "graduation-proposer does not use get_db_dir"
-        # Must NOT contain the inline path pattern
-        assert 'Path.home() / ".claude" / "learning"' not in source
-
-    def test_retro_gate_uses_get_db_dir(self):
-        source = (HOOKS_DIR / "retro-graduation-gate.py").read_text()
-        assert "get_db_dir" in source, "retro-graduation-gate does not use get_db_dir"
-        assert 'Path.home() / ".claude" / "learning"' not in source
 
     def test_route_signal_uses_get_db_dir(self):
         source = (REPO_ROOT / "scripts" / "route-signal-check.py").read_text()

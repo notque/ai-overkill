@@ -18,8 +18,14 @@ Usage:
 --check mode (exit 1 on any):
     - entry in INDEX missing from map (or stale row in map)
     - entry with empty description or zero triggers
-    - a pairs_with name that resolves to nothing
+    - a PUBLIC pairs_with name that resolves to nothing
     - committed docs/routing-map.md differs from a fresh render
+
+Private components never reach the map. Names of locally installed private
+components are removed from entries and from pairs_with lists before both
+rendering and validation, using the same runtime source of truth as
+hooks/pretool-private-name-leak-gate.py. A public name that resolves to
+nothing is a real authoring error and is still reported.
 
 Exit codes:
     0 -- generate succeeded, or --check found nothing
@@ -29,6 +35,8 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import functools
+import importlib.util
 import json
 import subprocess
 import sys
@@ -36,6 +44,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MAP_PATH = REPO_ROOT / "docs" / "routing-map.md"
+
+# Single source of truth for "which component names are private". The leak
+# gate derives the set at runtime from the local private-component tree; a
+# second definition here would drift, and drift is the leak.
+LEAK_GATE = REPO_ROOT / "hooks" / "pretool-private-name-leak-gate.py"
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
@@ -116,6 +129,50 @@ def load_all_entries(repo_root: Path = REPO_ROOT) -> dict[str, list[dict]]:
     return surfaces
 
 
+@functools.lru_cache(maxsize=4)
+def private_names(repo_root: Path = REPO_ROOT) -> frozenset[str]:
+    """Lowercased names of locally installed PRIVATE components.
+
+    Reuses the private-name leak gate's derivation
+    (hooks/pretool-private-name-leak-gate.py), which builds the set at
+    runtime from the local private-component tree and subtracts every
+    public name. One definition of "private" in the toolkit, not two.
+
+    Empty on any machine without a local private tree (CI, public
+    installs). Nothing is private there, so nothing is filtered and the
+    rendered map stays byte-identical across machines.
+    """
+    spec = importlib.util.spec_from_file_location("_private_name_leak_gate", LEAK_GATE)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load the private-name source of truth: {LEAK_GATE}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return frozenset(module._private_names(repo_root))
+
+
+def strip_private(surfaces: dict[str, list[dict]], private: frozenset[str]) -> dict[str, list[dict]]:
+    """Drop private entries and private `pairs_with` names from surfaces.
+
+    The map is a public artifact. A private name must never reach it, and
+    its absence must not read as an authoring error, so the name is removed
+    before both rendering and validation. Public names that resolve to
+    nothing survive this filter and are still reported by --check.
+    """
+    if not private:
+        return surfaces
+    filtered: dict[str, list[dict]] = {}
+    for section, entries in surfaces.items():
+        kept: list[dict] = []
+        for entry in entries:
+            if str(entry["name"]).lower() in private:
+                continue
+            copy = dict(entry)
+            copy["pairs_with"] = [p for p in entry.get("pairs_with", []) if str(p).lower() not in private]
+            kept.append(copy)
+        filtered[section] = kept
+    return filtered
+
+
 def _render_table(entries: list[dict]) -> str:
     """Render a list of entries as a Markdown table."""
     lines = [
@@ -133,10 +190,16 @@ def _render_table(entries: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def generate_map(surfaces: dict[str, list[dict]] | None = None) -> str:
+def generate_map(
+    surfaces: dict[str, list[dict]] | None = None,
+    private: frozenset[str] | None = None,
+) -> str:
     """Generate the full routing map Markdown content."""
     if surfaces is None:
         surfaces = load_all_entries()
+    if private is None:
+        private = private_names()
+    surfaces = strip_private(surfaces, private)
     parts = [HEADER]
     for section, label in [("agents", "AGENTS"), ("skills", "SKILLS"), ("pipelines", "PIPELINES")]:
         entries = surfaces.get(section, [])
@@ -155,10 +218,17 @@ def _all_known_names(surfaces: dict[str, list[dict]]) -> set[str]:
     return names
 
 
-def check_map(surfaces: dict[str, list[dict]] | None = None, map_path: Path | None = None) -> list[str]:
+def check_map(
+    surfaces: dict[str, list[dict]] | None = None,
+    map_path: Path | None = None,
+    private: frozenset[str] | None = None,
+) -> list[str]:
     """Run --check validations. Returns a list of finding strings."""
     if surfaces is None:
         surfaces = load_all_entries()
+    if private is None:
+        private = private_names()
+    surfaces = strip_private(surfaces, private)
     if map_path is None:
         map_path = MAP_PATH
     findings: list[str] = []
@@ -180,7 +250,7 @@ def check_map(surfaces: dict[str, list[dict]] | None = None, map_path: Path | No
                 if p not in known:
                     findings.append(f"{section}/{name}: pairs_with '{p}' resolves to nothing")
 
-    fresh = generate_map(surfaces)
+    fresh = generate_map(surfaces, private=frozenset())
     try:
         committed = map_path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -206,19 +276,21 @@ def main() -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+    private = private_names(args.repo_root)
+
     if args.check:
-        findings = check_map(surfaces, map_path)
+        findings = check_map(surfaces, map_path, private=private)
         for f in findings:
             print(f"FINDING: {f}", file=sys.stderr)
         return 1 if findings else 0
 
-    content = generate_map(surfaces)
+    content = generate_map(surfaces, private=private)
     if args.dry_run:
         print(content)
     else:
         map_path.parent.mkdir(parents=True, exist_ok=True)
         map_path.write_text(content, encoding="utf-8")
-        count = sum(len(v) for v in surfaces.values())
+        count = sum(len(v) for v in strip_private(surfaces, private).values())
         print(f"Wrote {map_path} ({count} entries)")
     return 0
 

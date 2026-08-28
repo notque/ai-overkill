@@ -487,20 +487,14 @@ fi
 
 ---
 
-## Phase 10: RECORD — Capture Learnings
+## Phase 10: REPORT — Record the run
 
-**Goal**: Persist reusable patterns from this run into `learning.db` so they surface
-automatically in future sessions.
+**Goal**: Write this run's reusable patterns where a human will read them next.
 
-For each non-obvious pattern or successful remediation:
-
-```bash
-python3 ~/.claude/scripts/learning-db.py add \
-  --error "[pattern: what the symptom looked like]" \
-  --solution "[what fixed it]" \
-  --confidence 0.8 \
-  --source "toolkit-improvement-pipeline"
-```
+For each non-obvious pattern or successful remediation, route it to the file that owns it:
+a refuted experiment to `docs/what-didnt-work.md` with an evidence location, a component
+gap to that component's own file through a reviewed edit. A pattern that reaches no file
+reaches no future session.
 
 Write a session summary artifact:
 
@@ -509,7 +503,7 @@ cat > "$IMPROVE_DIR/session-summary.md" << SEOF
 Run date: $(date)
 ADRs created: N | approved: N | implemented: N
 Validation: N passed | N regressions | N escalated
-Learnings added to learning.db: N
+Patterns recorded: N
 Artifact directory: $IMPROVE_DIR
 Branch: $BRANCH
 SEOF

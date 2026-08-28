@@ -78,11 +78,11 @@ For each source in the domain table:
 - Common mistake catalogs with explanation of why they are mistakes
 - Checklists practitioners actually use
 
-*learning.db* (the toolkit's retro database): Run:
+*The negative-results registry*: Run:
 ```bash
-python3 ~/.claude/scripts/retro_query.py --domain "skill-domain-keyword" --min-confidence 0.7
+grep -n -i "skill-domain-keyword" docs/what-didnt-work.md
 ```
-This surfaces patterns learned from past sessions in this domain.
+This surfaces approaches already tried and refuted in this domain, so the new skill does not prescribe one of them.
 
 **What to capture** (format for reference files):
 

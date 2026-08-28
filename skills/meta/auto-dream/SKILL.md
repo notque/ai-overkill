@@ -1,6 +1,6 @@
 ---
 name: auto-dream
-description: Background memory consolidation and learning graduation — overnight knowledge lifecycle.
+description: Background memory consolidation — overnight review, merge, and injection payload for memory files.
 user-invocable: true
 command: dream
 context: fork
@@ -19,13 +19,11 @@ routing:
     - memory maintenance
     - memory consolidation
     - deduplicate memories
-    - graduate learnings
-    - promote learnings
   category: meta-tooling
   pairs_with: []
 ---
 
-Background memory consolidation cycle. Scans memory files, finds stale/duplicate/conflicting entries, consolidates, synthesizes cross-session insights, builds an injection-ready payload for next session start, and writes a dated dream report.
+Background memory consolidation cycle. Scans memory files, finds stale, duplicate, and conflicting entries, consolidates them, synthesizes cross-session insights, builds an injection-ready payload for the next session start, and writes a dated dream report.
 
 ## When to invoke
 
@@ -45,14 +43,11 @@ Background memory consolidation cycle. Scans memory files, finds stale/duplicate
 | Staleness detection, duplicate merging, conflict flagging | `memory-file-operations.md` | Routes to the matching deep reference |
 | YAML frontmatter structure, `merged_from`, memory file format | `memory-file-operations.md` | Routes to the matching deep reference |
 | Testing the dream cycle safely, dry-run validation, output file verification | `dream-cycle-testing.md` | Routes to the matching deep reference |
-| Inspecting graduation candidates, snapshot testing, PIPESTATUS in test wrappers | `dream-cycle-testing.md` | Routes to the matching deep reference |
 | Reading and interpreting cron run logs, detecting silent failures | `logging-patterns.md` | Routes to the matching deep reference |
 | Log rotation, log directory structure, phase completion markers in logs | `logging-patterns.md` | Routes to the matching deep reference |
 | `last-dream.md` stale, missing injection payload, cron log empty | `logging-patterns.md` | Routes to the matching deep reference |
 | Concurrent dream runs, lockfile already held, duplicate cron invocations | `concurrency.md` | Routes to the matching deep reference |
 | `MEMORY.md.tmp` left behind, partial write recovery, atomic rename failure | `concurrency.md` | Routes to the matching deep reference |
-| `database is locked`, SQLite WAL mode, `busy_timeout`, concurrent DB access | `concurrency.md` | Routes to the matching deep reference |
-| `local changes would be overwritten`, git stash before GRADUATE branch switch | `concurrency.md` | Routes to the matching deep reference |
 
 ## Instructions
 
@@ -62,13 +57,12 @@ For cron invocation: the dream prompt is passed directly to `claude -p` and runs
 
 ## Phases
 
-1. **SCAN** — Read all memory files, query learning.db sessions (last 7 days), read recent git log. Write scan document to `~/.claude/state/dream-scan-{date}.md`.
+1. **SCAN** — Read all memory files and the recent git log. Write the scan document to `~/.claude/state/dream-scan-{date}.md`.
 2. **ANALYZE** — Identify stale, duplicate, conflicting memories and cross-session patterns. Write analysis to `~/.claude/state/dream-analysis-{date}.md`.
 3. **CONSOLIDATE** — Apply consolidation actions (max 5 changes). Archive stale/merged files, update MEMORY.md atomically.
 4. **SYNTHESIZE** — Create insight memories from cross-session patterns (max 2 new memories per cycle).
-5. **GRADUATE** — Promote mature learning DB entries (confidence >= 0.9, 3+ observations) into agent/skill files as permanent failure modes. Commits on `dream/graduate-YYYY-MM-DD` branch for human review. Max 3 per cycle. (ADR-159)
-6. **SELECT** — Build injection-ready payload for session start. Write to `~/.claude/state/dream-injection-{project-hash}.md`.
-7. **REPORT** — Write dream summary to `~/.claude/state/last-dream.md`.
+5. **SELECT** — Build the injection-ready payload for session start. Write to `~/.claude/state/dream-injection-{project-hash}.md`.
+6. **REPORT** — Write the dream summary to `~/.claude/state/last-dream.md`.
 
 ## Safety constraints (always enforced)
 
@@ -77,9 +71,8 @@ For cron invocation: the dream prompt is passed directly to `claude -p` and runs
 - Maximum 5 memory changes per cycle — excess items deferred to next cycle
 - Flag conflicts for human review, never auto-resolve
 - Preserve YAML frontmatter when merging; use `merged_from` field for provenance
-- In dry-run mode (the default), CONSOLIDATE, SYNTHESIZE, and GRADUATE describe proposed changes only — no filesystem writes or git operations. The wrapper script sets `DREAM_DRY_RUN_MODE=yes` which is substituted into the prompt at runtime.
-- GRADUATE commits on a feature branch (`dream/graduate-*`), never on main — user reviews and merges
-- Maximum 3 graduations per cycle — only entries with confidence >= 0.9 and 3+ observations
+- Memory files are the only write target. Knowledge reaches an agent or skill file through a reviewed human edit, never through this cycle.
+- In dry-run mode (the default), CONSOLIDATE and SYNTHESIZE describe proposed changes only — no filesystem writes. The wrapper script sets `DREAM_DRY_RUN_MODE=yes`, substituted into the prompt at runtime.
 
 ## Testing
 
@@ -92,18 +85,6 @@ For cron invocation: the dream prompt is passed directly to `claude -p` and runs
 
 # Check output
 cat ~/.claude/state/last-dream.md
-
-# Check graduation candidates (what dream would graduate)
-python3 -c "
-import sys; sys.path.insert(0, 'hooks/lib')
-from learning_db_v2 import query_graduation_candidates
-import json
-candidates = query_graduation_candidates()
-print(json.dumps(candidates, indent=2))
-"
-
-# Check if a graduation branch exists
-git branch --list 'dream/graduate-*'
 
 # Verify cron registration
 python3 ~/.claude/scripts/crontab-manager.py list
@@ -163,11 +144,8 @@ Load these references when the task matches the signal:
 | Staleness detection, duplicate merging, conflict flagging | `references/memory-file-operations.md` |
 | YAML frontmatter structure, `merged_from`, memory file format | `references/memory-file-operations.md` |
 | Testing the dream cycle safely, dry-run validation, output file verification | `references/dream-cycle-testing.md` |
-| Inspecting graduation candidates, snapshot testing, PIPESTATUS in test wrappers | `references/dream-cycle-testing.md` |
 | Reading and interpreting cron run logs, detecting silent failures | `references/logging-patterns.md` |
 | Log rotation, log directory structure, phase completion markers in logs | `references/logging-patterns.md` |
 | `last-dream.md` stale, missing injection payload, cron log empty | `references/logging-patterns.md` |
 | Concurrent dream runs, lockfile already held, duplicate cron invocations | `references/concurrency.md` |
 | `MEMORY.md.tmp` left behind, partial write recovery, atomic rename failure | `references/concurrency.md` |
-| `database is locked`, SQLite WAL mode, `busy_timeout`, concurrent DB access | `references/concurrency.md` |
-| `local changes would be overwritten`, git stash before GRADUATE branch switch | `references/concurrency.md` |

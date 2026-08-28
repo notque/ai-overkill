@@ -1,14 +1,14 @@
 # Concurrency Reference
 
-> **Scope**: Patterns for preventing concurrent dream runs, handling interrupted cycles, managing atomic file writes, and safe SQLite access when multiple processes share the learning database. Does NOT cover memory file content or the cron schedule itself.
-> **Version range**: All toolkit versions using `flock`-based wrapper scripts and `sqlite3` learning DB
+> **Scope**: Patterns for preventing concurrent dream runs, handling interrupted cycles, and managing atomic file writes. Does NOT cover memory file content or the cron schedule itself.
+> **Version range**: All toolkit versions using `flock`-based wrapper scripts
 > **Generated**: 2026-04-16 — verify `flock` flags against your OS man page (Linux vs macOS differ)
 
 ---
 
 ## Overview
 
-The auto-dream cycle modifies shared state: `MEMORY.md`, `last-dream.md`, the learning database, and occasionally git branches. Two concurrent dream runs would produce interleaved writes that corrupt the index and leave phase state inconsistent. Three mechanisms protect against this: `flock` prevents concurrent cron invocations, POSIX atomic rename prevents partial `MEMORY.md` writes, and SQLite WAL mode prevents database corruption under concurrent reads. Understanding each layer helps diagnose failures when any of them breaks down.
+The auto-dream cycle modifies shared state: `MEMORY.md`, the memory files it indexes, and `last-dream.md`. Two concurrent dream runs would produce interleaved writes that corrupt the index and leave phase state inconsistent. Two mechanisms protect against this: `flock` prevents concurrent cron invocations, and POSIX atomic rename prevents partial `MEMORY.md` writes. Understanding each layer helps diagnose failures when either breaks down.
 
 ---
 
@@ -18,9 +18,7 @@ The auto-dream cycle modifies shared state: `MEMORY.md`, `last-dream.md`, the le
 |---------|-----------|------------------------|
 | Concurrent cron runs | `flock -n` on lockfile | Two `auto-dream` PIDs visible simultaneously |
 | Partial MEMORY.md write | `mv .tmp → .md` atomic rename | `.tmp` file left behind after cycle, index truncated |
-| SQLite contention | WAL mode + `PRAGMA busy_timeout` | `sqlite3: database is locked` in cron log |
 | Interrupted cycle | REPORT written before CONSOLIDATE | No `last-dream.md` but scan/analysis files exist |
-| Git working tree dirty before GRADUATE | `git stash` before branch switch | Graduate fails with `error: Your local changes would be overwritten` |
 
 ---
 
@@ -71,66 +69,6 @@ EOF
 ```
 
 **Why**: On POSIX filesystems (Linux ext4, macOS APFS), `rename(2)` is atomic — the old `MEMORY.md` is visible until the exact moment the new one replaces it. There is no window where neither file exists. Direct `open(..., "w")` truncates the file before writing, creating a window where `MEMORY.md` is empty.
-
----
-
-### SQLite WAL mode and busy timeout
-
-The learning database (`learning.db`) is accessed by hooks (which fire on every tool call) AND by the dream cycle during Phase 1 SCAN and Phase 5 GRADUATE. Without WAL mode, a long dream read blocks all hook writes.
-
-```bash
-# Set WAL mode once (persists in the database file)
-sqlite3 "${DREAM_LEARNING_DB}" "PRAGMA journal_mode=WAL;"
-
-# Set busy timeout for dream-cycle queries (5 seconds)
-sqlite3 "${DREAM_LEARNING_DB}" \
-  "PRAGMA busy_timeout=5000; SELECT session_id FROM sessions LIMIT 1;"
-```
-
-```python
-# In Python (hooks/lib/learning_db_v2.py style)
-import sqlite3
-
-def get_connection(db_path):
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    return conn
-```
-
-**Why**: WAL (Write-Ahead Log) mode allows one writer and multiple concurrent readers without blocking. Without it, a `SELECT` from the dream cycle holds a shared lock that prevents hook `INSERT`s from completing, causing hooks to fail silently. The `busy_timeout` prevents immediate `SQLITE_BUSY` errors when brief lock contention occurs.
-
-**Version note**: WAL mode available in SQLite 3.7.0+ (2010). All modern systems qualify. WAL setting persists in the database file — you only need to set it once per database, not per connection.
-
----
-
-### Git stash before GRADUATE branch switch
-
-Phase 5 GRADUATE switches to a `dream/graduate-*` branch. If any file was modified in an earlier phase without committing (e.g., a MEMORY.md write in Phase 3 was not committed to any branch), the checkout fails.
-
-```bash
-# In dream-prompt.md Phase 5 — before git checkout
-GRAD_BRANCH="dream/graduate-${DREAM_DATE}"
-
-# Stash any uncommitted changes before branch switch
-if [ -n "$(git status --porcelain)" ]; then
-    git stash --quiet
-    STASHED=1
-fi
-
-# Now safe to switch branches
-if git rev-parse --verify "$GRAD_BRANCH" >/dev/null 2>&1; then
-    git checkout "$GRAD_BRANCH"
-else
-    git checkout -b "$GRAD_BRANCH" main
-fi
-
-# After all graduate commits and push:
-git checkout main
-[ "${STASHED:-0}" = "1" ] && git stash pop --quiet
-```
-
-**Why**: The dream cycle operates in the same working tree as active development. A user might have unstaged edits. The stash ensures GRADUATE does not fail or accidentally commit unrelated changes. The stash pop restores state cleanly after GRADUATE finishes.
 
 ---
 
@@ -198,69 +136,14 @@ if os.path.exists(tmp):
 
 ---
 
-### Stash Before Branch Switch in GRADUATE
-
-**Detection**:
-```bash
-# Check if graduate section in dream-prompt.md includes stash before checkout
-grep -n 'git checkout.*dream/graduate' skills/meta/auto-dream/dream-prompt.md
-grep -n 'git stash' skills/meta/auto-dream/dream-prompt.md
-# Both lines should exist; if stash is missing, the pattern is broken
-```
-
-**Signal**:
-<!-- no-pair-required: this is the detection sub-block inside a code fence; Do instead appears in the enclosing failure mode entry -->
-```bash
-# Switches branch without checking for dirty working tree
-git checkout -b "dream/graduate-2026-04-16" main
-# Error: Your local changes to the following files would be overwritten by checkout
-```
-
-**Why this matters**: Phase 3 CONSOLIDATE writes new memory files. If those writes are not tracked on any git branch (the dream cycle does not commit memory files to git), `git checkout` refuses to switch and GRADUATE fails entirely. All graduation candidates are deferred, and the missed cycle compounds on subsequent runs.
-
-**Preferred action**: Before every branch switch in Phase 5 GRADUATE, check `git status --porcelain`. Stash any uncommitted changes, switch branches, complete all graduation commits, then pop the stash before returning to the original branch.
-
-**Preferred action**: Always check `git status --porcelain` before any branch switch in Phase 5. Stash if non-empty; pop after returning to the original state.
-
----
-
-### Set busy_timeout on All Learning DB Queries
-
-**Detection**:
-```bash
-# Find sqlite3 calls without PRAGMA busy_timeout
-grep -rn 'sqlite3.*DREAM_LEARNING_DB\|sqlite3.*learning\.db' scripts/ skills/ | grep -v busy_timeout
-# Also check Python DB access
-grep -rn 'sqlite3.connect' hooks/lib/ | head -20
-```
-
-**Signal**:
-<!-- no-pair-required: this is the detection sub-block inside a code fence; Do instead appears in the enclosing failure mode entry -->
-```bash
-# No timeout — fails immediately on contention
-sqlite3 "${DREAM_LEARNING_DB}" "SELECT count(*) FROM sessions;"
-# Returns: Error: database is locked
-```
-
-**Why this matters**: During active development sessions, the learning hook fires on every tool call and holds brief write locks. A dream SCAN that queries graduation candidates without a timeout fails with `SQLITE_BUSY` if a hook write happens to coincide. The scan aborts Phase 1, which means Phase 5 GRADUATE has no candidates to evaluate — silent data loss.
-
-**Preferred action**: Set `PRAGMA busy_timeout=5000;` before every dream-cycle SQLite query so brief hook-write contention resolves within 5 seconds rather than failing immediately. For Python connections, pass `timeout=5.0` to `sqlite3.connect()`.
-
-**Preferred action**: Add `PRAGMA busy_timeout=5000;` before every dream-cycle query. For Python, pass `timeout=5.0` to `sqlite3.connect()`.
-
----
-
 ## Error-Fix Mappings
 
 | Error / Symptom | Root Cause | Fix |
 |-----------------|------------|-----|
 | `[dream] Already running (lockfile held)` in cron log | Previous run still active OR lockfile stale from a crash | Check `ps aux \| grep claude` — if no process, delete `/tmp/auto-dream.lock` manually |
 | `MEMORY.md.tmp` left in memory/ after cycle | `mv` rename failed (disk full, permission error) | `mv memory/MEMORY.md.tmp memory/MEMORY.md` after resolving disk/permission issue |
-| `Error: database is locked` in Phase 1 SCAN | SQLite busy timeout not set; hook holds write lock | Add `PRAGMA busy_timeout=5000;` before dream-cycle queries |
-| `error: Your local changes would be overwritten by checkout` in Phase 5 | Dirty working tree before branch switch | `git stash` before `git checkout`, `git stash pop` after |
-| `last-dream.md` is yesterday's date but cron log shows today's run | Phase 7 REPORT was not written (cycle aborted before completion) | Check scan/analysis files in `state/` — if they exist, re-run from Phase 3 with `--execute` |
+| `last-dream.md` is yesterday's date but cron log shows today's run | Phase 6 REPORT was not written (cycle aborted before completion) | Check scan/analysis files in `state/` — if they exist, re-run from Phase 3 with `--execute` |
 | Session start shows no memory context despite memories existing | MEMORY.md was partially written (missing entries) | Run `wc -l memory/MEMORY.md` — if smaller than expected, restore from `archive/` and re-run |
-| Graduate phase skipped with "No graduation candidates" every cycle | `busy_timeout` missing causing Phase 1 SQLite query to fail silently | Add timeout, then re-run dry-run to verify SCAN actually reads graduation candidates |
 
 ---
 
@@ -272,12 +155,6 @@ grep -rn 'flock' scripts/ | grep -v '\-n\b'
 
 # Find direct MEMORY.md writes (missing tmp/rename pattern)
 grep -rn 'open.*MEMORY\.md.*w\|write.*MEMORY\.md' scripts/ hooks/ | grep -v '\.tmp'
-
-# Find sqlite3 calls missing busy_timeout
-grep -rn 'sqlite3.*learning' scripts/ skills/ | grep -v busy_timeout
-
-# Find git checkout in dream prompt without preceding stash
-grep -n 'git checkout\|git stash' skills/meta/auto-dream/dream-prompt.md
 
 # Verify lockfile is not stale (no active dream process)
 ls -la /tmp/auto-dream.lock 2>/dev/null && ps aux | grep '[c]laude.*dream'
@@ -293,4 +170,4 @@ ls ~/.claude/state/*.tmp 2>/dev/null
 
 - `skills/meta/auto-dream/references/headless-cron-patterns.md` — full wrapper script pattern including `flock` wiring
 - `skills/meta/auto-dream/references/memory-file-operations.md` — atomic MEMORY.md write details
-- `skills/meta/auto-dream/dream-prompt.md` — Phase 3 CONSOLIDATE and Phase 5 GRADUATE for git stash context
+- `skills/meta/auto-dream/dream-prompt.md` — Phase 3 CONSOLIDATE for the atomic MEMORY.md write sequence

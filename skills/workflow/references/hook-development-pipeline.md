@@ -250,15 +250,7 @@ ls hooks/README* hooks/HOOKS.md hooks/inventory.md 2>/dev/null
 ```
 If one exists, add a one-line entry for the new hook.
 
-**Step 3**: Record in learning database:
-```bash
-python3 ~/.claude/scripts/learning-db.py record hooks {name} \
-  "what it does and when to use it" \
-  --category design
-```
-If `scripts/learning-db.py` does not exist or fails, skip this step and note the skip.
-
-**Output**: Docstring complete. README updated (if applicable). Learning-db record created (if available).
+**Output**: Docstring complete. README updated (if applicable).
 
 **Gate**: All documentation steps complete or explicitly skipped with reason.
 

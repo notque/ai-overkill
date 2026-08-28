@@ -26,10 +26,28 @@ _LIB_DIR = _REPO_ROOT / "hooks" / "lib"
 if str(_LIB_DIR) not in sys.path:
     sys.path.insert(0, str(_LIB_DIR))
 
+import hook_utils
 import learning_db_v2
 
 # Resolved at import time, before any test can monkeypatch HOME.
 _PRODUCTION_CLAUDE_DIR = Path.home() / ".claude"
+
+
+@pytest.fixture(autouse=True)
+def isolate_hook_error_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Keep hook failures raised by tests out of production telemetry.
+
+    Tests that drive a hook with empty or malformed stdin make it call
+    `hook_utils.hook_error`, which appends to `~/.claude/learning/hook-errors.jsonl`.
+    Those synthetic entries then read as production crash streaks in
+    `scripts/validate-hook-health.py`. `hooks/tests/conftest.py` already isolated
+    its own directory; this covers `tests/` and `scripts/tests/` too. The env var
+    carries the redirect into hooks spawned as subprocesses.
+    """
+    path = tmp_path / "hook-errors.jsonl"
+    monkeypatch.setattr(hook_utils, "_DEFAULT_HOOK_ERRORS_PATH", path)
+    monkeypatch.setenv("CLAUDE_HOOK_ERRORS_PATH", str(path))
+    return path
 
 
 def _assert_db_is_isolated(phase: str) -> None:

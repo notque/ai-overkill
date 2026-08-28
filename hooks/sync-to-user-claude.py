@@ -587,6 +587,48 @@ def _sync_runtime_skill_index(src: Path, dst: Path) -> bool:
     return True
 
 
+def _sync_codex_runtime_skill_indexes(src: Path, dst: Path) -> int:
+    """Materialize Codex indexes against its flat deployed skill layout.
+
+    Repository indexes advertise canonical nested paths such as
+    ``skills/content/create-voice/SKILL.md``. Codex receives a flat mirror
+    that drops the category segment, so the same skill lives one directory
+    deep under ``~/.codex/skills/``. Copying the repository indexes into that
+    mirror therefore registers paths that cannot exist there.
+
+    Keep only deployed skills and rewrite every file field to the flat path.
+    Write both runtime index names because Codex may discover either file.
+    Returns the number of files whose content changed.
+    """
+    merged = _merged_runtime_index(src / "INDEX.json", src / "INDEX.local.json")
+    if merged is None:
+        return 0
+
+    deployed: dict = {}
+    for name, data in merged.get("skills", {}).items():
+        skill_file = dst / name / "SKILL.md"
+        if not skill_file.is_file() or not isinstance(data, dict):
+            continue
+        entry = dict(data)
+        entry["file"] = f"skills/{name}/SKILL.md"
+        deployed[name] = entry
+
+    runtime_index = dict(merged)
+    runtime_index["skills"] = deployed
+    changed = 0
+    for filename in ("INDEX.json", "INDEX.local.json"):
+        path = dst / filename
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            current = None
+        if current == runtime_index and not path.is_symlink():
+            continue
+        _atomic_json_write(path, runtime_index)
+        changed += 1
+    return changed
+
+
 def _has_promoted_to(skill_dir: Path, skills_root: "Path | None" = None) -> bool:
     """True when SKILL.md has promoted_to: and the target skill exists.
 
@@ -709,6 +751,41 @@ def _clean_codex_orphan_categories(repo_skills: Path, codex_skills_dst: Path) ->
         if has_nested_skill:
             shutil.rmtree(entry)
             removed += 1
+    return removed
+
+
+def _clean_codex_promoted_skills(repo_skills: Path, codex_skills_dst: Path) -> int:
+    """Remove stale Codex mirrors for skills folded into live replacements.
+
+    The flat Codex mirror is otherwise additive-only. A skill with a valid
+    ``promoted_to`` target is no longer registered, so retaining its old mirror
+    lets Codex rediscover it outside the generated index. Remove only mirrors
+    proven to come from the matching repository skill; preserve foreign skills
+    that happen to use the same directory name.
+    """
+    if not repo_skills.is_dir() or not codex_skills_dst.is_dir():
+        return 0
+    removed = 0
+    for source_md in sorted(repo_skills.glob("*/*/SKILL.md")):
+        source_dir = source_md.parent
+        if not _has_promoted_to(source_dir, skills_root=repo_skills):
+            continue
+        deployed_dir = codex_skills_dst / source_dir.name
+        deployed_md = deployed_dir / "SKILL.md"
+        if not deployed_dir.is_dir() or not deployed_md.exists():
+            continue
+        try:
+            owned = (
+                deployed_md.resolve() == source_md.resolve()
+                if deployed_md.is_symlink()
+                else filecmp.cmp(deployed_md, source_md, shallow=False)
+            )
+        except OSError:
+            owned = False
+        if not owned:
+            continue
+        shutil.rmtree(deployed_dir)
+        removed += 1
     return removed
 
 
@@ -901,6 +978,77 @@ def _is_git_worktree(path: Path) -> bool:
     return False
 
 
+def _load_reconciler():
+    """Import scripts/reconcile-claude-hooks.py, wherever this hook is deployed."""
+    import importlib.util
+
+    for base in (Path(__file__).resolve().parent.parent, Path.home() / ".claude", Path.cwd()):
+        candidate = base / "scripts" / "reconcile-claude-hooks.py"
+        if candidate.exists():
+            spec = importlib.util.spec_from_file_location("reconcile_claude_hooks", candidate)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    return None
+
+
+def reconcile_installed_hooks(user_claude: Path, repo_settings_path: "Path | None") -> None:
+    """Prune settings.json entries whose hook file the toolkit no longer ships.
+
+    Runs every session, in or out of the repo: symlink installs go live on
+    `git pull` with no install step, so a retired hook would otherwise keep
+    firing a missing file until the user reran install.sh.
+
+    Never raises — a failed reconcile must not break a session.
+    """
+    try:
+        reconciler = _load_reconciler()
+        if reconciler is None:
+            return
+        settings_path = user_claude / "settings.json"
+        hooks_dir = user_claude / "hooks"
+        if not settings_path.exists() or not hooks_dir.is_dir():
+            return
+
+        # Bulk-missing guard: a detached symlink or unmounted repo makes every
+        # hook look retired. That is a broken install, not a retirement.
+        if repo_settings_path is None:
+            settings = json.loads(settings_path.read_text(encoding="utf-8") or "{}")
+            entries = list(reconciler.iter_entries(settings))
+            home = Path.home()
+            missing = 0
+            for _event, _group, entry in entries:
+                path = reconciler.expand_command_path(entry.get("command", ""), home, Path.cwd())
+                if path is not None and not path.exists():
+                    missing += 1
+            if entries and missing > len(entries) // 2:
+                print(
+                    f"[sync] Skipping hook reconcile: {missing}/{len(entries)} hook files missing "
+                    f"(looks like a detached install, not a retirement)",
+                    file=sys.stderr,
+                )
+                return
+
+        pruned, problems, _changed = reconciler.run(
+            settings_path=settings_path,
+            repo_settings_path=repo_settings_path,
+            hooks_dir=hooks_dir,
+            manifest_path=user_claude / reconciler.MANIFEST_NAME,
+            home=Path.home(),
+            project_dir=Path.cwd(),
+            dry_run=False,
+        )
+        for item in pruned:
+            print(
+                f"[sync] Pruned stale hook entry {item['event']} -> {item['hook']} ({item['reason']})",
+                file=sys.stderr,
+            )
+        for problem in problems:
+            print(f"[sync] {problem}", file=sys.stderr)
+    except Exception as exc:  # never break a session over reconcile
+        print(f"[sync] Hook reconcile skipped: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+
 def main():
     # Only run when in the agents repo
     cwd = Path.cwd()
@@ -908,6 +1056,9 @@ def main():
     # Check if CWD is the agents repo (has skills/, agents/, and hooks/ dirs)
     is_agents_repo = (cwd / "skills").is_dir() and (cwd / "agents").is_dir() and (cwd / "hooks").is_dir()
     if not is_agents_repo:
+        # Self-heal only: outside the repo we cannot know what is shipped, so
+        # prune just the entries whose file is gone from ~/.claude/hooks/.
+        reconcile_installed_hooks(Path.home() / ".claude", None)
         return
 
     # CRITICAL: Never sync from a git worktree. Worktrees are ephemeral copies
@@ -1208,6 +1359,10 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
         except Exception as e:
             errors.append(f"settings.json: {e}")
 
+        # Reconcile against the shipped set and refresh the managed-hooks
+        # manifest, so a later out-of-repo session knows what we own.
+        reconcile_installed_hooks(user_claude, repo_settings_path)
+
     # Merge .mcp.json (MCP server config)
     repo_mcp_path = repo_root / ".mcp.json"
     global_mcp_path = user_claude.parent / ".mcp.json"  # ~/.mcp.json (not inside .claude/)
@@ -1311,7 +1466,11 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
             # The repo uses nested category folders but Codex needs flat.
             for child in sorted(repo_skills.iterdir()):
                 if child.is_file():
-                    # Root files: INDEX.json, README.md, etc.
+                    # Runtime indexes need flat file paths and are materialized
+                    # after the mirror is complete. Never copy nested repo paths.
+                    if child.name in {"INDEX.json", "INDEX.local.json"}:
+                        continue
+                    # Root support files: README.md, etc.
                     target = codex_skills_dst / child.name
                     if target.exists() and filecmp.cmp(child, target, shallow=False):
                         continue
@@ -1381,6 +1540,10 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
         orphans = _clean_codex_orphan_categories(repo_skills, codex_skills_dst)
         if orphans:
             codex_count += orphans
+        promoted = _clean_codex_promoted_skills(repo_skills, codex_skills_dst)
+        if promoted:
+            codex_count += promoted
+        codex_count += _sync_codex_runtime_skill_indexes(repo_skills, codex_skills_dst)
     except Exception as e:
         errors.append(f"codex-skills-cleanup: {e}")
     if codex_count > 0:

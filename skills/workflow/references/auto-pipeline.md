@@ -116,14 +116,14 @@ a stale catalog silently weakens the HARD BLOCK below.
 **Step 1**: Check if `skills/workflow/references/auto-pipeline.md` exists in CWD (indicates toolkit repo).
 
 **Step 2**: If toolkit repo:
-- Check learning.db for any prior ephemeral runs in this domain (informational only — crystallize regardless)
 - Proceed to Phase 3 (CRYSTALLIZE) instead of Phase 4 (EPHEMERAL EXECUTE)
 
-**Step 3**: If NOT toolkit repo:
-- Query learning.db: `python3 ~/.claude/scripts/learning-db.py search "ephemeral {task_type}" --json`
-- Count matching entries for this domain
+**Step 3**: If NOT toolkit repo, count prior ephemeral runs for this domain in the repo-local run log:
+```bash
+grep -c "ephemeral {task_type}" .claude/ephemeral-runs.log 2>/dev/null || echo 0
+```
 - If 3+ found: proceed to Phase 3 (CRYSTALLIZE)
-- If <3 found: proceed to Phase 4 (EPHEMERAL EXECUTE)
+- If fewer than 3: proceed to Phase 4 (EPHEMERAL EXECUTE)
 
 **Gate**: Execution path determined (crystallize vs ephemeral). Proceed to appropriate phase.
 
@@ -137,7 +137,7 @@ a stale catalog silently weakens the HARD BLOCK below.
 
 **Step 1 — DETECT**: Confirm crystallization threshold is met (toolkit repo = always; other = 3+ prior runs).
 
-**Step 2 — GATHER**: If prior ephemeral runs exist, collect their chain descriptions and outcomes from learning.db.
+**Step 2 — GATHER**: If prior ephemeral runs exist, collect their chain descriptions from `.claude/ephemeral-runs.log`.
 
 **Step 3 — RESEARCH**: Use accumulated evidence to inform pipeline design. Dispatch 3 parallel research agents (never sequential — Rule 12):
 - Agent 1: Analyze what steps worked in prior ephemeral runs
@@ -146,7 +146,7 @@ a stale catalog silently weakens the HARD BLOCK below.
 
 **Step 4 — COMPOSE**: Build the final chain:
 - Start from the adapted canonical chain (from Phase 1)
-- Incorporate learnings from prior ephemeral runs (if any)
+- Incorporate what worked in prior ephemeral runs (if any)
 - Ensure 8-12 steps
 - Validate type compatibility
 
@@ -165,9 +165,9 @@ a stale catalog silently weakens the HARD BLOCK below.
 - Check `skills/INDEX.json` contains the new pipeline
 - Verify `skills/workflow/references/{name}.md` exists and parses
 
-**Step 9 — REGISTER**: Record in learning.db:
-- Mark all contributing ephemeral learnings as graduated
-- Record the crystallization event
+**Step 9 — REGISTER**: Record the crystallization event:
+- Append one line to `.claude/ephemeral-runs.log` naming the new permanent pipeline
+- The pipeline file itself is the durable record; the log line stops the counter re-crystallizing the same domain
 
 **Step 10 — EXECUTE**: Route the original request through the newly created permanent pipeline.
 
@@ -215,14 +215,14 @@ Collect all results in parallel, then synthesize.
 
 **Step 5**: For REFINE steps: iterate up to 3 times until validation passes. After 3 iterations, proceed with best effort output and log what remains unresolved.
 
-**Step 6**: On completion, record learning for crystallization tracking:
+**Step 6**: On completion, append one line to the repo-local run log so Phase 2 can count runs:
 ```bash
-python3 ~/.claude/scripts/learning-db.py learn --skill auto-pipeline "ephemeral {task_type} for {domain}: {chain_description}"
+mkdir -p .claude && printf '%s ephemeral %s for %s: %s\n' "$(date -u +%F)" "{task_type}" "{domain}" "{chain_description}" >> .claude/ephemeral-runs.log
 ```
 
 This enables the 3+ run threshold for crystallization outside the toolkit repo.
 
-**Gate**: All steps executed. Output delivered. Learning recorded.
+**Gate**: All steps executed. Output delivered. Run logged.
 
 ---
 

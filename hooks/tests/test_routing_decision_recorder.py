@@ -2071,7 +2071,7 @@ class TestLateDecisionRowRequeue:
 # Stop fallback — autonomous / no-next-prompt runs resolve via error flag alone
 # ---------------------------------------------------------------------------
 
-STOP_PATH = HOOKS_DIR / "session-learning-recorder.py"
+STOP_PATH = HOOKS_DIR / "routing-outcome-stop-fallback.py"
 
 
 class TestStopFallback:

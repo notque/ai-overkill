@@ -16,7 +16,7 @@ quality-loop (14 phases)
  9  PR              — push branch, create PR with findings in body
 10  CODEX REVIEW    — cross-model second opinion via Codex CLI (GPT-5.4)
 11  ADR RECONCILE   — compare ADR decision vs what was actually built
-12  RECORD          — capture learnings, graduate review findings
+12  REPORT          — state the pipeline outcome and the ADR reconciliation
 13  CLEANUP         — move ADR to completed, clear artifacts, clean worktree
 ```
 
@@ -43,7 +43,7 @@ TaskCreate: "PHASE 8: RETEST"        — "Re-run tests after fixes"
 TaskCreate: "PHASE 9: PR"            — "Push branch, create PR"
 TaskCreate: "PHASE 10: CODEX REVIEW" — "Cross-model second opinion"
 TaskCreate: "PHASE 11: ADR RECONCILE"— "Compare decision vs implementation"
-TaskCreate: "PHASE 12: RECORD"       — "Capture learnings"
+TaskCreate: "PHASE 12: REPORT"       — "State the pipeline outcome"
 TaskCreate: "PHASE 13: CLEANUP"      — "Move ADR to completed, clear artifacts"
 ```
 
@@ -190,7 +190,7 @@ Run the same test suite as PHASE 3.
 - Display remaining CRITICAL findings to the user
 - Ask: "Quality loop exhausted 3 fix iterations with unresolved CRITICALs. Create PR anyway? (findings will be listed in PR body)"
 - Only proceed to PHASE 9 if user confirms
-- Log the loop exhaustion to learning.db
+- State the loop exhaustion in the PR body alongside the remaining CRITICALs
 
 A pipeline that promises quality enforcement must not silently ship CRITICALs. The user must consciously choose to proceed.
 
@@ -242,21 +242,15 @@ After PR is merged, compare what was planned against what was built.
 
 **Gate:** Reconciliation documented. Proceed to PHASE 12.
 
-### PHASE 12 — RECORD
+### PHASE 12 — REPORT
 
-Capture everything learned from this pipeline run.
+State what this pipeline run produced.
 
-- Record pipeline outcome to learning.db: phases executed, loop iterations, CRITICAL count, total agent dispatches
-- Graduate any review findings that were fixed in this PR (immediate graduation per `/do` Phase 5 rules)
-- Record the reconciliation outcome (how closely implementation matched plan/ADR)
+- Report the pipeline outcome: phases executed, loop iterations, CRITICAL count, total agent dispatches
+- Report the reconciliation outcome (how closely implementation matched plan/ADR)
+- Route any finding worth keeping into the file that owns it through a reviewed edit — a skill, an agent, or `docs/what-didnt-work.md` when the finding is a refuted experiment
 
-```bash
-SUMMARY_FILE=$(mktemp); printf '%s' "quality-loop: [summary of pipeline outcome]" > "$SUMMARY_FILE"
-python3 ~/.claude/scripts/learning-db.py learn --skill do --value-file "$SUMMARY_FILE"
-rm -f "$SUMMARY_FILE"
-```
-
-**Gate:** At least one learning recorded. Proceed to PHASE 13.
+**Gate:** Outcome reported. Proceed to PHASE 13.
 
 ### PHASE 13 — CLEANUP
 
@@ -275,15 +269,9 @@ Close the loop. Remove temporary artifacts, finalize ADR lifecycle.
 
 **Gate:** ADR in completed (if applicable). Artifacts cleaned. Pipeline complete.
 
-## Learning Integration
+## Phase reporting
 
-Each phase logs to learning.db:
-
-```bash
-SUMMARY_FILE=$(mktemp); printf '%s' "quality-loop PHASE_N: [outcome summary]" > "$SUMMARY_FILE"
-python3 ~/.claude/scripts/learning-db.py learn --skill do --value-file "$SUMMARY_FILE"
-rm -f "$SUMMARY_FILE"
-```
+Each phase reports its outcome in one line: `quality-loop PHASE_N: [outcome summary]`.
 
 ## Worktree Isolation
 

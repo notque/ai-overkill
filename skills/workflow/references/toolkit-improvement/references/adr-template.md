@@ -123,7 +123,7 @@ the creation workflow:_
 | 4. Validate | Run /skill-eval (baseline vs post) | Score >= baseline |
 | 5. Review | Run /pr-review (3 rounds max) | No blockers |
 | 6. Ship | /pr-sync → CI → merge | All checks pass |
-| 7. Record | Capture learnings to learning.db | Entry exists |
+| 7. Record | Route the run's patterns to the files that own them | Edits landed |
 
 _If this ADR only modifies existing components, use phases 2-7 (skip Design)._
 _If no new workflow is needed, write "N/A — modification only, standard PR flow."_

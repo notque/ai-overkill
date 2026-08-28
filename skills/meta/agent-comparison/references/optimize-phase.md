@@ -171,20 +171,15 @@ Compare final scores to the baseline to confirm net improvement. In beam mode, t
 
 ---
 
-## Step 9: Record in Learning-DB
+## Step 9: Report the run
 
-```bash
-python3 scripts/learning-db.py learn \
-    --skill agent-comparison \
-    "autoresearch: {target} improved {baseline}→{best} over {iterations} iterations. \
-     Accepted: {accepted}/{total}. Stop: {reason}. Changes: {summaries}"
-```
+State the outcome in the final report: `{target}` improved `{baseline}` → `{best}` over `{iterations}` iterations, `{accepted}/{total}` candidates accepted, stop reason `{reason}`, and the change summaries. `results.json` in the run directory is the durable record.
 
 ---
 
 ## Gate
 
-Optimization complete. Results reviewed. Cherry-picked improvements applied and verified against full task set. Results recorded.
+Optimization complete. Results reviewed. Cherry-picked improvements applied and verified against full task set. Outcome reported and `results.json` written.
 
 ---
 

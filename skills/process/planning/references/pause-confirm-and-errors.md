@@ -38,9 +38,9 @@ Display the handoff summary:
 **Cause**: No commits on current branch, no task_plan.md, no uncommitted changes — nothing to hand off
 **Solution**: If the session genuinely did no work, there is nothing to hand off. Inform the user: "No work detected to hand off. If you made changes that aren't committed or tracked, describe what you were working on and I'll create the handoff manually."
 
-### Error: learning-db.py query fails
-**Cause**: `learning-db.py query` exits non-zero — database not initialized, script missing, or corrupted db file
-**Solution**: Skip Phase 3 silently and proceed to Phase 4 with an empty `drafted_adrs` list. The handoff files are the primary deliverable; ADR extraction is a best-effort enhancement. Log a single line in context_notes: "learning-db.py unavailable — ADR extraction skipped."
+### Error: No decisions found to extract
+**Cause**: The session made no architectural decision that clears the decision-vs-tip heuristic
+**Solution**: Proceed to Phase 4 with an empty `drafted_adrs` list and omit the ADR section from both handoff files. The handoff files are the primary deliverable; ADR extraction is a best-effort enhancement. A session of pure implementation work legitimately drafts no ADRs.
 
 ### Error: HANDOFF.json Already Exists
 **Cause**: A previous `/pause` created handoff files that were not yet consumed by `/resume-work`

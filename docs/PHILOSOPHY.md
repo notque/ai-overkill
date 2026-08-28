@@ -23,7 +23,7 @@ The system requires no specialized knowledge from the user. Say what you want do
 
 **Test:** Does this feature require the user to know something internal? If yes, redesign it.
 
-**Automation corollary.** Anything that can fire automatically and fails safe, should. Automation that can delete or overwrite starts add-only and earns its destructive path — Warn-Only Gates (below) applied to automation. The sync hook proved why: stale cleanup repeatedly removed a support-directory link before regression tests pinned the add-only invariant (citation in Warn-Only Gates). Rule for this document: every invariant asserted here cites the test that enforces it, not the commit that intended it. Second rule: evidence that the system missed a principle names lifecycle debt, never repeal. The gap goes on the build list; the principle stands until an experiment refutes it. The sync incident reads exactly that way — corollary sound, enforcement lagged. Gates enforce via hooks. Context injects via SessionStart/UserPromptSubmit. Learning happens via PostToolUse capture. The user describes intent. The system does everything else.
+**Automation corollary.** Anything that can fire automatically and fails safe, should. Automation that can delete or overwrite starts add-only and earns its destructive path — Warn-Only Gates (below) applied to automation. The sync hook proved why: stale cleanup repeatedly removed a support-directory link before regression tests pinned the add-only invariant (citation in Warn-Only Gates). Rule for this document: every invariant asserted here cites the test that enforces it, not the commit that intended it. Second rule: evidence that the system missed a principle names lifecycle debt, never repeal. The gap goes on the build list; the principle stands until an experiment refutes it. The sync incident reads exactly that way — corollary sound, enforcement lagged. Gates enforce via hooks. Context injects via SessionStart/UserPromptSubmit. Telemetry records via PostToolUse capture. The user describes intent. The system does everything else.
 
 ---
 
@@ -149,7 +149,7 @@ Tokens buy more value as specialists in parallel than as longer prompts to a sin
 | Policy enforcement | Force-routes; quality gates (lint/tests/CI) on git and security work |
 | Communication discipline | The mandatory density/completeness injection in every handoff |
 | Resource policy | Model per task class, token budgets |
-| Learning capture | Routing decisions and outcomes into learning.db |
+| Telemetry capture | Routing decisions and outcomes into learning.db |
 
 Jobs migrate by kind — Everything Deterministic (above) applied to the router's own work. Judgment jobs (intent reading, complexity classification, decomposition) stay in prompt-space. Mechanical jobs (injection assembly, marker stamping, roster table lookups, banner emission) move to hooks and scripts as they prove deterministic. Hooks are harness code: programs that run on lifecycle events, outside prompt-space. The PreToolUse injection hooks already in production (`pretool-subagent-warmstart.py`, the reference-loading gate) prove the pattern.
 
@@ -200,13 +200,13 @@ Gates are automated, not advisory. Hook fails = pipeline stops. Hooks are fragil
 
 ## Warn-Only Gates Beat Blocking Gates
 
-A gate is a hard stop; a safeguard is an observable alert. Most checks should be safeguards. Anything that blocks a merge must prove its worth and ship with an explicit escalation path. New checks start advisory and graduate to blocking only via a dedicated ADR and operator sign-off.
+A gate is a hard stop; a safeguard is an observable alert. Most checks should be safeguards. Anything that blocks a merge must prove its worth and ship with an explicit escalation path. New checks start advisory and are promoted to blocking only via a dedicated ADR and operator sign-off.
 
-This is how the system is built, not an aspiration. `hooks/stop-drift-guard.py` detects toolkit drift and re-wakes the session async — it never blocks. The post-merge sync hook is add-only: it adds new items, never overwrites. That invariant is enforced by `TestSupportDirSurvivesCleanup` in `hooks/tests/test_sync_to_user_claude.py` (PR #762), added after stale cleanup repeatedly removed a support-directory link. The add-only intent dates to commit 8d7c8b00 in `install.sh`; the invariant held only once a test enforced it — which is why this document cites tests, not intentions. `hooks/session-learning-recorder.py` warns when a substantive session captured zero learnings, then exits clean. When PR #747 weighed a blocking re-run check for the negative-results registry, it deferred to a future ADR with a documented escalation path rather than ship a hard stop.
+This is how the system is built, not an aspiration. `hooks/stop-drift-guard.py` detects toolkit drift and re-wakes the session async — it never blocks. The post-merge sync hook is add-only: it adds new items, never overwrites. That invariant is enforced by `TestSupportDirSurvivesCleanup` in `hooks/tests/test_sync_to_user_claude.py` (PR #762), added after stale cleanup repeatedly removed a support-directory link. The add-only intent dates to commit 8d7c8b00 in `install.sh`; the invariant held only once a test enforced it — which is why this document cites tests, not intentions. `hooks/hook-version-parity-check.py` warns when a deployed hook differs from the checkout, then exits clean. When PR #747 weighed a blocking re-run check for the negative-results registry, it deferred to a future ADR with a documented escalation path rather than ship a hard stop.
 
-**Counterweight: advisory gates require a promotion plan.** An advisory gate must carry (a) an enforcement date in the CI step comment and (b) the `--strict` command that will be run on that date. An advisory gate with no date is a gate with an infinite proof-test interval -- it will never graduate, and the check it guards will drift unchecked. Two current instances: `validate-merged-index.py` ("Gate later with --strict", no date) and `check-index-colocation.py` (`continue-on-error: true` and `|| true`, no date). Both are advisory gates whose proof-test interval is unbounded.
+**Counterweight: advisory gates require a promotion plan.** An advisory gate must carry (a) an enforcement date in the CI step comment and (b) the `--strict` command that will be run on that date. An advisory gate with no date is a gate with an infinite proof-test interval -- it will never be promoted, and the check it guards will drift unchecked. Two current instances: `validate-merged-index.py` ("Gate later with --strict", no date) and `check-index-colocation.py` (`continue-on-error: true` and `|| true`, no date). Both are advisory gates whose proof-test interval is unbounded.
 
-**Test:** Does this check stop work on failure? If the failure is advisory, make it warn and exit 0; reserve blocking for gates that earned an ADR. Does this advisory gate name the date and the `--strict` command? If not, it is a gate that will never graduate.
+**Test:** Does this check stop work on failure? If the failure is advisory, make it warn and exit 0; reserve blocking for gates that earned an ADR. Does this advisory gate name the date and the `--strict` command? If not, it is a gate that will never be promoted.
 
 ---
 
@@ -240,7 +240,7 @@ The loop is designed, not incidental. `scripts/validate-doc-counts.py` runs as a
 
 One Domain, One Component governs creation. This governs retirement. A component's value is measured in routes carried; the route-weights and route-events telemetry is the detector (read it via `scripts/learning-db.py` route-health). Zero routes over a long window means shelf-ware: a candidate for demotion to a stub in the manifest, archival, or deletion — with demand-driven reactivation when traffic returns. As of 2026-06-10, the live working set — roughly four agents and six skills — carries nearly all routed traffic across 129 routable skills (134 on disk; 5 demoted to references). A dated observation, not a permanent number. Recursive Measurement applies to the catalog itself: a component nobody routes to is context every session still pays for.
 
-Hooks need this governance most: a hook is the easiest component to create and the hardest to manage. Managing, correcting, and retiring hooks is named, recurring debt. The detector seed exists — the hook-health CI job (`scripts/validate-hook-health.py`, gating in `.github/workflows/test.yml`) — and the route-events/learning instrumentation pattern generalizes to hook firings. A hook nobody can attribute a benefit to is shelf-ware with side effects — worse than a shelf-ware skill, because it executes.
+Hooks need this governance most: a hook is the easiest component to create and the hardest to manage. Managing, correcting, and retiring hooks is named, recurring debt. The detector seed exists — the hook-health CI job (`scripts/validate-hook-health.py`, gating in `.github/workflows/test.yml`) — and the route-events telemetry pattern generalizes to hook firings. A hook nobody can attribute a benefit to is shelf-ware with side effects — worse than a shelf-ware skill, because it executes.
 
 **Test:** When did this component last carry a route? If the telemetry can't answer, fix the telemetry. If the answer is "never in a long window," demote it.
 
@@ -392,13 +392,15 @@ A prompt variable is a typed program input: expected format, escaping, behavior 
 
 ---
 
-## Learning System Discipline
+## Negative-Results Discipline
 
 Negative results are assets worth a registry. Document what didn't work before it vanishes; one lookup prevents re-litigating a settled decision.
 
 Store failed experiments in a format-fixed doc, newest first, keyed by hypothesis plus an evidence location — a `file:line`, eval path, PR number, or `learning.db` topic/key, never a bare claim. `docs/what-didnt-work.md` is that registry: PR #747 shipped it with a six-field format (date, experiment, expectation, what happened, evidence, decision) and seeded it from three real program refutations. No schema, no blocking gate — the doc is canonical, queried by grep/Read before re-running an experiment, and surfaced through `CONTRIBUTING.md` and the `retro` subcommand.
 
-**OPEN: memory needs a verify step.** Hypothesis: a learned pattern earns graduation and consultation only after an executed check confirms it; recurrence alone can entrench a wrong guess, because the same misroute recorded three times reads as a pattern. Recurrence screens candidates (Triple-Validation, above); only an executed check confirms one. Validation: a `verified` flag on `hooks/retro-graduation-gate.py` (follow-up to PR #766); measure the precision delta between verified and recurrence-only graduations.
+**A component that spends the user's context proves its value before it runs by default.** Injection is the expensive case: it bills every session for a benefit nobody measured. Measure the thing delivered, not the firing. Activity metrics such as activation counts are not value metrics, and a component whose own counter overcounts cannot be argued into usefulness by that counter. Evidence: the learning-loop retirement in `docs/what-didnt-work.md`, where an injector firing on 25% of Bash calls was delivering the same three rows, truncated mid-word.
+
+**Automated editing of skills and agents needs a human in the path.** A pipeline that writes to a skill file on its own takes unbounded risk against an unproven benefit. Knowledge reaches a component through a reviewed edit. Same evidence.
 
 **Test:** Did this experiment fail, weaken, or get reverted? Record it in the registry with an evidence location before the next session re-runs it.
 
@@ -406,7 +408,7 @@ Store failed experiments in a format-fixed doc, newest first, keyed by hypothesi
 
 ## Recursive Measurement
 
-The measurement system that catches routing misses must itself be measured. If negative results from a program don't land in the registry built during that program, the learning system failed — measure at program scale, not just per session.
+The measurement system that catches routing misses must itself be measured. If negative results from a program don't land in the registry built during that program, the measurement failed — measure at program scale, not just per session.
 
 The blog-learnings program is its own test case. Early PRs shipped the telemetry envelope and routing-outcome capture; later PRs had to appear in that measurement. PR #747's registry was seeded with real negatives from the program itself — two refuted recommendations plus the post-merge-sync gotcha. Closure runs end to end: `hooks/routing-decision-recorder.py` → `hooks/routing-outcome-finalizer.py` → `scripts/learning-db.py route-health`, each with a visible correctness metric.
 
@@ -416,7 +418,7 @@ The blog-learnings program is its own test case. Early PRs shipped the telemetry
 
 ## Operational Gotchas & Recovery
 
-Three failure modes need three detectors. **Loud failures** raise errors or exceptions — caught by tool error flags and `hooks/error-learner.py` classification. **Silent failures** succeed locally but hand the user a wrong answer — caught only by user reaction, where `hooks/routing-outcome-finalizer.py` runs high-precision rejection detection to avoid false positives. **Misroutes** pick the wrong agent for the right problem. Silent failure is the central enemy: it leaves no error to grep, so route-health tracks the outcome basis and silent-success share explicitly (PR #743). Recognizing which mode you face decides how to recover.
+Three failure modes need three detectors. **Loud failures** raise errors or exceptions — caught by tool error flags, which `hooks/routing-outcome-finalizer.py` counts per dispatch and `telemetry_runs.tool_errors` totals per run. **Silent failures** succeed locally but hand the user a wrong answer — caught only by user reaction, where `hooks/routing-outcome-finalizer.py` runs high-precision rejection detection to avoid false positives. **Misroutes** pick the wrong agent for the right problem. Silent failure is the central enemy: it leaves no error to grep, so route-health tracks the outcome basis and silent-success share explicitly (PR #743). Recognizing which mode you face decides how to recover.
 
 **Routing misclassification.** Wrong agent selected. Signal: unexpected agent in routing banner, or output mismatched to domain. Recovery: re-invoke with explicit domain context.
 
@@ -426,6 +428,6 @@ Three failure modes need three detectors. **Loud failures** raise errors or exce
 
 **Pipeline stall.** Phase gate blocks on missing/malformed prerequisite artifact. Signal: same phase reruns without advancing. Recovery: check/fix the expected artifact file.
 
-**Learning compounding.** Misroute recorded in learning.db reinforces wrong routing in future sessions. Signal: same misroute recurs across sessions. Recovery: query and delete/reweight incorrect entries via `scripts/learning-db.py`.
+**Route-weight compounding.** A misroute recorded in learning.db reinforces wrong routing in future sessions, because `route-weights` feeds the health-aware re-rank. Signal: same misroute recurs across sessions. Recovery: inspect the route with `learning-db.py route-stats --by agent`, then reweight the entry.
 
 **Stale INDEX files.** New agent/skill added without regenerating INDEX. Router can't find it. Recovery: run `scripts/generate-agent-index.py` and `scripts/generate-skill-index.py`.

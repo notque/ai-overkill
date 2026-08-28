@@ -36,6 +36,11 @@ ALLOWLIST = {
     "adr/completed",  # Created at runtime by adr-lifecycle-on-merge.py when an ADR is marked COMPLETE
     "hooks/auto-plan-detector.py",  # Deleted stub, documented as removed in injected-context-contracts.md
     ".claude/settings.local.json",  # Gitignored repo-local override file, documented as such
+    # Retired with the learning system (2026-08-28). The negative-results registry
+    # cites them as the evidence for why they were removed, so the references stay.
+    "hooks/pretool-learning-injector.py",
+    "hooks/instruction-compliance.py",
+    "hooks/tests/test_injection_floor.py",
 }
 
 # Markdown link: [text](target)

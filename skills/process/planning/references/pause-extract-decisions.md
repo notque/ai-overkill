@@ -1,20 +1,16 @@
-# Pause-Work Extract Learnings
+# Pause-Work Extract Decisions
 
-Verbatim Phase 3 (EXTRACT LEARNINGS) detail. Query session learnings from learning.db, filter for architectural decisions that warrant ADRs, and draft ADR skeletons for each candidate. This phase runs before WRITE so that ADR data is available for inclusion in both handoff files — passing extracted data downstream is cheaper than appending to files after the fact.
+Verbatim Phase 3 (EXTRACT DECISIONS) detail. Take the decisions this session made, filter for the ones that warrant ADRs, and draft ADR skeletons for each candidate. This phase runs before WRITE so that ADR data is available for inclusion in both handoff files — passing extracted data downstream is cheaper than appending to files after the fact.
 
-## Step 1: Query session learnings
+## Step 1: Collect this session's decisions
 
-```bash
-python3 ~/.claude/scripts/learning-db.py query --format json --limit 20
-```
-
-`learning-db.py` has no `--since` flag, so query recent entries and filter by recency. Use the `created_at` field in the JSON output to identify entries recorded during this session — the most recent entries are the ones this session produced.
+Use the `decisions` field synthesized in Phase 2, plus any choice made in this session that changed the approach: a tool or library picked over an alternative, a contract fixed between components, a process rule adopted. The session transcript is the source. Record each as one sentence stating the choice and its reason.
 
 ## Step 2: Filter for ADR candidates
 
-Apply this heuristic to determine which learnings describe architectural decisions vs. incidental tips:
+Apply this heuristic to determine which decisions warrant an ADR vs. which are incidental tips:
 
-| Learning pattern | ADR candidate? |
+| Decision pattern | ADR candidate? |
 |-----------------|----------------|
 | "After X, always do Y" | Yes — process decision |
 | "X depends on Y" | Yes — contract/coupling |
@@ -38,17 +34,17 @@ If `adr-query.py` returns "manual", use placeholder numbers and note that the us
 Draft to `adr/{number}-{slug}.md`:
 
 ```markdown
-# ADR-{number}: {Title from learning}
+# ADR-{number}: {Title from the decision}
 
 **Status**: Proposed
 **Date**: {today}
-**Source**: Auto-extracted from session learning (confidence: {confidence})
+**Source**: Drafted during a session pause; review before accepting
 
 ## Context
-{Context derived from the learning entry}
+{Context that forced the decision}
 
 ## Decision
-{Decision derived from the learning pattern}
+{The choice made, and the reason}
 
 ## Validation Criteria
 - [ ] {Criterion derived from the decision}

@@ -29,7 +29,7 @@ routing:
 
 ## Overview
 
-This skill orchestrates systematic upgrades to the agent/skill/hook/script ecosystem when external changes warrant adaptation. It is a **top-down** upgrade mechanism—triggered by Claude Code releases, user goal changes, or accumulated retro learnings—complementing the **bottom-up** retro-knowledge-injector.
+This skill orchestrates systematic upgrades to the agent/skill/hook/script ecosystem when external changes warrant adaptation. It is a **top-down** upgrade mechanism—triggered by Claude Code releases, user goal changes, or routing telemetry that shows components failing—complementing the **bottom-up** `agent-upgrade` pipeline that fixes one component at a time.
 
 The pipeline enforces a mandatory approval gate: Phase 3 output (ranked upgrade list) MUST be presented to the user and approved before Phase 4 begins. Never silently execute upgrades.
 
@@ -47,7 +47,7 @@ The pipeline enforces a mandatory approval gate: Phase 3 output (ranked upgrade 
 |-------------|---------|--------------|
 | `claude-release` | "claude update", "new version", "release notes", "shipped X" | Version number or release notes text |
 | `goal-change` | "I now want", "we're moving to", "new focus", "deprecate X" | User's description of the change |
-| `retro-driven` | "retro graduate", "apply retro", "/retro" showed 5+ candidates | learning.db design/gotcha entries |
+| `telemetry-driven` | "routes are failing", "fix the weak agents", `/retro routing` showed weak routes | `learning-db.py route-health` output |
 
 **For `claude-release`**: Extract from user's input or web search for Claude Code release notes:
 - New hook event types (e.g., `Notification`, `ToolResult`)
@@ -61,11 +61,12 @@ The pipeline enforces a mandatory approval gate: Phase 3 output (ranked upgrade 
 - What domains/workflows are no longer in scope (DEPRECATED)
 - What patterns should be applied everywhere (ENFORCE)
 
-**For `retro-driven`**: Query the learning database for graduation candidates:
+**For `telemetry-driven`**: Read routing telemetry for components that carry traffic and fail on it:
 ```bash
-python3 ~/.claude/scripts/learning-db.py query --category design --category gotcha
+python3 ~/.claude/scripts/learning-db.py route-health
+python3 ~/.claude/scripts/learning-db.py route-stats --by errors
 ```
-Evaluate entries for actionability and specificity. These are the upgrade signals.
+Read the outcome basis before the rates — a rate computed mostly from neutral outcomes describes the scorer, not the component. A route with many dispatches and a high error rate is an upgrade signal; a route with none is a retirement candidate.
 
 **Output**: A structured "Change Manifest"—a list of change signals with type, description, and likely affected component types.
 
@@ -146,18 +147,18 @@ grep -l "goroutine\|concurrency" agents/*.md skills/*/SKILL.md
 SYSTEM UPGRADE PLAN
 ===================
 
-Trigger: [claude-release | goal-change | retro-driven]
+Trigger: [claude-release | goal-change | telemetry-driven]
 Change: [brief description]
 
 Proposed Changes (Ranked):
 
 CRITICAL (must fix):
-  1. hooks/error-learner.py — Add Notification event handler [upgrade, ~30min]
-  2. hooks/pretool-learning-injector.py — Update for new tool event format [upgrade, ~20min]
+  1. hooks/routing-decision-recorder.py — Add Notification event handler [upgrade, ~30min]
+  2. hooks/pretool-subagent-warmstart.py — Update for new tool event format [upgrade, ~20min]
 
 IMPORTANT (should fix):
   3. agents/hook-development-engineer.md — Document Notification event type [inject-pattern, ~15min]
-  4. skills/engineering/go-patterns/SKILL.md — Apply new pattern from retro L2 [inject-pattern, ~10min]
+  4. skills/engineering/go-patterns/SKILL.md — Apply the new pattern from the release notes [inject-pattern, ~10min]
 
 MINOR (nice to have):
   5. agents/skill-creator.md — Add new frontmatter field docs [upgrade, ~5min]
@@ -287,7 +288,7 @@ Changes Applied:
 Validation: [N/N components scored, mean grade [X]]
 
 Next Upgrade: Run /system-upgrade after next Claude Code release
-              or when /retro shows 5+ graduation candidates
+              or when /retro routing shows several weak routes
 ```
 
 **Gate**: Changes committed, synced to ~/.claude, PR created, and upgrade SHA recorded. Pipeline complete.
@@ -320,4 +321,4 @@ Solution: Manually copy modified files to `~/.claude/` equivalent directories. R
 - [agent-evaluation](../../skills/meta/agent-evaluation/SKILL.md) - Objective scoring skill used in Phase 5 validation
 - [pr-pipeline](./pr-pipeline.md) - PR creation pipeline used in Phase 6 deploy
 - [upgrade-diff.py](../../scripts/upgrade-diff.py) - Incremental diff script for scoping audits
-- [learning-db.py](../../scripts/learning-db.py) - Script for querying retro graduation candidates
+- [learning-db.py](../../scripts/learning-db.py) - Read-only CLI for routing telemetry (`route-health`, `route-stats`)

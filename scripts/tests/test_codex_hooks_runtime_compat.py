@@ -75,7 +75,6 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
     add("UserPromptSubmit", "state:learning-topic:voice-sample", "prompt-capture.py")
     add("UserPromptSubmit", "state:routing-requeue", "routing-outcome-finalizer.py")
     add("UserPromptSubmit", "context:[pipeline-creator]", "pipeline-context-detector.py")
-    add("UserPromptSubmit", "context:[user-correction]", "user-correction-capture.py")
     add("UserPromptSubmit", "context:[codex-auto-review]", "codex-auto-review.py")
     add(
         "PreToolUse",
@@ -87,7 +86,6 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
         "security-review-hook.py",
         "pretool-unified-gate.py",
         "pretool-worktree-edit-guard.py",
-        "pretool-learning-injector.py",
         "pretool-synthesis-gate.py",
         "pretool-plan-gate.py",
         "pretool-prompt-injection-scanner.py",
@@ -96,7 +94,6 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
     )
     add("PreToolUse", "state:compact", "suggest-compact.py")
     add("PreToolUse", "state:backup", "pretool-file-backup.py")
-    add("PostToolUse", "context:[retro-gate]", "retro-graduation-gate.py")
     add("PostToolUse", "context:[adr-lifecycle]", "adr-lifecycle-on-merge.py")
     add("PostToolUse", "context:[bash-injection-scan]", "posttool-bash-injection-scan.py")
     add("PostToolUse", "context:[rename-sweep]", "posttool-rename-sweep.py")
@@ -109,18 +106,14 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
     add("PostToolUse", "context:[sync-agent-index]", "posttooluse-sync-agent-index.py")
     add("PostToolUse", "context:[docs-drift] WARNING", "posttool-docs-drift-alert.py")
     add("PostToolUse", "context:[security-review]", "security-review-hook.py")
-    add("PostToolUse", "context:[new-error]", "error-learner.py")
-    add("PostToolUse", "state:waste-row", "record-waste.py")
     add("PostToolUse", "context:Auto-test results", "posttool-auto-test.py")
-    add("PostToolUse", "state:activation", "record-activation.py")
     add("PreCompact", "context:ACTIVE PIPELINE SESSION", "precompact-archive.py")
     add("SubagentStop", "state:routing-requeue", "routing-outcome-recorder.py")
     add("SubagentStop", "deny:READ-ONLY", "subagent-completion-guard.py")
-    add("Stop", "state:learning-db", "confidence-decay.py", "session-summary.py")
+    add("Stop", "state:learning-db", "session-summary.py")
     add("Stop", "deny:Toolkit drift detected", "stop-drift-guard.py")
-    add("Stop", "stderr:[learning-gap]", "session-learning-recorder.py")
-    add("Stop", "context:[graduation]", "knowledge-graduation-proposer.py")
     add("Stop", "context:[rules-distill]", "rules-distill-trigger.py")
+    add("Stop", "state:routing-drained", "routing-outcome-stop-fallback.py")
     return contracts
 
 
@@ -179,8 +172,6 @@ def _sandbox(tmp_path: Path, session_id: str) -> tuple[Path, dict[str, str], Pat
 def _prompt(filename: str) -> str:
     if filename == "pipeline-context-detector.py":
         return "create a pipeline for runtime checks"
-    if filename == "user-correction-capture.py":
-        return "actually, use the current Codex hook format"
     if filename == "codex-auto-review.py":
         return "please review this PR"
     return "runtime compatibility probe"
@@ -232,7 +223,8 @@ def _event(entry: dict, cwd: Path, transcript: Path, session_id: str) -> dict:
 
 
 def _single_write_patch(path: str, content: str = "runtime\n") -> str:
-    body = "\n".join(f"+{line}" for line in content.splitlines())
+    added_lines = ["+" + line for line in content.splitlines()]
+    body = "\n".join(added_lines)
     return f"*** Begin Patch\n*** Add File: {path}\n{body}\n*** End Patch"
 
 
@@ -255,25 +247,6 @@ def _seed_pending_route(env: dict[str, str], session_id: str) -> Path:
         encoding="utf-8",
     )
     return path
-
-
-def _seed_learning(env: dict[str, str], *, topic: str, key: str, category: str, confidence: float, count: int) -> None:
-    code = (
-        "import sys; "
-        f"sys.path.insert(0, {str(HOOKS / 'lib')!r}); "
-        "from learning_db_v2 import record_learning; "
-        f"[record_learning({topic!r}, {key!r}, 'runtime learning', {category!r}, "
-        f"confidence={confidence!r}, source='runtime-test') for _ in range({count})]"
-    )
-    completed = subprocess.run(
-        [sys.executable, "-c", code],
-        text=True,
-        capture_output=True,
-        env=env,
-        timeout=5,
-        check=False,
-    )
-    assert completed.returncode == 0, completed.stderr
 
 
 def _prepare_case(
@@ -369,19 +342,14 @@ def _prepare_case(
             check=False,
         )
         assert completed.returncode == 0, completed.stderr
-    elif filename in {"routing-outcome-finalizer.py", "routing-outcome-recorder.py"}:
+    elif filename in {
+        "routing-outcome-finalizer.py",
+        "routing-outcome-recorder.py",
+        "routing-outcome-stop-fallback.py",
+    }:
         evidence["routing_state"] = _seed_pending_route(env, session_id)
         if filename == "routing-outcome-finalizer.py":
             payload["prompt"] = "continue with the runtime task"
-    elif filename == "retro-graduation-gate.py":
-        (cwd / "agents").mkdir()
-        (cwd / "skills").mkdir()
-        _seed_learning(env, topic="runtime-retro", key="verified", category="gotcha", confidence=0.8, count=1)
-        db = Path(env["CLAUDE_LEARNING_DIR"]) / "learning.db"
-        with sqlite3.connect(db) as connection:
-            connection.execute("UPDATE learnings SET success_count = 1 WHERE topic = 'runtime-retro'")
-        payload["tool_input"] = {"command": "gh pr create --title runtime"}
-        payload["tool_response"] = {"output": "https://github.com/example/runtime/pull/1", "exit_code": 0}
     elif filename == "adr-lifecycle-on-merge.py":
         payload["tool_input"] = {"command": "gh pr merge ADR-999"}
         payload["tool_response"] = {"output": "merged", "exit_code": 0}
@@ -448,12 +416,6 @@ def _prepare_case(
             agents.mkdir()
             (agents / "runtime-agent.md").write_text("# Runtime Agent\n", encoding="utf-8")
             (agents / "INDEX.json").write_text('{"agents": {}}\n', encoding="utf-8")
-        elif filename in {"error-learner.py", "record-waste.py"}:
-            payload["tool_response"] = {
-                "output": "RuntimeError: deliberate Codex hook compatibility failure",
-                "exit_code": 1,
-                "is_error": True,
-            }
         elif filename == "posttool-auto-test.py":
             patch_path = "runtime.go"
             (cwd / patch_path).write_text("package runtime\n", encoding="utf-8")
@@ -491,11 +453,6 @@ def _prepare_case(
             capture_output=True,
         )
         changed_hook.write_text("VALUE = 'after'\n", encoding="utf-8")
-    elif filename == "session-learning-recorder.py":
-        payload["session_data"] = {"tool_uses": [{}] * 6, "files_modified": []}
-    elif filename == "knowledge-graduation-proposer.py":
-        _seed_learning(env, topic="runtime-graduation", key="candidate", category="gotcha", confidence=0.9, count=3)
-        evidence["graduation_dir"] = home / ".claude" / "graduation-proposals"
     elif filename == "rules-distill-trigger.py":
         script = home / ".claude" / "scripts" / "rules-distill.py"
         script.parent.mkdir(parents=True)
@@ -594,8 +551,6 @@ def _assert_meaningful(
         assert Path(f"/tmp/claude-compact-count-{session_id}.state").read_text().strip() == "3"
     elif contract == "state:backup":
         assert len(list((Path("/tmp/.claude-backups") / session_id).iterdir())) == 3
-    elif contract == "state:activation":
-        assert Path(f"/tmp/claude-activation-counter-{session_id}").read_text().strip() == "1"
     elif contract == "state:learning-db":
         assert (Path(env["CLAUDE_LEARNING_DIR"]) / "learning.db").is_file()
     elif contract.startswith("state:learning-topic:"):
@@ -612,13 +567,13 @@ def _assert_meaningful(
         assert isinstance(state_path, Path)
         state = json.loads(state_path.read_text(encoding="utf-8"))
         assert len(state["pending"]) == 1 and state["pending"][0]["attempts"] == 1
-    elif contract == "state:waste-row":
-        db = Path(env["CLAUDE_LEARNING_DIR"]) / "learning.db"
-        with sqlite3.connect(db) as connection:
-            row = connection.execute(
-                "SELECT failure_count, waste_tokens FROM session_stats WHERE session_id = ?", (session_id,)
-            ).fetchone()
-        assert row is not None and row[0] == 1 and row[1] >= 100
+    elif contract == "state:routing-drained":
+        # The Stop fallback calls finalize_pending_outcomes, which atomically
+        # reads AND clears pending, so the seeded entry must be gone.
+        state_path = evidence["routing_state"]
+        assert isinstance(state_path, Path)
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert state["pending"] == [], f"{key} left pending outcomes unresolved at session end"
     else:
         raise AssertionError(f"unknown runtime semantic contract: {contract}")
 
@@ -626,9 +581,6 @@ def _assert_meaningful(
         assert Path(evidence["briefing_sidecar"]).is_file()
     if "manifest_cache" in evidence:
         assert "runtime-agent" in Path(evidence["manifest_cache"]).read_text(encoding="utf-8")
-    if "graduation_dir" in evidence:
-        proposals = list(Path(evidence["graduation_dir"]).glob("*.md"))
-        assert proposals and "runtime learning" in proposals[0].read_text(encoding="utf-8")
     if "distill_state" in evidence:
         assert Path(evidence["distill_state"]).is_file()
     if "generated_index" in evidence:
@@ -639,8 +591,6 @@ def _cleanup_global_state(session_id: str, evidence: dict[str, object] | None = 
     shutil.rmtree(Path("/tmp/.claude-backups") / session_id, ignore_errors=True)
     for path in (
         Path(f"/tmp/claude-compact-count-{session_id}.state"),
-        Path(f"/tmp/claude-activation-counter-{session_id}"),
-        Path(f"/tmp/claude-retro-active-{session_id}"),
         Path(f"/tmp/claude-ref-gate-{session_id}.json"),
     ):
         path.unlink(missing_ok=True)
@@ -663,9 +613,9 @@ def _cleanup_global_state(session_id: str, evidence: dict[str, object] | None = 
 
 
 def test_runtime_inventory_contains_all_supported_registrations() -> None:
-    assert len(REGISTRATIONS) == 61, "runtime matrix must execute every supported registration"
+    assert len(REGISTRATIONS) == 53, "runtime matrix must execute every supported registration"
     registrations = {(item["event"], item["filename"]) for item in REGISTRATIONS}
-    assert len(registrations) == 61
+    assert len(registrations) == 53
     assert set(SEMANTIC_CONTRACTS) == registrations, "every registration needs one explicit semantic contract"
 
 

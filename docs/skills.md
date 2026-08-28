@@ -184,9 +184,8 @@ Skills are invoked via `/do [request]` (routed automatically) or directly as `/s
 | Skill | Invocable | Description |
 |-------|-----------|-------------|
 | `adr-consultation` | no | Multi-agent consultation for architecture decisions |
-| `retro` | yes | Learning system interface: stats, search, graduate learnings. Backed by learning.db (SQLite + FTS5). |
-| `learn` | no | Manually teach error pattern and solution to learning database |
-| `auto-dream` | yes | Background memory consolidation and learning graduation -- overnight knowledge lifecycle |
+| `retro` | yes | Session retrospective: prints the negative-results registry, reviews what a session changed. |
+| `auto-dream` | yes | Background memory consolidation -- overnight cleanup of stale, duplicate, and conflicting memory entries |
 | `kairos-lite` | yes | Proactive monitoring -- checks GitHub, CI, and toolkit health, produces briefings |
 | `skill-eval` | no | Evaluate skills: trigger testing, A/B benchmarks, structure validation |
 | `skill-creator` | no | Create and iteratively improve skills through eval-driven validation |

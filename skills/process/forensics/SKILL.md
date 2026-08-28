@@ -32,7 +32,7 @@ routing:
 
 Investigate failed or stuck workflows through post-mortem analysis of git history, plan files, and session artifacts. Forensics answers "what went wrong and why" -- it detects workflow-level failures that individual tool errors don't reveal.
 
-**Key distinction**: A tool error is "ruff found 3 lint errors." A workflow failure is "the agent entered a fix/retry loop editing the same file 5 times and never progressed." The error-learner handles tool-level errors. Forensics handles workflow-level patterns.
+**Key distinction**: A tool error is "ruff found 3 lint errors." A workflow failure is "the agent entered a fix/retry loop editing the same file 5 times and never progressed." The harness surfaces tool-level errors. Forensics handles workflow-level patterns.
 
 ## Reference Loading
 
@@ -237,4 +237,4 @@ Include relevant git log excerpts, file snippets, and timestamps as evidence for
 - [Systematic Debugging](skills/workflow/references/systematic-debugging.md) -- for code-level bugs (not workflow-level)
 - [Workflow Orchestrator](skills/workflow/references/workflow-orchestrator.md) -- produces the plans forensics analyzes
 - [Planning umbrella — check intent](/skills/process/planning/references/check.md) -- validates plans pre-execution (forensics analyzes post-execution)
-- [Error Learner Hook](/hooks/error-learner.py) -- handles tool-level errors (forensics handles workflow-level patterns)
+- [Routing outcome finalizer](/hooks/routing-outcome-finalizer.py) -- scores dispatch outcomes (forensics explains the workflow-level failures behind them)

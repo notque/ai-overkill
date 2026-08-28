@@ -1,6 +1,6 @@
 # Hooks
 
-Event-driven automations that fire at Claude Code lifecycle boundaries. They enforce safety gates, inject context, record learnings, and automate quality checks — silent by default, only speaking when adding value.
+Event-driven automations that fire at Claude Code lifecycle boundaries. They enforce safety gates, inject context, record telemetry, and automate quality checks — silent by default, only speaking when adding value.
 
 ## How Hooks Work
 
@@ -39,7 +39,7 @@ Task completes: TaskCompleted
 | `retro-knowledge-injector` | Stub — previously injected retro knowledge; replaced by auto-dream via `session-context.py` |
 | `rules-distill-injector` | Injects pending rules-distillation candidates from `learning/rules-distill-pending.json` |
 | `sapcc-go-detector` | Detects SAP Converged Cloud Go projects and injects `go-patterns` skill |
-| `session-context` | Loads high-confidence learned patterns (>0.7) from the learning DB and auto-dream payload into context |
+| `session-context` | Injects the pre-built auto-dream payload and the overnight dream notice (ADR-147) |
 | `sync-to-user-claude` | Syncs agents, skills, hooks, commands, and scripts from the repo to `~/.claude/` |
 | `team-config-loader` | Discovers `team-config.yaml` from priority-ordered locations and injects team configuration into context |
 
@@ -55,7 +55,6 @@ Task completes: TaskCompleted
 | `instruction-reminder` | Stub — previously re-injected CLAUDE.md; now handled natively by Claude Code |
 | `pipeline-context-detector` | Detects pipeline creation requests and injects an environmental state snapshot |
 | `skill-evaluator` | Discovers skills/agents and injects a targeted evaluation protocol |
-| `user-correction-capture` | Records user corrections and capability-gap signals to `learning.db` |
 | `userprompt-datetime-inject` | Stub — previously injected date/time; now handled natively by Claude Code |
 
 ---
@@ -82,7 +81,6 @@ Task completes: TaskCompleted
 |------|---------|-------------|
 | `creation-protocol-enforcer` | Agent | Soft-warns when an Agent dispatch appears to be a creation request without a recent ADR session |
 | `pretool-file-backup` | Edit | Silently copies edited files to `/tmp/.claude-backups/{session_id}/` before each edit |
-| `pretool-learning-injector` | Bash, Edit | Injects high-confidence error patterns from `learning.db` before tools run |
 | `pretool-prompt-injection-scanner` | Write, Edit | Scans agent context files for LLM-level prompt injection patterns (advisory only) |
 | `pretool-subagent-warmstart` | Agent | Enriches subagent prompts with parent session context (files seen, plan status, key decisions) |
 | `suggest-compact` | Edit, Write | Suggests `/compact` after a configurable threshold of edit/write tool calls |
@@ -95,16 +93,12 @@ Task completes: TaskCompleted
 |------|---------|-------------|
 | `adr-enforcement` | Write, Edit | Runs ADR compliance check after pipeline component files are written |
 | `agent-grade-on-change` | Edit, Write | Automatically grades agent files when they are created or modified |
-| `error-learner` | Any | Detects tool errors, learns patterns, and injects fix suggestions via SQLite |
 | `posttool-bash-injection-scan` | Bash | Scans files written by Bash commands for LLM-level prompt injection patterns |
 | `posttool-lint-hint` | Write, Edit | Suggests available linters after file writes (silent when no linter applies) |
 | `posttool-rename-sweep` | Bash | After `git mv`, scans for stale references to the old filename and warns |
 | `posttool-security-scan` | Write, Edit | Scans edited code for hardcoded credentials, injection risks, and path traversal |
 | `posttool-session-reads` | Read | Tracks files read during the session to `.claude/session-reads.txt` for subagent warmstart |
-| `record-activation` | Edit, Write, Bash | Records retro knowledge activation for ROI cohort tracking (batched, silent) |
-| `record-waste` | Any (failures) | Estimates token waste on tool failures and records to `learning.db` |
-| `retro-graduation-gate` | Bash | Warns after `gh pr create` if ungraduated retro entries exist in the toolkit repo |
-| `review-capture` | Agent | Captures severity-tagged review findings from subagent output to `learning.db` |
+| `review-capture` | Agent | Captures severity-tagged review findings from subagent output for the human-read review reports |
 | `usage-tracker` | Skill, Agent | Tracks Skill and Agent invocations to SQLite for usage analytics |
 
 ---
@@ -113,11 +107,9 @@ Task completes: TaskCompleted
 
 | Hook | Description |
 |------|-------------|
-| `confidence-decay` | Decays stale learning entries and prunes low-confidence dead entries from `learning.db` |
-| `knowledge-graduation-proposer` | Proposes graduation of high-confidence learnings into agent/skill files for human review |
 | `rules-distill-trigger` | Auto-triggers rules distillation when last run was >7 days ago |
-| `session-learning-recorder` | Warns if a substantive session recorded zero learnings; summarizes captured count |
-| `session-summary` | Generates session summary and persists metrics to the unified learning database |
+| `routing-outcome-stop-fallback` | Resolves still-pending routing outcomes at session end, for autonomous runs with no next user turn |
+| `session-summary` | Generates session summary and persists session metrics to the shared database |
 
 ---
 
@@ -133,7 +125,6 @@ Task completes: TaskCompleted
 
 | Hook | Description |
 |------|-------------|
-| `task-completed-learner` | Captures subagent/task completion metadata for routing effectiveness tracking |
 
 ---
 
@@ -149,7 +140,7 @@ Task completes: TaskCompleted
 
 | Hook | Description |
 |------|-------------|
-| `precompact-archive` | Extracts and archives key learnings before context compression |
+| `precompact-archive` | Prints the active pipeline session's ADR survival anchor before context compression |
 
 ---
 
@@ -167,20 +158,18 @@ Tests live in `hooks/tests/` and cover the major hooks:
 
 ```
 hooks/tests/
-├── test_config_protection.py        test_pretool_subagent_warmstart.py
-├── test_cross_repo_agents.py        test_pretool_unified_gate.py
-├── test_do_routing.py               test_record_activation.py
-├── test_feedback_tracker.py         test_record_waste.py
-├── test_fts5_search.py              test_record_activations_safe.py
+├── test_config_protection.py        test_posttool_session_reads.py
+├── test_cross_repo_agents.py        test_pretool_subagent_warmstart.py
+├── test_do_routing.py               test_pretool_unified_gate.py
+├── test_fts5_search.py              test_routing_decision_recorder.py
 ├── test_integration.py              test_skill_evaluator.py
-├── test_learning_system.py          test_sql_injection_detector.py
-├── test_mcp_health_check.py         test_stale_pruner.py
-├── test_post_tool_lint.py           test_subagent_completion_guard.py
-├── test_posttool_rename_sweep.py    test_suggest_compact.py
-└── test_posttool_session_reads.py
+├── test_learning_system.py          test_stale_pruner.py
+├── test_mcp_health_check.py         test_subagent_completion_guard.py
+├── test_post_tool_lint.py           test_suggest_compact.py
+└── test_posttool_rename_sweep.py
 ```
 
-Shared utilities in `hooks/lib/` include `hook_utils.py` (output formatting helpers `context_output()` / `empty_output()`), `stdin_timeout.py` (safe stdin reading), the unified learning database interface (`learning_db_v2.py`), `injection_patterns.py` (shared prompt injection detection patterns), and `usage_db.py` (SQLite-based skill/agent invocation tracking).
+Shared utilities in `hooks/lib/` include `hook_utils.py` (output formatting helpers `context_output()` / `empty_output()`), `stdin_timeout.py` (safe stdin reading), the shared database interface (`learning_db_v2.py`, backing routing telemetry, governance events, and the voice corpus), `injection_patterns.py` (shared prompt injection detection patterns), and `usage_db.py` (SQLite-based skill/agent invocation tracking).
 
 ### Writing a New Hook
 

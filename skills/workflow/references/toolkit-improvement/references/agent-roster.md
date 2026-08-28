@@ -242,7 +242,7 @@ without a follow-up ADR.
 file locking, and race conditions in the hook system.
 
 **Focus**: Shared state files accessed without locking, hooks that could run in parallel
-and corrupt shared state, learning.db access patterns.
+and corrupt shared state, telemetry DB access patterns.
 
 **Files to read**: `hooks/lib/`, `scripts/learning-db.py`, `hooks/` — any hook that
 reads/writes shared files.

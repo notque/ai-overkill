@@ -18,7 +18,7 @@ Referenced as prior art for the retro knowledge system. Our implementation has d
 
 **Patterns noted:**
 - Original inspiration for session-level learning and knowledge accumulation concepts
-- Our implementation (SQLite + FTS5, confidence scoring, graduation pipeline) bears little resemblance to the current state of beastmode
+- Our implementation (SQLite + FTS5 over routing telemetry and governance events) bears little resemblance to the current state of beastmode
 
 ### caliber-ai-org/ai-setup
 https://github.com/caliber-ai-org/ai-setup
@@ -27,14 +27,14 @@ TypeScript CLI that fingerprints projects and generates AI configs for Claude, C
 
 **Patterns adopted:**
 - Deterministic component scoring without LLM calls (ADR-031). Their 6-dimension scoring rubric for config quality proved that mechanical validation catches a class of errors LLM evaluation misses entirely.
-- Learning staleness detection (ADR-033). Flagging learnings with zero activations over N sessions as prune candidates.
+- Zero-activity staleness detection (ADR-033). Flagging anything with no recorded activity over N sessions as a retirement candidate. The toolkit now applies this to routes and components rather than to stored knowledge.
 - PID-based lockfile with staleness detection (ADR-035). Their concurrent access pattern for preventing data corruption in shared files.
 - Score regression guard concept (ADR-034). Comparing quality before and after changes, auto-reverting if score drops.
 
 **Patterns noted but not adopted:**
 - Token budget scoring (penalizing configs over 2000 tokens). Conflicts with our high-context agent philosophy.
 - Multi-platform config generation (Claude + Cursor + Codex writers). We're Claude Code focused.
-- Session event JSONL format for learning capture. Our SQLite + FTS5 approach serves better for search and graduation.
+- Session event JSONL format for event capture. Our SQLite + FTS5 approach serves better for search.
 
 ### alchaincyf/nuwa-skill
 https://github.com/alchaincyf/nuwa-skill
@@ -126,8 +126,8 @@ Intent-based routing to domain-specific agents. Originally keyword-matching, evo
 ### Anti-Rationalization as Infrastructure
 Auto-injected anti-rationalization tables that make it structurally difficult to skip verification. Not a policy doc that gets ignored. Infrastructure that fires on every code modification, review, and security task. Born from repeated incidents where "should work" turned out to be wrong.
 
-### Learning Graduation Pipeline
-Record at 0.7 confidence, boost on validation, graduate into agent/skill markdown, ship together. The insight that review findings should be immediately embedded as permanent behavior changes, not passively recorded for "multiple observations." Developed after noticing that deferred learnings never got acted on.
+### The Negative-Results Registry
+A format-fixed doc of experiments that lost, each keyed to an evidence location rather than a claim, read before an old idea is retried. The insight that a refutation is worth more than a success once a toolkit is large enough to re-propose its own dead ends.
 
 ### Four-Wave Comprehensive Review
 26+ specialized reviewer agents in 4 cascading waves: per-package deep review (Wave 0), cross-cutting foundation (Wave 1, 12 agents), context-aware deep-dive (Wave 2, 10 agents), adversarial challenge (Wave 3, 4-5 agents). Each wave's findings enrich the next. Evolved from single-agent reviews that kept missing cross-cutting concerns.
@@ -138,8 +138,8 @@ The principle that any task with 3+ phases should be a pipeline with gates, arti
 ### Two-Tier Evaluation (Deterministic + LLM)
 Deterministic scoring (file existence, frontmatter validity, path checking) as a fast, free first pass, with LLM evaluation for nuanced quality. Neither replaces the other. Adopted after analyzing how mechanical failures wasted LLM evaluation tokens.
 
-### Retro Knowledge Injection
-SQLite + FTS5 database of operational learnings, auto-injected into relevant agent prompts via hook. Benchmarked at +5.3 avg score improvement, 67% win rate. The cross-session memory that makes each session smarter than the last.
+### Routing Feedback Telemetry
+Every route decision is recorded at dispatch and scored on the user's next turn, with the evidence basis for each verdict stored alongside it. `route-health` then reports the loop's own correctness, including the share of outcomes decided by silence rather than by a signal.
 
 ### The Handyman Principle
 "Context is a scarce resource, not a dumpster." Specialized agents loaded only when their triggers match, rather than one giant system prompt. Named and articulated through blog writing that forced clarity on why large prompts degrade performance.
@@ -152,7 +152,7 @@ SHA-256 snapshot before modification, backup storage, score regression detection
 ### Claude Code Documentation
 https://docs.claude.com/en/docs/claude-code
 
-Official documentation for hooks, settings.json schema, slash commands, and MCP server configuration. The event-driven hook architecture (PostToolUse, UserPromptSubmit, SessionStart) is the foundation for error learning, retro knowledge injection, and auto-plan detection.
+Official documentation for hooks, settings.json schema, slash commands, and MCP server configuration. The event-driven hook architecture (PostToolUse, UserPromptSubmit, SessionStart) is the foundation for the safety gates, routing telemetry, and session context injection.
 
 ### Conventional Commits
 https://www.conventionalcommits.org

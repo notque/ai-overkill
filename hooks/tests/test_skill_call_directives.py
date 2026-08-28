@@ -95,50 +95,6 @@ def test_pipeline_context_keeps_pipeline_names_out_of_skill_inventory() -> None:
     assert "skill-creation-pipeline" not in names
 
 
-def test_error_learner_rejects_unindexed_dynamic_skill_name() -> None:
-    learner = _load("skill_calls_error_learner", "error-learner.py")
-
-    with patch.object(learner, "skill_call_directive", return_value=None), redirect_stdout(io.StringIO()) as output:
-        assert learner._emit_skill_call("[fix-with-skill]", "hostile-skill") is False
-    assert output.getvalue() == ""
-
-
-def test_error_learner_emits_tag_and_exact_call_for_indexed_skill() -> None:
-    learner = _load("skill_calls_error_learner_valid", "error-learner.py")
-
-    with (
-        patch.object(
-            learner,
-            "skill_call_directive",
-            return_value="Call the Skill tool with `planning`.",
-        ),
-        redirect_stdout(io.StringIO()) as output,
-    ):
-        assert learner._emit_skill_call("[fix-with-skill]", "planning") is True
-    assert output.getvalue().splitlines() == [
-        "[fix-with-skill] planning",
-        "Call the Skill tool with `planning`.",
-    ]
-
-
-def test_error_learner_routes_retired_debug_pipeline_through_workflow() -> None:
-    learner = _load("skill_calls_error_learner_pipeline", "error-learner.py")
-
-    with (
-        patch.object(
-            learner,
-            "skill_call_directive",
-            side_effect=lambda name: "Call the Skill tool with `workflow`." if name == "workflow" else None,
-        ),
-        redirect_stdout(io.StringIO()) as output,
-    ):
-        assert learner._emit_skill_call("[fix-with-skill]", "systematic-debugging") is True
-    assert output.getvalue().splitlines() == [
-        "[fix-with-workflow] systematic-debugging",
-        "Call the Skill tool with `workflow`.",
-    ]
-
-
 def test_voice_prompt_name_must_resolve_before_becoming_directive() -> None:
     voice = _load("skill_calls_voice", "voice-output-gate.py")
 

@@ -1,62 +1,33 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 2.0.0
 """
-Stop Hook: Session Learning Gap Detector
+Stop Hook: Routing-Outcome Session-End Fallback
 
-Fires at session end to check whether the session recorded any learnings.
-Prints a gap warning for substantive sessions with zero learnings, or a
-summary count when learnings were captured.
+Resolves routed dispatches that the next-turn finalizer never saw.
+
+Renamed from session-learning-recorder.py, which mixed this routing telemetry
+with a learning-gap warning. The learning loop is retired; this fallback is
+routing telemetry and stays.
 
 Design Principles:
-- Observability only, not enforcement
+- Routing telemetry only — records no learnings, injects no context
+- Silent (emits only the empty hook envelope)
 - Non-blocking (always exits 0)
 - Fast execution (<50ms target)
-- Silent on trivial sessions
 """
 
 import json
-import os
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 
 # Add lib directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
 from hook_utils import empty_output, get_session_id, hook_error
-from learning_db_v2 import get_connection, init_db
+from learning_db_v2 import init_db
 from stdin_timeout import read_stdin
 
 EVENT_NAME = "Stop"
-
-SUBSTANTIVE_TOOL_THRESHOLD = 5
-
-
-def count_session_learnings(session_id: str) -> int:
-    """Count learnings recorded for this session.
-
-    Falls back to time-based query (last hour) if no session_id match.
-    """
-    init_db()
-
-    with get_connection() as conn:
-        # Primary: match by session_id
-        row = conn.execute(
-            "SELECT COUNT(*) FROM learnings WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
-        count = row[0] if row else 0
-
-        if count > 0:
-            return count
-
-        # Fallback: learnings recorded in the last hour
-        cutoff = (datetime.now() - timedelta(hours=1)).isoformat()
-        row = conn.execute(
-            "SELECT COUNT(*) FROM learnings WHERE last_seen >= ?",
-            (cutoff,),
-        ).fetchone()
-        return row[0] if row else 0
 
 
 def finalize_routing_outcomes(session_id: str) -> None:
@@ -110,28 +81,11 @@ def finalize_routing_outcomes(session_id: str) -> None:
             apply_outcome(key, outcome, basis=basis)
 
     except Exception as e:
-        hook_error("session-learning-recorder", e)
-
-
-def is_substantive_session(event: dict) -> bool:
-    """Determine if the session was substantive enough to warrant a gap check."""
-    session_data = event.get("session_data", {})
-
-    # Check tool call count
-    tool_uses = session_data.get("tool_uses", [])
-    if len(tool_uses) > SUBSTANTIVE_TOOL_THRESHOLD:
-        return True
-
-    # Check if files were modified
-    files_modified = session_data.get("files_modified", [])
-    if len(files_modified) > 0:
-        return True
-
-    return False
+        hook_error("routing-outcome-stop-fallback", e)
 
 
 def main():
-    """Check learning gap at session end."""
+    """Resolve still-pending routing outcomes at session end."""
     try:
         event_data = read_stdin(timeout=2)
         if not event_data:
@@ -141,31 +95,13 @@ def main():
         session_id = event.get("session_id") or get_session_id()
 
         # Stop fallback: resolve routed dispatches the next-turn finalizer never
-        # saw (autonomous / no-next-prompt runs). Runs BEFORE the trivial-session
-        # gate so an outcome is recorded even on otherwise-quiet sessions.
+        # saw (autonomous / no-next-prompt runs).
         finalize_routing_outcomes(session_id)
-
-        # Skip trivial sessions
-        if not is_substantive_session(event):
-            empty_output(EVENT_NAME).print_and_exit()
-
-        learning_count = count_session_learnings(session_id)
-
-        if learning_count == 0:
-            print(
-                "[learning-gap] Substantive session with 0 learnings recorded. Consider recording insights.",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"[learning-summary] Session recorded {learning_count} learnings",
-                file=sys.stderr,
-            )
 
         empty_output(EVENT_NAME).print_and_exit()
 
     except Exception as e:
-        hook_error("session-learning-recorder", e)
+        hook_error("routing-outcome-stop-fallback", e)
     empty_output(EVENT_NAME).print_and_exit()
 
 

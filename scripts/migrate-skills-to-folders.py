@@ -90,7 +90,6 @@ SKILL_MAPPING: dict[str, str] = {
     "codex": "meta",
     "do": "meta",
     "install": "meta",
-    "learn": "meta",
     "retro": "meta",
     "auto-dream": "meta",
     "routing-table-updater": "meta",

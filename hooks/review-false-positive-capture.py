@@ -106,7 +106,17 @@ def extract_source_file(text: str) -> str:
 
 def main():
     try:
-        hook_input = json.loads(read_stdin(timeout=2))
+        # Empty stdin is a normal condition, not a failure: read_stdin returns ""
+        # on a 2s timeout or a closed pipe, and smoke tests invoke the hook with
+        # no payload at all. Parsing "" raises JSONDecodeError, so guard first.
+        raw = read_stdin(timeout=2)
+        if not raw.strip():
+            empty_output(EVENT_NAME).print_and_exit()
+
+        hook_input = json.loads(raw)
+        if not isinstance(hook_input, dict):
+            empty_output(EVENT_NAME).print_and_exit()
+
         prompt = (hook_input.get("prompt") or "").strip()
         if not prompt:
             empty_output(EVENT_NAME).print_and_exit()

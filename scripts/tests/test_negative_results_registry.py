@@ -129,13 +129,13 @@ def test_retro_skill_documents_subcommand_in_arg_table() -> None:
     assert "### Subcommand: what-didnt-work" in text
 
 
-# 5. Optional learn mirror -------------------------------------------------
+# 5. The registry doc is the single store ---------------------------------
 
 
-def test_mirror_command_uses_topic_negative_results() -> None:
-    """The documented mirror reuses the existing learn command with --topic."""
+def test_registry_doc_is_the_only_store() -> None:
+    """The skill searches the doc itself; a parallel store would drift from it."""
     text = _read(RETRO_SKILL)
-    assert "learn --topic negative-results" in text
+    assert "grep -n -i" in text and "docs/what-didnt-work.md" in text
 
 
 # 6. Doc hygiene -----------------------------------------------------------

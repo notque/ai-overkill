@@ -56,13 +56,13 @@ Here are 7 things I learned building this:
 
 🔥 **Review at scale needs parallel execution.** Three specialist reviewers running simultaneously catches things one generalist never would.
 
-💡 **Self-improvement is the real advantage.** The system captures learnings from every session and graduates them into permanent agent instructions. Every failure becomes a structural improvement.
+💡 **Failed experiments are the asset.** Every dead end gets written down with the evidence that killed it, so the next session skips a path that already lost.
 
-🎯 **Hooks are underrated.** Lifecycle automation, firing at session start, after errors, before context compression, handles repetitive work without manual intervention.
+🎯 **Hooks are underrated.** Lifecycle automation, firing at session start, before a risky command, before context compression, handles repetitive work without manual intervention.
 
 ⚡ **This isn't just for code.** Research pipelines. Content creation with voice matching. Community moderation. Data analysis. The agent-skill-hook pattern works for any structured workflow.
 
-🏗️ **Compounding beats prompting.** Every session makes the next one better. That's the architecture, not a feature.
+🏗️ **Measure the tooling, not just the output.** Every routing decision and its result gets recorded, so a component that carries no traffic can be retired instead of paying for itself in context forever.
 
 ---
 
@@ -70,14 +70,14 @@ I need to be transparent about something.
 
 This took a year of daily iteration.
 
-A year of daily use on real work. Finding gaps, filling them, watching the system improve itself.
+A year of daily use on real work. Finding gaps, filling them, and retiring the parts that measurement showed were not earning their keep.
 
 The result:
 
 - 44 domain specialist agents across languages, infrastructure, review, research, content
-- 123 workflow skills covering everything from TDD to article writing to Reddit moderation
-- 83 lifecycle hooks that fire at session boundaries to inject context, capture learnings, enforce gates
-- A learning database that tracks patterns and graduates them into agent behavior
+- 122 workflow skills covering everything from TDD to article writing to Reddit moderation
+- Lifecycle hooks that fire at session boundaries to inject context and enforce gates
+- A telemetry database that records every routing decision and what it produced
 - Parallel review pipelines that catch issues before they reach production
 - Content pipelines that handle research, drafting, voice validation end to end
 - Anti-AI writing detection that keeps generated content from sounding like generated content
@@ -94,7 +94,7 @@ The gap between AI-assisted and AI-native isn't about the model.
 
 It's about the scaffolding around it.
 
-Agents that know your domain. Skills that enforce methodology. Hooks that automate the repetitive parts. A learning system that turns every session into improvement.
+Agents that know your domain. Skills that enforce methodology. Hooks that automate the repetitive parts. A written record of what failed, so nobody rebuilds it.
 
 Your `.claude/` directory might be the most underused part of your development workflow. This toolkit fills it with a team.
 

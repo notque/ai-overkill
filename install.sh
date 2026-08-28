@@ -2712,6 +2712,26 @@ else
     echo -e "${YELLOW}  Warning: ${SCRIPT_DIR}/.claude/settings.json not found, skipping hook sync${NC}"
 fi
 
+# Reconcile installed hook wiring with what the toolkit ships now.
+# Retired hooks leave dead entries in settings.json that fire a missing file
+# every session. Ownership comes from the managed-hooks manifest, so entries
+# the user added are never touched.
+echo ""
+echo -e "${YELLOW}Reconciling hook wiring...${NC}"
+RECONCILE_ARGS=(
+    --settings "$SETTINGS_FILE"
+    --repo-settings "${SCRIPT_DIR}/.claude/settings.json"
+    --hooks-dir "$HOOKS_DIR"
+)
+if [ "$DRY_RUN" = true ]; then
+    RECONCILE_ARGS+=(--dry-run)
+fi
+if $PYTHON_CMD "${SCRIPT_DIR}/scripts/reconcile-claude-hooks.py" "${RECONCILE_ARGS[@]}"; then
+    :
+else
+    echo -e "${RED}  ✗ Hook reconcile failed — settings.json left unchanged${NC}"
+fi
+
 # Install Python dependencies
 echo ""
 echo -e "${YELLOW}Installing Python dependencies...${NC}"

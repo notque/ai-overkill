@@ -12,8 +12,8 @@ Before entering the loop, confirm:
 
 1. The target skill has a valid `SKILL.md` (run `python3 -m scripts.skill_eval.quick_validate <path/to/skill>`)
 2. At least 3 test cases exist — either in `evals/` or you will create them in Phase 1
-3. The learning DB is accessible (`python3 ~/.claude/scripts/learning-db.py stats` returns without error)
-4. No prior failed hypotheses for this skill cover the same change (check Phase 1, Step 3)
+3. `docs/what-didnt-work.md` is readable — it holds the hypotheses already refuted for this skill
+4. No prior failed hypothesis for this skill covers the same change (check Phase 1, Step 4)
 
 ---
 
@@ -26,8 +26,9 @@ Before entering the loop, confirm:
 The user provides the skill name, or auto-detect from recent routing failures:
 
 ```bash
-# Check recent routing misses in learning DB
-python3 ~/.claude/scripts/learning-db.py search --skill "routing" --limit 10
+# Weakest routes by error rate — the skills worth improving first
+python3 ~/.claude/scripts/learning-db.py route-health
+python3 ~/.claude/scripts/learning-db.py route-stats --by skill
 ```
 
 Confirm the skill directory and validate structure:
@@ -58,18 +59,19 @@ Capture:
 - Per-test-case pass/fail and trigger rates
 - Output quality scores (if grader assertions exist)
 - Token cost per run (from eval output)
-- Any user satisfaction signals from learning DB:
+- The skill's dispatch count and error rate from routing telemetry:
 
 ```bash
-python3 ~/.claude/scripts/learning-db.py search --skill {skill-name} --limit 20
+python3 ~/.claude/scripts/learning-db.py route-stats --by skill
 ```
 
 **Step 4: Check for prior attempts**
 
-Search the learning DB for previous self-improvement attempts on this skill to avoid re-testing failed hypotheses:
+Read the negative-results registry for previous self-improvement attempts on this skill to avoid re-testing failed hypotheses:
 
 ```bash
-python3 ~/.claude/scripts/learning-db.py search --skill {skill-name} --query "variant"
+grep -n -i "{skill-name}" docs/what-didnt-work.md
+ls evals/{skill-name}/ 2>/dev/null
 ```
 
 If a hypothesis was already tested and lost, do not regenerate it in Phase 2.
@@ -126,7 +128,7 @@ Hypothesis A: Shortening the description from "Zero-ceremony inline execution
 
 **Step 3: Validate hypotheses against prior attempts**
 
-Cross-reference each hypothesis with the learning DB results from Phase 1 Step 4. Drop any hypothesis that duplicates a previously-failed attempt.
+Cross-reference each hypothesis with the registry entries read in Phase 1 Step 4. Drop any hypothesis that duplicates a previously-failed attempt.
 
 **Gate**: 2-3 hypotheses generated, each targeting one dimension, each with clear expected outcome, none duplicating prior failures. Proceed only when gate passes.
 
@@ -262,14 +264,7 @@ cp self-improve-workspace/{skill-name}/variants/{winner}/SKILL.md \
 python3 -m scripts.skill_eval.quick_validate skills/{skill-name}
 ```
 
-3. Record the win in the learning DB:
-
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --skill {skill-name} \
-  "self-improve: variant-{letter} promoted. Hypothesis: {hypothesis summary}. \
-   Win rate: {win_rate}% ({wins}/{total} cases). Change: {what changed}."
-```
+3. Record the win in the eval artifact: write the hypothesis, win rate `{win_rate}%` (`{wins}/{total}` cases), and what changed to `evals/{skill-name}/README.md`. The commit message below carries the same figures.
 
 4. Commit on a feature branch:
 
@@ -286,20 +281,21 @@ python3 scripts/generate-skill-index.py
 
 **Step 3b: If no winner — KEEP original**
 
-1. Record negative results (these prevent re-testing the same hypothesis):
+1. Record the negative result in `docs/what-didnt-work.md`, newest first, in the registry's six-field format. This is what prevents re-testing the same hypothesis:
 
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --skill {skill-name} \
-  "self-improve: variant-{letter} rejected. Hypothesis: {hypothesis summary}. \
-   Win rate: {win_rate}% ({wins}/{total} cases). Reason: {why it lost}."
+```
+## {YYYY-MM-DD} self-improve {skill-name} variant-{letter}
+- Expectation: {hypothesis summary}
+- What happened: win rate {win_rate}% ({wins}/{total} cases)
+- Evidence: evals/{skill-name}/
+- Decision: rejected — {why it lost}
 ```
 
 2. Keep the original SKILL.md unchanged.
 
 3. If all variants lost, report to the user: the skill's current form held up against all tested alternatives. This is a valid outcome — not every skill needs changing.
 
-**Gate**: Decision made (promote or keep). Learning DB updated with outcome. If promoted, replacement validated and committed. Proceed only when gate passes.
+**Gate**: Decision made (promote or keep). Outcome recorded — a win in `evals/{skill-name}/`, a loss in `docs/what-didnt-work.md`. If promoted, replacement validated and committed. Proceed only when gate passes.
 
 ---
 
@@ -311,7 +307,7 @@ python3 ~/.claude/scripts/learning-db.py learn \
 | Testing without baseline | No basis for comparison; can't calculate win rate | Always run Phase 1 first |
 | Promoting on vibes | "This one feels better" is not evidence | Require quantitative win rate >= 60% |
 | Ignoring regressions | A variant that improves one dimension but breaks another nets negative | Check max regression on every dimension |
-| Re-testing failed hypotheses | Wastes time on changes already proven ineffective | Check learning DB before generating variants |
+| Re-testing failed hypotheses | Wastes time on changes already proven ineffective | Read `docs/what-didnt-work.md` before generating variants |
 | Large diffs between original and variant | Multiple changes confound results; can't learn what worked | Keep diffs minimal and targeted |
 | Testing with too few cases | 1-2 test cases give unstable win rates | Minimum 3 test cases for any comparison |
 | Skipping blind evaluation | Knowing which is "yours" biases grading | Randomize labels for the comparator |
@@ -320,15 +316,9 @@ python3 ~/.claude/scripts/learning-db.py learn \
 
 ## Integration Points
 
-**Learning DB** — Record all outcomes (wins AND losses):
+**Negative-results registry** — Every loss goes to `docs/what-didnt-work.md` with an evidence location, every win to `evals/{skill-name}/`. Both are read at Phase 1 Step 4 of the next run, which is what stops a refuted hypothesis coming back.
 
-```bash
-python3 ~/.claude/scripts/learning-db.py learn \
-  --skill {skill-name} \
-  "self-improve: variant-{letter}: {hypothesis} — result: {win/loss} ({win_rate}%)"
-```
-
-**Auto-dream** — Nightly consolidation (`auto-dream` skill) picks up improvement patterns across skills. Over time, this surfaces meta-patterns: "moving constraints to point-of-use improved 4 of 6 tested skills" becomes actionable knowledge.
+**Routing telemetry** — `learning-db.py route-health` and `route-stats --by skill` name which skills carry traffic and which fail on it, so the loop starts on a skill that matters.
 
 **Routing table** — If a promoted variant changes the skill's frontmatter `description`, the routing index must be regenerated:
 
@@ -383,6 +373,6 @@ Walk-through of the full loop applied to a real toolkit skill.
 
 **Phase 5 — Decide**:
 - Variant A: wins 3/4 cases (75% win rate), no regressions. Promoted.
-- Variant B: wins 1/4 cases (25% win rate). Kept as negative result in learning DB.
+- Variant B: wins 1/4 cases (25% win rate). Recorded as a negative result in `docs/what-didnt-work.md`.
 
 Commit: `improve(fast): add casual trigger vocabulary — A/B winner (75%)`

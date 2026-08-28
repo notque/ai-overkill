@@ -19,7 +19,7 @@ The system has one path. Every request passes through four layers.
 User request → Router (/do) → Agent (*.md) → Skill (SKILL.md) → Script (*.py)
 ```
 
-The router classifies intent. It selects an agent and pairs it with a skill when the task type demands methodology. Agents carry domain knowledge. Skills carry workflow structure. Scripts do mechanical work where you want deterministic behavior, not judgment calls. Hooks fire at lifecycle events to inject context, learn from errors, and enforce gates.
+The router classifies intent. It selects an agent and pairs it with a skill when the task type demands methodology. Agents carry domain knowledge. Skills carry workflow structure. Scripts do mechanical work where you want deterministic behavior, not judgment calls. Hooks fire at lifecycle events to inject context, record telemetry, and enforce gates.
 
 This is the entire execution model. There is nothing else.
 
@@ -33,7 +33,7 @@ skills/              Workflow methodologies. One directory per skill, each with 
   INDEX.json         Generated skill index
 
 hooks/               Event-driven Python scripts. Fire on lifecycle events
-  lib/               Shared utilities (hook_utils.py, learning_db_v2.py, feedback_tracker.py)
+  lib/               Shared utilities (hook_utils.py, learning_db_v2.py, route_events.py)
   tests/             Hook-specific tests
 
 scripts/             Deterministic CLI tools. Python scripts for mechanical operations
@@ -147,8 +147,8 @@ The full cycle, in order:
 2. **Implement** changes
 3. **Wave review** via parallel reviewer agents
 4. **Fix** findings (up to 3 review-fix iterations)
-5. **Retro** captures learnings into the learning database
-6. **Graduate** validated learnings into agent/skill files
+5. **Record** any dead end in `docs/what-didnt-work.md` with its evidence location
+6. **Edit** the agent or skill file yourself when a finding should change behavior
 7. **Commit** in conventional format
 8. **Push** to remote with tracking
 9. **PR** creation via `gh pr create`
@@ -165,7 +165,7 @@ Framework: pytest.
 pytest -v                            # all tests
 pytest hooks/tests/ -v               # hook tests
 pytest scripts/tests/ -v             # script tests
-pytest hooks/tests/test_learning_system.py -v   # single file
+pytest hooks/tests/test_routing_decision_recorder.py -v   # single file
 ```
 
 What to test by component type:

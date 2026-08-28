@@ -197,17 +197,12 @@ If gate is `auto`: verify checklist passes.
    echo "DESIGN_CONTENT" | python3 ~/.claude/scripts/feature-state.py checkpoint FEATURE design
    ```
 
-4. **Record learnings** -- if this phase produced non-obvious insights, record them:
-   ```bash
-   python3 ~/.claude/scripts/learning-db.py record TOPIC KEY "VALUE" --category design
-   ```
-
-5. Advance to plan phase:
+4. Advance to plan phase:
    ```bash
    python3 ~/.claude/scripts/feature-state.py advance FEATURE
    ```
 
-6. Suggest next step:
+5. Suggest next step:
    ```
    Design complete. Run /feature-lifecycle to continue to the plan phase.
    ```

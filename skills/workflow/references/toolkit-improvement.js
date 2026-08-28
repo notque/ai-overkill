@@ -32,7 +32,7 @@ import { skillDirectives, mandatoryInjections } from "./workflow-helpers.js";
 export const meta = {
   name: "toolkit-improvement",
   description:
-    "Toolkit continuous-improvement pipeline as a deterministic native Workflow: EVALUATE -> RESEARCH -> SYNTHESIZE -> CRITIQUE -> REPORT -> ADR -> IMPLEMENT -> VALIDATE -> REMEDIATE -> RECORD. EVALUATE is a mandatory parallel barrier of 10 research-subagent-executor foundation evaluators (distinct dimensions), scaling above the floor with tier-gated deep-dive + adversarial waves; the research-coordinator-engineer then researches ecosystem practice, synthesizes + de-dupes findings, applies skeptical critique, reports the decision surface, writes one ADR per cluster, dispatches domain implementers, validates skills against baseline, remediates regressions, and records learnings. Each agent attaches its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections. Mirrors toolkit-improvement.md; that markdown flow stays the cross-harness floor.",
+    "Toolkit continuous-improvement pipeline as a deterministic native Workflow: EVALUATE -> RESEARCH -> SYNTHESIZE -> CRITIQUE -> REPORT -> ADR -> IMPLEMENT -> VALIDATE -> REMEDIATE -> RECORD. EVALUATE is a mandatory parallel barrier of 10 research-subagent-executor foundation evaluators (distinct dimensions), scaling above the floor with tier-gated deep-dive + adversarial waves; the research-coordinator-engineer then researches ecosystem practice, synthesizes + de-dupes findings, applies skeptical critique, reports the decision surface, writes one ADR per cluster, dispatches domain implementers, validates skills against baseline, remediates regressions, and records the reusable patterns. Each agent attaches its full skill stack (one exact Skill-tool call per skill) plus the /do mandatory injections. Mirrors toolkit-improvement.md; that markdown flow stays the cross-harness floor.",
   // --- Conformance contract (pure literal — no calls/variables; see
   //     scripts/validate-workflow-conformance.py + adr/native-fast-path-portable-floor.md
   //     Stage 3). STATIC validation pins the phases + the FIXED 10-agent EVALUATE
@@ -126,7 +126,7 @@ const FOUNDATION_DIMENSIONS = [
 const DEEPDIVE_DIMENSIONS = [
   "dead code: unused functions, zero-trigger skills, orphaned reference files, unreferenced agents",
   "ADR compliance: components without ADRs, Proposed-but-unimplemented, overridden decisions",
-  "concurrency: unlocked shared-state access, race conditions in the hook system, learning.db access",
+  "concurrency: unlocked shared-state access, race conditions in the hook system, telemetry DB access",
   "migration safety: settings.json schema breaks, skill renames, removed skills without deprecation",
   "python quality: mixed os.path/pathlib, deprecated patterns, oversized functions",
   "hook reliability: malformed-stdin handling, missing stdin timeout, exit-2-on-error fail-open",
@@ -306,13 +306,13 @@ const REMEDIATE_SCHEMA = {
   },
 };
 
-// RECORD output: captured learnings + session summary (the prose session-summary.md).
+// RECORD output: recorded patterns + session summary (the prose session-summary.md).
 const RECORD_SCHEMA = {
   type: "object",
   required: ["summary"],
   properties: {
     summary: { type: "string" },
-    learnings: { type: "array", items: { type: "string" } },
+    patterns: { type: "array", items: { type: "string" } },
     adrs_created: { type: "number" },
     adrs_implemented: { type: "number" },
   },
@@ -608,16 +608,17 @@ export default async function run({ scope, tier, depth, evaluateOnly } = {}) {
     });
   }
 
-  // Phase RECORD: capture reusable patterns into learning.db and write the
-  // session summary (the prose Phase 10). One coordinator pass.
+  // Phase RECORD: route reusable patterns to the files that own them and write
+  // the session summary (the prose Phase 10). One coordinator pass.
   enterPhase("record");
   let record = null;
   if (budget.remaining() >= minTailBudget) {
     record = await agent({
       prompt: coordinatorPrompt(
-        `Capture the reusable patterns and successful remediations from this run ` +
-          `as learning-db entries, and write a session summary (ADRs created/` +
-          `implemented, validation outcome, learnings added). Run results (typed):\n`,
+        `Name the reusable patterns and successful remediations from this run, ` +
+          `each with the file that should carry it, and write a session summary ` +
+          `(ADRs created/implemented, validation outcome, patterns recorded). ` +
+          `Run results (typed):\n`,
         { adrs, implementations, validation, remediation },
       ),
       schema: RECORD_SCHEMA,

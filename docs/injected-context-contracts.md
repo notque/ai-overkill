@@ -15,12 +15,6 @@ The compact per-tag summary lives in the project `CLAUDE.md`. This file holds th
 
 These appear mid-conversation after tool calls. The model must act on each one in the same turn it appears.
 
-### `[auto-fix] type=X action=Y` (and `[auto-fix] solution: ...`)
-
-Source: Various hooks (lint, formatter, config validators, error-learner).
-Meaning: A deterministic hook has detected a fixable problem and is proposing the fix. `type` is the error class, `action` is the suggested remediation. The `solution: ...` form carries a free-text fix description.
-Action: Execute the suggested fix immediately. Do not re-validate manually; the hook already did that.
-
 ### `[fix-with-skill] name`
 
 Source: Various hooks.
@@ -45,23 +39,17 @@ Source: `hooks/suggest-compact.py` (PreToolUse).
 Meaning: The session has reached a context-budget checkpoint. Threshold and per-25-call advisories per ADR-103.
 Action: When transitioning between phases, consider `/compact` to preserve context. Mid-phase work may continue. Treat the message as a checkpoint, not a hard stop.
 
-### `[retro-gate] Found N ungraduated retro entries`
-
-Source: `hooks/retro-graduation-gate.py` (PostToolUse, fires after `gh pr create`).
-Meaning: The session produced high-confidence learnings that have not yet been graduated into agent or skill files.
-Action: Run `/retro graduate` to embed mature entries into target files before the PR merges. Advisory, not blocking.
-
 ### `[adr-lifecycle] {message}`
 
 Source: `hooks/adr-lifecycle-on-merge.py` (PostToolUse, fires on merge).
 Meaning: Merge detected; the hook checked ADR references in the branch/commits and reports implementation step status (`COMPLETE`, `PARTIAL`, completed-and-moved).
 Action: When status is `COMPLETE`, the hook moves the ADR to `adr/completed/` automatically. When `PARTIAL`, follow up to finish remaining steps. No retry on advisory output.
 
-### `[learning-archive] Preserving session learnings`
+### `[precompact-adr] ACTIVE PIPELINE SESSION` (plus a multi-line ADR anchor)
 
 Source: `hooks/precompact-archive.py` (PreCompact).
-Meaning: The hook is archiving session learnings to learning.db before context compression.
-Action: None required from the model — archival is automatic. Treat the message as confirmation that error patterns, applied solutions, and confidence stats from the session were preserved.
+Meaning: A pipeline session with an active ADR is about to lose context to compression. The block carries the ADR path, its hash, and the three commands that restore your bearings afterwards.
+Action: After compaction, run the listed commands in order: read the ADR, verify its hash with `adr-query.py verify`, then reload your role context with `adr-query.py context`. The ADR stays binding across the compaction boundary.
 
 ## Session-State Tags (injected at session start, shape behavior for the session)
 
@@ -86,16 +74,10 @@ Source: `hooks/afk-mode.py` (SessionStart; fires in SSH, tmux, screen, and headl
 Meaning: The user is not actively watching the terminal.
 Action: Work proactively. Complete multi-step tasks without confirmation prompts. Produce concise task-completion summaries when finishing long-running work. Do not ask "should I proceed" for routine next steps. Proceed and report.
 
-### `[learned-context] Loaded N high-confidence patterns` (plus type summary and confidence stats)
-
-Source: `hooks/session-context.py`.
-Meaning: N patterns from the learning database have been loaded and are relevant to this session.
-Action: Apply the loaded patterns to the current task without re-querying. Treat them as established preferences, not suggestions. The patterns have already been filtered by confidence and topical relevance.
-
 ### `[dream] {one-line summary}` (followed by multi-KB markdown payload)
 
 Source: `hooks/session-context.py` (reads `~/.claude/state/dream-injection-*.md`).
-Meaning: Nightly consolidation output summarizing patterns learned overnight.
+Meaning: Output of the nightly memory-consolidation cycle, summarizing what it merged and pruned.
 Action: Incorporate the dream content as background context for the session. It informs skill selection and approach, not individual task decisions. Do not cite it verbatim back to the user; it is for the model's orientation.
 
 ### `[sapcc-go]` plus `[auto-skill] go-patterns`

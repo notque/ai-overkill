@@ -15,7 +15,7 @@ success-criteria:
   - "Full test suite passes after each incremental step"
   - "No behavioral changes (only structural improvements)"
   - "All import paths and cross-references updated"
-  - "Refactoring pattern recorded to learning.db"
+  - "Refactoring pattern recorded in the refactoring log"
 routing:
   triggers:
     - "refactor safely"
@@ -263,7 +263,7 @@ The consumer check resolves module, caller, decision-store, handoff, and consult
 
 ### Phase 5: RECORD
 
-**Goal**: Log refactoring patterns to learning database for future sessions.
+**Goal**: Record refactoring patterns in the repo where future sessions will read them.
 
 **Key Constraint**: Complete recording — future refactors benefit from past patterns. No need to record? That's the signal you should record. Document what almost went wrong or required extra care.
 
@@ -278,17 +278,13 @@ The consumer check resolves module, caller, decision-store, handoff, and consult
 **Gotcha**: [What almost went wrong or required extra care]
 ```
 
-**Step 2: Update learning.db**
-
-Record the refactoring pattern and outcome to the learning database for automated future lookup.
-
-**Step 3: Clean up**
+**Step 2: Clean up**
 
 - Remove `refactor-plan.md` (plan executed)
 - Remove temporary test files or debug outputs
 - Keep characterization tests (they add permanent value)
 
-**Output**: `[learning] Refactoring pattern recorded.`
+**Output**: `Refactoring pattern recorded.`
 
 **GATE**: Learning database entry exists with pattern type, scope, key decision, and gotcha. Temporary files cleaned up. Characterization tests retained.
 

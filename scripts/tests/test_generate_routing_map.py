@@ -240,3 +240,96 @@ class TestRealRepo:
         assert result.returncode == 1
         assert "required skills index" in result.stderr
         assert map_file.read_text(encoding="utf-8") == "preserve me\n"
+
+
+class TestPrivateNameFiltering:
+    """Private component names never reach the public map; typos still do.
+
+    Fixture names only. The real private names live outside this repo and
+    must never be written into a tracked file.
+    """
+
+    PRIVATE = frozenset({"fixture-private-skill"})
+
+    def _surfaces_with_pairs(self, pairs: list[str]) -> dict[str, list[dict]]:
+        return _surfaces(
+            skills={
+                "joy-fixture": {
+                    "description": "A public skill.",
+                    "triggers": ["fixture"],
+                    "pairs_with": pairs,
+                }
+            }
+        )
+
+    def test_private_pairs_with_is_absent_from_rendered_map(self) -> None:
+        surfaces = self._surfaces_with_pairs(["fixture-private-skill"])
+        rendered = grm.generate_map(surfaces, private=self.PRIVATE)
+        assert "fixture-private-skill" not in rendered
+        assert "joy-fixture" in rendered
+
+    def test_public_pairs_with_survives_rendering(self) -> None:
+        surfaces = self._surfaces_with_pairs(["some-public-skill"])
+        rendered = grm.generate_map(surfaces, private=self.PRIVATE)
+        assert "some-public-skill" in rendered
+
+    def test_entry_named_private_is_dropped_entirely(self) -> None:
+        surfaces = _surfaces(
+            skills={
+                "fixture-private-skill": {"description": "P", "triggers": ["p"]},
+                "joy-fixture": {"description": "A public skill.", "triggers": ["fixture"]},
+            }
+        )
+        rendered = grm.generate_map(surfaces, private=self.PRIVATE)
+        assert "fixture-private-skill" not in rendered
+        assert "## SKILLS (1)" in rendered
+
+    def test_private_pairs_with_raises_no_check_finding(self, tmp_path) -> None:
+        surfaces = self._surfaces_with_pairs(["fixture-private-skill"])
+        map_path = tmp_path / "routing-map.md"
+        map_path.write_text(grm.generate_map(surfaces, private=self.PRIVATE), encoding="utf-8")
+
+        findings = grm.check_map(surfaces, map_path, private=self.PRIVATE)
+
+        assert findings == []
+
+    def test_unknown_public_pairs_with_still_raises_a_check_finding(self, tmp_path) -> None:
+        surfaces = self._surfaces_with_pairs(["no-such-public-skill"])
+        map_path = tmp_path / "routing-map.md"
+        map_path.write_text(grm.generate_map(surfaces, private=self.PRIVATE), encoding="utf-8")
+
+        findings = grm.check_map(surfaces, map_path, private=self.PRIVATE)
+
+        assert any("no-such-public-skill" in f and "resolves to nothing" in f for f in findings)
+
+    def test_private_and_typo_are_separated_in_one_entry(self, tmp_path) -> None:
+        surfaces = self._surfaces_with_pairs(["fixture-private-skill", "no-such-public-skill"])
+        map_path = tmp_path / "routing-map.md"
+        map_path.write_text(grm.generate_map(surfaces, private=self.PRIVATE), encoding="utf-8")
+
+        findings = grm.check_map(surfaces, map_path, private=self.PRIVATE)
+
+        assert len(findings) == 1
+        assert "no-such-public-skill" in findings[0]
+
+    def test_private_name_set_comes_from_the_leak_gate(self) -> None:
+        """No second definition of "private": the gate is the only source."""
+        gate_spec = importlib.util.spec_from_file_location(
+            "_leak_gate_under_test", REPO_ROOT / "hooks" / "pretool-private-name-leak-gate.py"
+        )
+        assert gate_spec and gate_spec.loader
+        gate = importlib.util.module_from_spec(gate_spec)
+        gate_spec.loader.exec_module(gate)
+
+        assert grm.private_names(REPO_ROOT) == frozenset(gate._private_names(REPO_ROOT))
+
+    def test_shipped_map_carries_no_private_name(self) -> None:
+        """The committed public artifact contains no locally private name."""
+        rendered = (REPO_ROOT / "docs" / "routing-map.md").read_text(encoding="utf-8").lower()
+        for name in grm.private_names(REPO_ROOT):
+            assert name not in rendered
+
+    def test_empty_private_set_is_a_no_op(self) -> None:
+        """CI and public installs have no private tree; output is unchanged."""
+        surfaces = self._surfaces_with_pairs(["fixture-private-skill"])
+        assert grm.strip_private(surfaces, frozenset()) is surfaces

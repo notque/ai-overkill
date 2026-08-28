@@ -1,14 +1,14 @@
 # Dream Cycle Testing Reference
 
-> **Scope**: Patterns for safely testing the auto-dream cycle — dry-run validation, output verification, phase isolation, and graduation candidate inspection. Does NOT cover production execution or memory file authoring.
-> **Version range**: All toolkit versions with `scripts/auto-dream-cron.sh` and the 7-phase dream prompt
+> **Scope**: Patterns for safely testing the auto-dream cycle — dry-run validation, output verification, and phase isolation. Does NOT cover production execution or memory file authoring.
+> **Version range**: All toolkit versions with `scripts/auto-dream-cron.sh` and the 6-phase dream prompt
 > **Generated**: 2026-04-16 — verify script flags against `./scripts/auto-dream-cron.sh --help`
 
 ---
 
 ## Overview
 
-Testing the dream cycle is high-stakes: a mis-run writes to real memory files, archives active memories, and commits graduation branches. The safe testing model is dry-run first, inspect outputs in `~/.claude/state/`, then run a live cycle against a snapshot copy of your memory directory. Never run `--execute` against your live memory directory without reading the dry-run report first.
+Testing the dream cycle is high-stakes: a mis-run writes to real memory files and archives active memories. The safe testing model is dry-run first, inspect outputs in `~/.claude/state/`, then run a live cycle against a snapshot copy of your memory directory. Read the dry-run report before running `--execute` against your live memory directory.
 
 ---
 
@@ -18,7 +18,6 @@ Testing the dream cycle is high-stakes: a mis-run writes to real memory files, a
 |-----------|---------|-------|
 | Full dry-run (no mutations) | `./scripts/auto-dream-cron.sh` | Yes — default mode |
 | Read what would be consolidated | `cat ~/.claude/state/last-dream.md` | Yes |
-| Inspect graduation candidates without graduating | SQLite query (see below) | Yes |
 | Live cycle against a snapshot | `DREAM_MEMORY_DIR=/tmp/test-memory ./scripts/auto-dream-cron.sh --execute` | Yes, safe |
 | Live cycle against real memory | `./scripts/auto-dream-cron.sh --execute` | Use with caution |
 | Check cron registration | `python3 ~/.claude/scripts/crontab-manager.py verify --tag auto-dream` | Yes |
@@ -45,35 +44,7 @@ ls -la ~/.claude/state/dream-analysis-*.md | tail -1
 cat ~/.claude/state/last-dream.md
 ```
 
-**Why**: Dry-run still executes SCAN and ANALYZE phases fully — reading memory files, querying SQLite, reading git log — but CONSOLIDATE and SYNTHESIZE only describe proposed changes without writing them. The report file (`last-dream.md`) is always written, so you see exactly what a live run would do.
-
----
-
-### Inspecting graduation candidates before GRADUATE runs
-
-```bash
-# Query graduation candidates directly — no dream cycle needed
-python3 -c "
-import sys; sys.path.insert(0, 'hooks/lib')
-from learning_db_v2 import query_graduation_candidates
-import json
-candidates = query_graduation_candidates()
-print(json.dumps(candidates, indent=2))
-"
-
-# Count graduation-ready entries (confidence >= 0.9, 3+ observations)
-sqlite3 ~/.claude/learning.db "
-  SELECT pattern_key, confidence, observation_count
-  FROM patterns
-  WHERE confidence >= 0.9 AND observation_count >= 3
-  ORDER BY confidence DESC LIMIT 10;
-"
-
-# Check if any graduation branches already exist from a prior run
-git branch --list 'dream/graduate-*'
-```
-
-**Why**: The GRADUATE phase only runs when entries meet both thresholds (confidence >= 0.9 AND 3+ observations). Checking first prevents surprises and lets you inspect what would be promoted before the dream cycle touches agent files. If a graduation branch already exists, the new cycle skips GRADUATE to avoid duplicate branches.
+**Why**: Dry-run still executes SCAN and ANALYZE phases fully — reading memory files and the git log — but CONSOLIDATE and SYNTHESIZE only describe proposed changes without writing them. The report file (`last-dream.md`) is always written, so you see exactly what a live run would do.
 
 ---
 
@@ -156,14 +127,14 @@ cat ~/.claude/state/last-dream.md         # Step 2: read what would happen
 
 ---
 
-### Verify learning.db Exists Before Testing
+### Verify the memory directory has content before testing
 
 **Detection**:
 ```bash
-ls -la ~/.claude/learning.db 2>/dev/null || echo "MISSING: learning.db"
+ls -la "${DREAM_MEMORY_DIR:-$HOME/.claude/memory}"/MEMORY.md 2>/dev/null || echo "MISSING: MEMORY.md"
 
-# Check if the last dream report noted a SQLite failure
-grep -i 'sqlite\|database\|learning.db\|failed' ~/.claude/state/last-dream.md | head -5
+# Check whether the last dream report scanned anything
+grep -i 'memories scanned\|no-op\|failed' ~/.claude/state/last-dream.md | head -5
 ```
 
 **Signal**:
@@ -171,23 +142,21 @@ grep -i 'sqlite\|database\|learning.db\|failed' ~/.claude/state/last-dream.md | 
 ```
 ## Dream Report: 2026-04-16
 
-SCAN: Read 28 memory files.
-SQLite query failed: unable to open database file
-ANALYZE: Cross-session patterns: none (no session data available)
+SCAN: Read 0 memory files.
+ANALYZE: Recurring patterns: none (no memory data available)
 ```
 
-**Why this matters**: When learning.db is missing, SCAN notes the failure and continues — the cycle does not abort. But ANALYZE then lacks session data, so SYNTHESIZE produces low-quality or no cross-session insights. A silent SQLite failure looks like a successful run when it's actually missing half its input.
+**Why this matters**: When `MEMORY.md` is missing or empty, SCAN reads nothing and the cycle still exits 0. ANALYZE then has no input, so SYNTHESIZE produces no insights and SELECT writes an empty injection payload. An empty-input run looks identical to a healthy no-op run.
 
-**Preferred action**: Before running any test cycle, verify `~/.claude/learning.db` exists and contains at least one week of sessions. If the database is absent, run a normal Claude Code session with hooks enabled to seed it before testing the dream cycle.
+**Preferred action**: Confirm the memory directory holds `MEMORY.md` and at least one memory file before running a test cycle. A run against an empty directory tests the wrapper, not the cycle.
 
-**Preferred action**:
 ```bash
-# Verify learning.db exists before testing
-[ -f ~/.claude/learning.db ] || echo "Run at least one Claude Code session with hooks enabled"
+# Verify the memory directory before testing
+MEM="${DREAM_MEMORY_DIR:-$HOME/.claude/memory}"
+[ -f "$MEM/MEMORY.md" ] || echo "Create MEMORY.md before testing the dream cycle"
 
-# Count sessions available to dream
-sqlite3 ~/.claude/learning.db \
-  "SELECT COUNT(*) FROM sessions WHERE start_time > datetime('now', '-7 days');"
+# Count memory files available to dream
+ls "$MEM"/*.md 2>/dev/null | wc -l
 ```
 
 ---
@@ -228,8 +197,6 @@ echo "Dream exit code: ${CRON_EXIT}"
 | No injection payload file | SELECT phase skipped or DREAM_PROJECT_HASH wrong | Verify `DREAM_PROJECT_HASH`; check state dir path |
 | `last-dream.md` unchanged from prior run | Lockfile blocked the run (prior run still active) | `rm /tmp/auto-dream.lock` then retry |
 | Dry-run shows 0 memories scanned | `DREAM_MEMORY_DIR` path wrong | Check envsubst output; verify memory dir exists with `ls` |
-| `query_graduation_candidates` ImportError | `hooks/lib` not on `sys.path` | Add `sys.path.insert(0, 'hooks/lib')` before import |
-| Graduation branch already exists | Prior GRADUATE phase left the branch | Review branch then `git branch -d dream/graduate-YYYY-MM-DD` |
 
 ---
 
@@ -241,13 +208,6 @@ ls ~/.claude/state/dream-{scan,analysis}-$(date +%Y-%m-%d).md 2>/dev/null
 
 # Read the last dream report
 cat ~/.claude/state/last-dream.md
-
-# Count active graduation candidates
-sqlite3 ~/.claude/learning.db \
-  "SELECT COUNT(*) FROM patterns WHERE confidence >= 0.9 AND observation_count >= 3;"
-
-# Check for graduation branches
-git branch --list 'dream/graduate-*'
 
 # Read the most recent cron run log
 ls -t cron-logs/auto-dream/run-*.log | head -1 | xargs tail -50

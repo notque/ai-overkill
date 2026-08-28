@@ -161,7 +161,7 @@ def test_comments_and_blank_lines_ignored():
         "SessionStart:session-github-briefing.py matcher=startup|resume class=native mode=native failure=open\n"
         "\n"
         "# Another comment\n"
-        "Stop:confidence-decay.py class=native mode=native failure=open\n"
+        "Stop:session-summary.py class=native mode=native failure=open\n"
     )
     entries = parse_allowlist(text)
     assert len(entries) == 2
@@ -212,7 +212,7 @@ def test_user_prompt_submit_no_matcher_field():
 
 def test_stop_entry_no_matcher_field():
     """Stop entry produces a block without a 'matcher' key."""
-    text = "Stop:confidence-decay.py class=native mode=native failure=open\n"
+    text = "Stop:session-summary.py class=native mode=native failure=open\n"
     entries = parse_allowlist(text)
     result = build_hooks_json(entries, codex_hooks_dir="/fake/hooks")
 
@@ -244,7 +244,7 @@ def test_cli_dry_run_produces_valid_json():
         "SessionStart:session-github-briefing.py matcher=startup|resume class=native mode=native failure=open\n"
         "UserPromptSubmit:prompt-capture.py class=native mode=native failure=open\n"
         "PreToolUse:pretool-branch-safety.py matcher=Bash class=native mode=native failure=closed\n"
-        "Stop:confidence-decay.py class=native mode=native failure=open\n"
+        "Stop:session-summary.py class=native mode=native failure=open\n"
     )
     with tempfile.TemporaryDirectory() as tmpdir:
         allowlist_path = Path(tmpdir) / "allowlist.txt"
@@ -288,7 +288,7 @@ def test_cli_dry_run_produces_valid_json():
 def test_event_ordering():
     """Present events retain their relative order from the current release."""
     text = (
-        "Stop:confidence-decay.py class=native mode=native failure=open\n"
+        "Stop:session-summary.py class=native mode=native failure=open\n"
         "PostToolUse:posttool-bash-injection-scan.py matcher=Bash class=native mode=native failure=open\n"
         "SessionStart:session-github-briefing.py matcher=startup|resume class=native mode=native failure=open\n"
         "PreToolUse:pretool-branch-safety.py matcher=Bash class=native mode=native failure=closed\n"
@@ -374,15 +374,15 @@ def test_explicit_adapter_metadata_is_parsed():
 def test_explicit_metadata_requires_classification():
     """Current entries cannot infer native/adapted classification."""
     with pytest.raises(ValueError, match="class"):
-        parse_allowlist("Stop:confidence-decay.py mode=native failure=open")
+        parse_allowlist("Stop:session-summary.py mode=native failure=open")
 
 
 @pytest.mark.parametrize(
     ("line", "expected"),
     [
-        ("Stop:confidence-decay.py class=native mode=bogus failure=open", "mode"),
-        ("Stop:confidence-decay.py class=adapted mode=stop failure=bogus", "failure"),
-        ("Stop:confidence-decay.py matcher=* class=adapted mode=stop failure=open", "matcher"),
+        ("Stop:session-summary.py class=native mode=bogus failure=open", "mode"),
+        ("Stop:session-summary.py class=adapted mode=stop failure=bogus", "failure"),
+        ("Stop:session-summary.py matcher=* class=adapted mode=stop failure=open", "matcher"),
         ("PreCompact:precompact-archive.py matcher=manual|auto class=adapted mode=patch failure=open", "PreCompact"),
         ("PreToolUse:pretool-plan-gate.py matcher=Bash class=adapted mode=patch failure=closed", "patch"),
     ],
@@ -412,7 +412,7 @@ def test_all_ten_events_build_in_canonical_order():
     """Generated JSON keeps the release event order regardless of allowlist order."""
     text = "\n".join(
         [
-            "Stop:confidence-decay.py class=native mode=native failure=open",
+            "Stop:session-summary.py class=native mode=native failure=open",
             "SubagentStop:routing-outcome-recorder.py matcher=* class=native mode=native failure=open",
             "UserPromptSubmit:prompt-capture.py class=native mode=native failure=open",
             "PostCompact:postcompact-handler.py matcher=manual|auto class=native mode=native failure=open",

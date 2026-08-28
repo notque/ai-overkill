@@ -45,7 +45,7 @@ def repo(tmp_path):
         "skills/process/worktree-agent/SKILL.md",
         "skills/meta/retro/SKILL.md",
         "docs/what-didnt-work.md",
-        "hooks/error-learner.py",
+        "hooks/session-context.py",
     ):
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)

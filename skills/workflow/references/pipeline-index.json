@@ -5,7 +5,7 @@
   "pipelines": {
     "agent-upgrade": {
       "file": "skills/workflow/references/agent-upgrade.md",
-      "description": "5-phase pipeline for systematically improving an existing agent or skill: AUDIT \u2192 DIFF \u2192 PLAN \u2192 IMPLEMENT \u2192 RE-EVALUATE.",
+      "description": "5-phase pipeline for systematically improving an existing agent or skill: AUDIT → DIFF → PLAN → IMPLEMENT → RE-EVALUATE.",
       "triggers": [
         "upgrade agent",
         "improve agent",
@@ -210,7 +210,7 @@
         "generate README",
         "document the API"
       ],
-      "not_for": "a docstring, an inline comment, or a one-line README tweak \u2014 that is a direct edit or comment-quality. Pick this when the deliverable is a standalone document produced from a codebase survey (RESEARCH-to-OUTPUT).",
+      "not_for": "a docstring, an inline comment, or a one-line README tweak — that is a direct edit or comment-quality. Pick this when the deliverable is a standalone document produced from a codebase survey (RESEARCH-to-OUTPUT).",
       "category": "documentation",
       "user_invocable": false,
       "version": "2.0.0",
@@ -400,7 +400,7 @@
     },
     "hook-development-pipeline": {
       "file": "skills/workflow/references/hook-development-pipeline.md",
-      "description": "Formal 5-phase pipeline for creating production-quality hooks with mandatory performance gates: SPEC \u2192 IMPLEMENT \u2192 TEST \u2192 REGISTER \u2192 DOCUMENT.",
+      "description": "Formal 5-phase pipeline for creating production-quality hooks with mandatory performance gates: SPEC → IMPLEMENT → TEST → REGISTER → DOCUMENT.",
       "triggers": [
         "create hook pipeline",
         "new hook formal",
@@ -424,7 +424,7 @@
     },
     "mcp-pipeline-builder": {
       "file": "skills/workflow/references/mcp-pipeline-builder.md",
-      "description": "Convert any repository into a registered MCP server: ANALYZE \u2192 DESIGN \u2192 GENERATE \u2192 VALIDATE \u2192 EVALUATE \u2192 REGISTER.",
+      "description": "Convert any repository into a registered MCP server: ANALYZE → DESIGN → GENERATE → VALIDATE → EVALUATE → REGISTER.",
       "triggers": [
         "mcp pipeline",
         "repo to mcp",
@@ -580,7 +580,7 @@
         "PR",
         "CODEX REVIEW",
         "ADR RECONCILE",
-        "RECORD",
+        "REPORT",
         "CLEANUP"
       ],
       "triggers": [
@@ -597,7 +597,7 @@
     },
     "research-pipeline": {
       "file": "skills/workflow/references/research-pipeline.md",
-      "description": "Formal 5-phase research pipeline with artifact saving and source quality gates: SCOPE \u2192 GATHER \u2192 SYNTHESIZE \u2192 VALIDATE \u2192 DELIVER.",
+      "description": "Formal 5-phase research pipeline with artifact saving and source quality gates: SCOPE → GATHER → SYNTHESIZE → VALIDATE → DELIVER.",
       "triggers": [
         "research pipeline",
         "formal research",
@@ -654,7 +654,7 @@
     },
     "skill-creation-pipeline": {
       "file": "skills/workflow/references/skill-creation-pipeline.md",
-      "description": "Formal 5-phase pipeline for creating new skills with quality gates: DISCOVER \u2192 DESIGN \u2192 SCAFFOLD \u2192 VALIDATE \u2192 INTEGRATE.",
+      "description": "Formal 5-phase pipeline for creating new skills with quality gates: DISCOVER → DESIGN → SCAFFOLD → VALIDATE → INTEGRATE.",
       "triggers": [
         "create skill pipeline",
         "new skill formal",
@@ -691,7 +691,7 @@
         "adapt workflow",
         "system health"
       ],
-      "not_for": "upgrading one named agent or skill \u2014 that is agent-upgrade. Pick this only when an external change (a Claude Code release, a stated goal shift, or graduated learnings) requires adapting many components at once.",
+      "not_for": "upgrading one named agent or skill — that is agent-upgrade. Pick this only when an external change (a Claude Code release, a stated goal shift, or routing telemetry showing many weak routes) requires adapting many components at once.",
       "category": "meta",
       "user_invocable": false,
       "version": "1.0.0",
@@ -836,7 +836,7 @@
         "IMPLEMENT",
         "VALIDATE",
         "REMEDIATE",
-        "RECORD"
+        "REPORT"
       ]
     },
     "voice-writer": {

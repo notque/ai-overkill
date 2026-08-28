@@ -64,7 +64,7 @@ python3 scripts/generate-skill-index.py          # regenerate skills/INDEX.json
 
 ## Architecture
 
-Router --> Agent --> Skill --> Script. The `/do` skill classifies every request by complexity (Trivial, Simple, Medium, Complex), selects a domain agent from `agents/INDEX.json`, pairs it with a skill, stacks enhancements (anti-rationalization, TDD, verification), and dispatches. Agents do the thinking. Scripts do the computation. Hooks fire at lifecycle boundaries to inject context, capture learnings, and enforce gates. Everything flows through `/do`. It is the single entry point.
+Router --> Agent --> Skill --> Script. The `/do` skill classifies every request by complexity (Trivial, Simple, Medium, Complex), selects a domain agent from `agents/INDEX.json`, pairs it with a skill, stacks enhancements (anti-rationalization, TDD, verification), and dispatches. Agents do the thinking. Scripts do the computation. Hooks fire at lifecycle boundaries to inject context, record telemetry, and enforce gates. Everything flows through `/do`. It is the single entry point.
 
 ## Entry Point: `/do`
 
@@ -127,26 +127,27 @@ Trivial = reading a file the user named by exact path. Everything else routes th
 
 ---
 
-## Learning System
+## Routing Telemetry
 
 **Database**: `~/.claude/learning/learning.db` (SQLite, WAL mode, FTS5 full-text search)
 
 ### Lifecycle
 
-1. **Record**: hooks capture errors, review findings, session patterns automatically
-2. **Boost/Decay**: confidence adjusts (success boosts, failure decays, inactivity decays)
-3. **Inject**: `session-context.py` injects a pre-built dream payload at SessionStart, curated during the nightly auto-dream cycle. Falls back to direct learning.db queries if no fresh payload.
-4. **Graduate**: high-confidence entries promoted into agent/skill files via `learning-db.py graduate`
+1. **Decide**: `/do` picks an agent and skill and stamps a `[do-route]` marker into the dispatch prompt
+2. **Record**: `routing-decision-recorder.py` writes one decision row per marker on PostToolUse
+3. **Resolve**: `routing-outcome-finalizer.py` scores the outcome on the user's next prompt; the SubagentStop recorder and the Stop fallback catch the rest
+4. **Report**: `learning-db.py route-health` prints the loop's correctness metrics
+
+The same database also holds the governance event log written by the safety gates and the voice corpus written by `prompt-capture.py`. Each subsystem owns its own topic.
 
 ### CLI Quick Reference
 
 ```bash
-python3 scripts/learning-db.py learn --skill go-patterns "table tests need t.Parallel()"
-python3 scripts/learning-db.py query --topic debugging --min-confidence 0.6
-python3 scripts/learning-db.py stats
-python3 scripts/learning-db.py graduate TOPIC KEY TARGET
-python3 scripts/learning-db.py prune --below-confidence 0.3 --older-than 90
-python3 scripts/learning-db.py stale [--min-age-days 30]
+python3 scripts/learning-db.py route-health
+python3 scripts/learning-db.py route-stats --by agent
+python3 scripts/learning-db.py route-delta --from SHA --to SHA
+python3 scripts/learning-db.py stack-usage
+python3 scripts/learning-db.py review-fps
 ```
 
 ---
@@ -215,7 +216,7 @@ User says "fix the failing Go tests"
 5. Enhancements: anti-rationalization-testing auto-injected
 6. Plan: task_plan.md created (Simple+ complexity)
 7. Dispatch: agent executes with go-patterns testing methodology
-8. Learn: record outcome to learning.db
+8. Record: the route decision and its outcome land in learning.db
 ```
 
 ---
@@ -226,9 +227,9 @@ User says "fix the failing Go tests"
 2. **Agents think, scripts compute.** If it's deterministic and measurable, there's a script. Use it instead of reasoning about it.
 3. **Load only what you need.** Context is scarce. Load agent + skill + relevant references. Don't preload the full inventory.
 4. **Hooks enforce, agents comply.** Hooks are the enforcement layer. Don't fight them. If a hook blocks, it's correct until proven otherwise.
-5. **Learning is automatic.** Hooks capture errors, corrections, patterns. Don't manually record what hooks already capture.
+5. **Telemetry is automatic.** Hooks record route decisions, outcomes, and governance events. Don't hand-record what hooks already capture.
 6. **Subagents for isolation.** Complex tasks spawn subagents. Each gets fresh context with only what it needs.
 7. **Plans before complexity.** Medium+ tasks require a plan file (`task_plan.md`). Don't skip planning.
 8. **Verify before declaring done.** `verification-before-completion` exists for a reason. Run the checks.
 9. **Anti-rationalization is non-negotiable.** If evidence contradicts your hypothesis, update the hypothesis.
-10. **Dream payload is curated.** SessionStart injects nightly-curated learnings. Trust them as high-signal context.
+10. **Check what already failed.** Before re-running an experiment, grep `docs/what-didnt-work.md`. Someone paid for that answer already.

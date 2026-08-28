@@ -400,9 +400,9 @@ Simple/Medium: direct. Feature-branch; mods commit. `isolation:"worktree"`→`fl
 
 ---
 
-### Learning Capture (automatic)
+### Routing telemetry (automatic)
 
-Hooks capture all. On observed route failure or learning question → load `${CLAUDE_SKILL_DIR}/references/learning-capture.md` (hooks table, outcome fidelity, route-failure protocol).
+Hooks record routing. On an observed route failure, or to re-derive a quoted telemetry figure → load `${CLAUDE_SKILL_DIR}/references/routing-telemetry.md` (hooks table, outcome fidelity, route-failure protocol, figure queries).
 
 ---
 
