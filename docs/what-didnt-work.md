@@ -32,6 +32,20 @@ Query it: read this file, run `grep -c '^## 2026' docs/what-didnt-work.md`, or r
 
 Experiments recorded after the seed set. Same four bold fields; `###` headings keep the seed-count checks in `scripts/tests/test_negative_results_registry.py` stable. Newest on top.
 
+### 2026-08-27 Instruction-compliance measured on a surface that cannot show compliance
+
+- **Expectation**: scanning Agent dispatches for phase banners (M01) and the routing banner (M03) would measure whether the orchestrator followed those mandatory instructions.
+- **What happened**: the hook runs on `PostToolUse:Agent` and scans only the dispatch prompt and the subagent report. Both banners are main-thread orchestrator output and appear in neither string, so the detector could never register compliance. Recorded skip rates were 99.3% and 100% by construction: M03 read compliant 7 times in 3,444 observations. The `skip-rate` dashboard then applied its own rule and printed `CONVERT TO GATE` for five instructions, recommending blocking gates against violations that never happened. M05/M06 had a second version of the same defect. They detect whether a directive reached the prompt, not whether output followed it, and they were scored across all 3,444 dispatches when the directive ships on only ~341 `/do`-routed ones.
+- **Evidence**: `hooks/instruction-compliance.py` (surface), `scripts/learning-db.py` skip-rate threshold, PR #925, PR #927.
+- **Decision**: rejected. An instrument declares `observable` for its surface and records nothing where it cannot see; a rate states its denominator. Never gate on a metric whose detector has not been shown capable of a positive reading.
+
+### 2026-08-27 Injection floor set above birth confidence starved the learning pool for 27 days
+
+- **Expectation**: a 0.70 confidence floor would inject only well-established learnings.
+- **What happened**: error learnings are born at 0.55, and confidence rises only via a +0.10 boost applied when a learning is injected. A floor above the birth value is a one-way ratchet. A new learning never injects, so it never boosts, so it never crosses the floor, while `confidence-decay.py` pulls it down 0.05 per 30 days. 392 of 427 live error learnings sat at exactly 0.55. Combined with 103 rows suppressed by non-durable `graduated_to` sentinels (97 of them `session-artifact`), the injectable pool fell to 2 rows and `activations` went from 9,755 in July to 1 in August. Nothing raised an error: `record_activations_safe` swallows every exception unless `debug=True`, and `validate-learning-effectiveness.py` reported PASS at 52.1/100 while its Activation Coverage sub-score sat at 2.9/100.
+- **Evidence**: `hooks/lib/learning_db_v2.py` birth-confidence table and `INJECTION_MIN_CONFIDENCE`; `learning.db` `activations` by month; PR #926, PR #927.
+- **Decision**: rejected. Any injection threshold must sit below the lowest birth confidence, enforced by a test (`hooks/tests/test_injection_floor.py`). A blended health score must fail when a component sub-score flatlines, not average it away.
+
 ### 2026-08-15 Deterministic pre-router promoted and demoted 9 times without a corpus null-model score
 
 - **Expectation**: each pre-route.py change would improve routing accuracy.
