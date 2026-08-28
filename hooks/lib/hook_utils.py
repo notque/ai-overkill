@@ -768,6 +768,11 @@ def record_activations_safe(
     Extracts (topic, key) pairs from result dicts and batch-records them.
     Swallows all exceptions so hook execution is never interrupted.
 
+    Rows missing "topic" or "key" are skipped, not fatal. A bare subscript here
+    raised KeyError on the first malformed row and the blanket except below
+    swallowed it, so one bad row silently dropped the whole batch and the
+    activation/ROI pipeline recorded nothing at all.
+
     Args:
         results: List of learning dicts with "topic" and "key" keys.
         session_id: Session identifier for activation tracking.
@@ -776,7 +781,10 @@ def record_activations_safe(
     try:
         from learning_db_v2 import record_activations
 
-        entries = [(r["topic"], r["key"]) for r in results]
+        entries = [(r["topic"], r["key"]) for r in results if r.get("topic") and r.get("key")]
+        skipped = len(results) - len(entries)
+        if debug and skipped:
+            print(f"[activation] Skipped {skipped} row(s) missing topic/key", file=sys.stderr)
         if entries:
             record_activations(entries, session_id)
     except Exception as e:

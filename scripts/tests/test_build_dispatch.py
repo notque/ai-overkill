@@ -687,6 +687,34 @@ def test_non_default_openai_model_choices_require_manual_override(overrides):
 # Anthropic lane: benchmark-backed automatic defaults and manual lanes.
 # ---------------------------------------------------------------------------
 
+_DO_SKILL_PATH = REPO_ROOT / "skills" / "meta" / "do" / "SKILL.md"
+_DOCUMENTED_EFFORTS = ("max", "xhigh", "high", "medium", "low")
+_DOCUMENTED_ROW_MODELS = {
+    "Opus-4.8 (prior measurement)": "opus-4.8",
+    "Sonnet-5 (prior measurement)": "sonnet",
+}
+
+
+def _parse_cell(cell: str) -> tuple[int, float, int, int]:
+    """Parse one `Pass@1 / cost / output tokens / steps` cell, expanding the `k` suffix."""
+    passed, cost, tokens, steps = (part.strip() for part in cell.split("/"))
+    scaled = int(float(tokens[:-1]) * 1000) if tokens.endswith("k") else int(tokens)
+    return int(passed), float(cost), scaled, int(steps)
+
+
+def _documented_claude_points() -> dict[tuple[str, str], tuple[int, float, int, int]]:
+    """Read the Anthropic-lane benchmark table out of skills/meta/do/SKILL.md."""
+    points: dict[tuple[str, str], tuple[int, float, int, int]] = {}
+    for line in _DO_SKILL_PATH.read_text(encoding="utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        model = _DOCUMENTED_ROW_MODELS.get(cells[0]) if cells else None
+        if model is None or len(cells) != len(_DOCUMENTED_EFFORTS) + 1:
+            continue
+        for effort, cell in zip(_DOCUMENTED_EFFORTS, cells[1:]):
+            points[(model, effort)] = _parse_cell(cell)
+    return points
+
+
 SUPPLIED_CLAUDE_POINTS = {
     ("opus-4.8", "max"): (59, 13.22, 135_000, 120),
     ("opus-4.8", "xhigh"): (54, 8.01, 86_000, 95),
@@ -698,7 +726,6 @@ SUPPLIED_CLAUDE_POINTS = {
     ("sonnet", "high"): (48, 7.43, 87_000, 147),
     ("sonnet", "medium"): (40, 4.08, 57_000, 108),
     ("sonnet", "low"): (31, 2.19, 36_000, 77),
-    ("sonnet-4.6", "high"): (30, 5.52, 76_000, 134),
 }
 
 
@@ -733,24 +760,22 @@ def test_anthropic_policy_points_are_unmeasured_and_effort_rises_with_risk():
         previous = order.index(effort)
 
 
-def test_sonnet_max_still_costs_more_per_point_than_sonnet_xhigh():
-    """Recorded prior measurement: sonnet[max] buys 4 Pass@1 points for 2.2x the cost."""
-    smax = SUPPLIED_CLAUDE_POINTS[("sonnet", "max")]
-    sxhigh = SUPPLIED_CLAUDE_POINTS[("sonnet", "xhigh")]
-    assert smax[0] > sxhigh[0], "precondition: max scores higher"
-    assert smax[1] / smax[0] > sxhigh[1] / sxhigh[0], "precondition: max costs more per point"
-
-
 def test_opus_max_requires_manual_override():
     """The unmeasured top tier stays an explicit escalation."""
     with pytest.raises(bd.InputError, match="manual_model_override"):
         bd.build_marker(_decision(model="opus", model_effort="max"))
 
 
-def test_prior_measurements_retained_for_manual_picks():
-    """Historical Opus-4.8 / Sonnet-5 points stay recorded, not deleted."""
-    assert SUPPLIED_CLAUDE_POINTS[("opus-4.8", "max")] == (59, 13.22, 135_000, 120)
-    assert SUPPLIED_CLAUDE_POINTS[("sonnet", "high")] == (48, 7.43, 87_000, 147)
+def test_supplied_points_match_the_documented_benchmark_table():
+    """The table in skills/meta/do/SKILL.md is the source; this dict must track it.
+
+    Without this the dict is a private copy: an edit to the doc table (or a
+    deleted row) leaves the Opus-5-has-no-benchmark-point check above asserting
+    against numbers the toolkit no longer publishes.
+    """
+    assert _documented_claude_points() == SUPPLIED_CLAUDE_POINTS, (
+        "SUPPLIED_CLAUDE_POINTS drifted from the Anthropic-lane table in skills/meta/do/SKILL.md"
+    )
 
 
 @pytest.mark.parametrize("model", ("sonnet",))

@@ -171,7 +171,7 @@ hooks/tests/
 ├── test_cross_repo_agents.py        test_pretool_unified_gate.py
 ├── test_do_routing.py               test_record_activation.py
 ├── test_feedback_tracker.py         test_record_waste.py
-├── test_fts5_search.py              test_settings_validator.py
+├── test_fts5_search.py              test_record_activations_safe.py
 ├── test_integration.py              test_skill_evaluator.py
 ├── test_learning_system.py          test_sql_injection_detector.py
 ├── test_mcp_health_check.py         test_stale_pruner.py

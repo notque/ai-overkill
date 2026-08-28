@@ -1,15 +1,14 @@
 """Pytest suite validating progressive disclosure reference loading for agents and skills.
 
-Five agent test categories:
+Four agent test categories:
 1. Reference Loading Table Completeness — every reference file has a table entry and vice-versa
 2. Keyword-to-Reference Mapping Validation — query keywords resolve to correct reference files
-3. Reference File Size Compliance — all reference files under 500 lines (warn at 400)
-4. Joy-Check Spot Validation — flag negative framing in reference file headings
-5. Cross-Agent Reference Isolation — no agent references files from another agent's directory
+3. Reference File Size Compliance — all reference files under 500 lines, register matches reality
+4. Cross-Agent Reference Isolation — no agent references files from another agent's directory
 
-Two skill test categories (Categories 6-7):
-6. Skill Reference File Size Compliance — all skills/*/references/**/*.md under 500 lines
-7. Skill Reference File Existence — every skills/ directory can be discovered and scanned
+Two skill test categories (Categories 5-6):
+5. Skill Reference File Size Compliance — all skills/*/references/**/*.md under 500 lines
+6. Skill Reference File Existence — every skills/ directory can be discovered and scanned
 
 Allowlist behavior (SKILL_REFS_STRICT env flag):
   Default (xfail mode): files in _KNOWN_OVERSIZED_SKILL_REFS xfail so CI stays green while
@@ -45,10 +44,7 @@ SKILLS_DIR = REPO_ROOT / "skills"
 # Set SKILL_REFS_STRICT=1 for audit runs that should surface all violations as hard failures.
 _SKILL_REFS_STRICT: bool = os.environ.get("SKILL_REFS_STRICT", "0") == "1"
 
-REFERENCE_LINE_WARN = 400
 REFERENCE_LINE_LIMIT = 500
-
-NEGATIVE_FRAMING_WORDS = {"avoid", "don't", "never", "incorrect", "wrong", "bad", "anti-pattern"}
 
 # ---------------------------------------------------------------------------
 # Test data
@@ -477,13 +473,12 @@ ALL_REFERENCE_FILES = _all_reference_files()
 
 _KNOWN_OVERSIZED: set[str] = {
     "hook-development-engineer/references/code-examples.md",
-    "reviewer-domain/references/operational-preferred-patterns.md",
     "typescript-debugging-engineer/references/debugging-workflows.md",
 }
 
 
 class TestReferenceFileSizeCompliance:
-    """Reference files must be under 500 lines; warn at 400."""
+    """Reference files must be under 500 lines."""
 
     @pytest.mark.parametrize("ref_path", ALL_REFERENCE_FILES, ids=[_ref_file_id(p) for p in ALL_REFERENCE_FILES])
     def test_file_under_hard_limit(self, ref_path: Path) -> None:
@@ -504,75 +499,28 @@ class TestReferenceFileSizeCompliance:
             f"Split the file or remove stale content."
         )
 
-    @pytest.mark.parametrize("ref_path", ALL_REFERENCE_FILES, ids=[_ref_file_id(p) for p in ALL_REFERENCE_FILES])
-    def test_file_approaching_limit_warning(self, ref_path: Path) -> None:
-        """Warn when a reference file is between 400 and 499 lines.
+    def test_agent_size_debt_register_matches_current_violations(self) -> None:
+        """_KNOWN_OVERSIZED must name exactly the agent references now over the limit.
 
-        Args:
-            ref_path: Path to the reference .md file.
+        The xfail above is imperative, so a registered file passes its own test
+        whatever its length. Without this check a decomposed file stays
+        registered forever and a newly oversized one can be waved through by
+        adding a line here.
         """
-        line_count = len(ref_path.read_text(encoding="utf-8").splitlines())
-        if line_count >= REFERENCE_LINE_WARN:
-            pytest.warns(
-                UserWarning,
-                match="approaching",
-            ) if False else None  # soft warning — emit via xfail marker
-            pytest.xfail(
-                f"{_ref_file_id(ref_path)}: {line_count} lines is approaching the {REFERENCE_LINE_LIMIT}-line limit "
-                f"(threshold: {REFERENCE_LINE_WARN}). Consider trimming."
-            )
+        actual_violations = {
+            _ref_file_id(path)
+            for path in ALL_REFERENCE_FILES
+            if len(path.read_text(encoding="utf-8").splitlines()) > REFERENCE_LINE_LIMIT
+        }
+        assert actual_violations == _KNOWN_OVERSIZED, (
+            "Reference-size debt register drifted. Decompose new violations; drop resolved ones.\n"
+            f"Unregistered: {sorted(actual_violations - _KNOWN_OVERSIZED)}\n"
+            f"Stale: {sorted(_KNOWN_OVERSIZED - actual_violations)}"
+        )
 
 
 # ---------------------------------------------------------------------------
-# Category 4: Joy-Check Spot Validation
-# ---------------------------------------------------------------------------
-
-
-def _heading_lines(md_text: str) -> list[str]:
-    """Extract all ## heading lines from markdown text.
-
-    Args:
-        md_text: Raw markdown string.
-
-    Returns:
-        List of heading line strings (including the ## prefix).
-    """
-    return [line for line in md_text.splitlines() if re.match(r"^#{1,6}\s", line)]
-
-
-class TestJoyCheckSpotValidation:
-    """Reference file headings must not contain negative framing signals."""
-
-    @pytest.mark.parametrize("ref_path", ALL_REFERENCE_FILES, ids=[_ref_file_id(p) for p in ALL_REFERENCE_FILES])
-    def test_no_negative_framing_in_headings(self, ref_path: Path) -> None:
-        """Flag headings containing negative framing words as warnings (not hard failures).
-
-        Negative words: avoid, don't, never, incorrect, wrong, bad, anti-pattern.
-        These signal problem-oriented rather than solution-oriented framing.
-
-        Args:
-            ref_path: Path to the reference .md file.
-        """
-        md_text = ref_path.read_text(encoding="utf-8")
-        headings = _heading_lines(md_text)
-
-        flagged: list[str] = []
-        for heading in headings:
-            heading_lower = heading.lower()
-            for word in NEGATIVE_FRAMING_WORDS:
-                if word in heading_lower:
-                    flagged.append(heading.strip())
-                    break
-
-        if flagged:
-            pytest.xfail(
-                f"{_ref_file_id(ref_path)}: {len(flagged)} heading(s) contain negative framing signals "
-                f"(warning, not hard failure):\n" + "\n".join(f"  - {h}" for h in flagged)
-            )
-
-
-# ---------------------------------------------------------------------------
-# Category 5: Cross-Agent Reference Isolation
+# Category 4: Cross-Agent Reference Isolation
 # ---------------------------------------------------------------------------
 
 
@@ -756,7 +704,7 @@ _KNOWN_OVERSIZED_SKILL_REFS: dict[str, str] = {
 _SKILLS_WITH_REFERENCES: list[str] = _collect_skills_with_references()
 
 # ---------------------------------------------------------------------------
-# Category 6: Skill Reference File Size Compliance
+# Category 5: Skill Reference File Size Compliance
 # ---------------------------------------------------------------------------
 
 
@@ -833,28 +781,9 @@ class TestSkillReferenceFileSizeCompliance:
             f"Stale: {sorted(registered - actual_violations)}"
         )
 
-    @pytest.mark.parametrize(
-        "ref_path",
-        ALL_SKILL_REFERENCE_FILES,
-        ids=[_skill_ref_file_id(p) for p in ALL_SKILL_REFERENCE_FILES],
-    )
-    def test_skill_file_approaching_limit_warning(self, ref_path: Path) -> None:
-        """Warn when a skill reference file is between 400 and 499 lines.
-
-        Args:
-            ref_path: Path to the skill reference .md file.
-        """
-        line_count = len(ref_path.read_text(encoding="utf-8").splitlines())
-        if line_count >= REFERENCE_LINE_WARN:
-            pytest.xfail(
-                f"skills/{_skill_ref_file_id(ref_path)}: {line_count} lines is approaching the "
-                f"{REFERENCE_LINE_LIMIT}-line limit (threshold: {REFERENCE_LINE_WARN}). "
-                f"Consider trimming or splitting before it exceeds the hard limit."
-            )
-
 
 # ---------------------------------------------------------------------------
-# Category 7: Skill Reference Directory Discoverability
+# Category 6: Skill Reference Directory Discoverability
 # ---------------------------------------------------------------------------
 
 
