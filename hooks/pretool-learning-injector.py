@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.1.0
 """
 PreToolUse Hook: Proactive Learning Injection
 
@@ -14,7 +14,7 @@ Design Principles:
 - Sub-50ms execution (fires on EVERY tool use)
 - Non-blocking (always exits 0)
 - Lightweight output (max 500 chars to avoid context bloat)
-- Only injects for high-confidence patterns (>= 0.7)
+- Only injects at or above learning_db_v2.INJECTION_MIN_CONFIDENCE
 """
 
 import json
@@ -26,8 +26,12 @@ from pathlib import Path
 # Add lib directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
+# INJECTION_MIN_CONFIDENCE is the shared injection floor, defined once in
+# learning_db_v2 so it cannot drift above birth confidence. A floor above birth
+# confidence starves the pool: a new learning never injects, so it never gets
+# boosted, so it never crosses the floor.
 from hook_utils import context_output, empty_output, get_session_id, record_activations_safe
-from learning_db_v2 import sanitize_for_context
+from learning_db_v2 import INJECTION_MIN_CONFIDENCE, sanitize_for_context
 from stdin_timeout import read_stdin
 
 EVENT_NAME = "PreToolUse"
@@ -37,9 +41,6 @@ MAX_CONTEXT_CHARS = 500
 
 # Max DB results to fetch
 MAX_RESULTS = 3
-
-# Minimum confidence for injection
-MIN_CONFIDENCE = 0.7
 
 # Keywords extracted from commands that map to learnable domains.
 # These are intentionally broad — the DB query narrows via tag matching.
@@ -168,6 +169,30 @@ def extract_edit_tags(tool_input: dict) -> list[str]:
     return list(tags)[:10]
 
 
+# error-learner stores a learning as "<error> <arrow> <solution>" and re-records
+# nest it ("<error> <arrow> <previous value>"), so the LAST arrow marks the
+# solution. Unicode is the arrow in use (762 rows); 7 older rows use ASCII.
+_SOLUTION_SEPARATORS = (" \u2192 ", " -> ")
+
+
+def _solution_summary(value: str) -> str:
+    """Return the one-line solution half of a stored learning value.
+
+    Searches the whole value, not just its first line: a captured error message
+    is usually multi-line, so the arrow sits on the last line. Reading only the
+    first line surfaced the raw capture instead -- nginx configs, ssh debug
+    output, diff hunks -- as the hint. Values with no arrow (prose gotchas) fall
+    back to their first line.
+    """
+    for separator in _SOLUTION_SEPARATORS:
+        if separator in value:
+            value = value.rsplit(separator, 1)[1]
+            break
+    line = value.split("\n")[0]
+    # Drop control characters (BEL, ANSI escapes) captured from tool output.
+    return "".join(ch for ch in line if ch >= " " or ch == "\t").strip()[:120]
+
+
 def format_hints(results: list[dict]) -> str:
     """Format DB results as a compact hint string.
 
@@ -175,17 +200,15 @@ def format_hints(results: list[dict]) -> str:
     """
     lines = ["[learning-hint] Known patterns for this operation:"]
     chars = len(lines[0])
+    seen: set[str] = set()
 
     for r in results:
-        # Build a one-line summary from the value field
-        value = sanitize_for_context(r.get("value", ""))
-        first_line = value.split("\n")[0]
-
-        # If value has " -> " separator (error -> solution format), use the solution part
-        if " -> " in first_line:
-            summary = first_line.split(" -> ", 1)[1][:120]
-        else:
-            summary = first_line[:120]
+        summary = _solution_summary(sanitize_for_context(r.get("value", "")))
+        # Distinct rows often carry the same generic solution ("Fix timeout
+        # error in Bash"). Emit it once -- repeats only eat the char budget.
+        if not summary or summary in seen:
+            continue
+        seen.add(summary)
 
         category = r.get("category", "")
         error_type = r.get("error_type", "")
@@ -241,7 +264,7 @@ def main():
         query_str = " OR ".join(tags)
         results = search_learnings(
             query_str,
-            min_confidence=MIN_CONFIDENCE,
+            min_confidence=INJECTION_MIN_CONFIDENCE,
             exclude_graduated=True,
             categories=INJECTABLE_CATEGORIES,
             project_path=cwd,

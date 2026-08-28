@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 2.0.0
+# hook-version: 2.1.0
 """
 SessionStart Hook: Learning Context Loader
 
@@ -12,7 +12,7 @@ and surfaces a one-line overnight dream notice (if dream ran recently).
 Design Principles:
 - SILENT unless meaningful patterns found
 - Project-aware (loads patterns for current directory)
-- High-confidence only (>0.7 threshold)
+- Confidence-gated by learning_db_v2.INJECTION_MIN_CONFIDENCE
 - Fast execution (<50ms target)
 - Non-blocking (always exits 0)
 - Pure file reader for dream integration — no LLM work, no learning.db queries
@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent / "lib"))
 
 from hook_utils import context_output, empty_output, get_session_id, hook_error, record_activations_safe
 from learning_db_v2 import (
+    INJECTION_MIN_CONFIDENCE,
     get_stats,
     query_learnings,
     sanitize_for_context,
@@ -158,7 +159,7 @@ def main():
         # Get high-confidence learnings from learning.db
         learnings = query_learnings(
             category="error",
-            min_confidence=0.7,
+            min_confidence=INJECTION_MIN_CONFIDENCE,
             project_path=cwd,
             limit=10,
         )

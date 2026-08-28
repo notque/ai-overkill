@@ -366,3 +366,78 @@ class TestInjectorStillFires:
         _record("go-patterns", "low-conf", "Low confidence tip", category="error", confidence=0.4)
         parsed = _run_main(_make_bash_event("go test ./..."))
         assert _additional_context(parsed) == ""
+
+
+# ---------------------------------------------------------------------------
+# format_hints separator handling
+# ---------------------------------------------------------------------------
+
+
+class TestFormatHintsSeparator:
+    """error-learner writes "<error> → <solution>" with a Unicode arrow.
+
+    format_hints must show the solution half. Splitting on the ASCII "->" only
+    made it emit the raw captured error text instead -- nginx configs, ssh
+    debug output, diff hunks -- for the 762 rows that store the Unicode form.
+    """
+
+    def test_unicode_arrow_yields_the_solution_half(self):
+        hints = mod.format_hints(
+            [{"value": "ls: cannot access '/tmp/x' → create the directory first", "error_type": "missing_file"}]
+        )
+        assert "create the directory first" in hints
+        assert "cannot access" not in hints
+
+    def test_ascii_arrow_yields_the_solution_half(self):
+        hints = mod.format_hints(
+            [{"value": "Found 3 matches -> pass replace_all=True", "error_type": "multiple_matches"}]
+        )
+        assert "pass replace_all=True" in hints
+        assert "Found 3 matches" not in hints
+
+    def test_multiline_error_finds_the_arrow_on_a_later_line(self):
+        """The stored error half is usually multi-line, so the arrow is last."""
+        value = (
+            "server {\n    listen 80;\n}\nnginx: configuration file test failed \u2192 run nginx -t and fix the block"
+        )
+        hints = mod.format_hints([{"value": value, "error_type": "unknown"}])
+        assert "run nginx -t and fix the block" in hints
+        assert "server {" not in hints
+
+    def test_nested_arrows_keep_the_innermost_solution(self):
+        """Re-recording nests "<error> -> <previous value>"; the last arrow wins."""
+        value = "exit 1 \u2192 timeout on fetch \u2192 retry with a longer --timeout"
+        hints = mod.format_hints([{"value": value, "error_type": "timeout"}])
+        assert "retry with a longer --timeout" in hints
+        assert "exit 1" not in hints
+
+    def test_control_characters_are_stripped_from_the_hint(self):
+        hints = mod.format_hints([{"value": "\x07mysqladmin: connect failed", "error_type": "unknown"}])
+        assert "\x07" not in hints
+        assert "mysqladmin: connect failed" in hints
+
+    def test_identical_summaries_are_emitted_once(self):
+        """Distinct rows often share one generic solution; repeating it wastes the budget."""
+        results = [
+            {"value": "diff --git a/x \u2192 Fix timeout error in Bash", "error_type": "timeout"},
+            {"value": "some other capture \u2192 Fix timeout error in Bash", "error_type": "timeout"},
+            {"value": "third capture \u2192 Fix unknown error in Bash", "error_type": "unknown"},
+        ]
+        hints = mod.format_hints(results)
+        assert hints.count("Fix timeout error in Bash") == 1
+        assert hints.count("Fix unknown error in Bash") == 1
+
+    def test_value_without_a_separator_falls_back_to_the_first_line(self):
+        hints = mod.format_hints([{"value": "Prefer rg over grep", "category": "gotcha"}])
+        assert "Prefer rg over grep" in hints
+
+    def test_end_to_end_injection_shows_the_solution(self):
+        _record(
+            "go-patterns",
+            "sig-unicode",
+            "go test: config.yaml: No such file or directory → copy config.yaml.example first",
+        )
+        parsed = _run_main(_make_bash_event("go test ./..."))
+        context = _additional_context(parsed)
+        assert "copy config.yaml.example first" in context
+        assert "No such file or directory" not in context

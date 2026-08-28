@@ -197,16 +197,21 @@ python3 ~/.claude/scripts/learning-db.py import-retro retro/
 ## Confidence Lifecycle
 
 ```
-New error pattern recorded at confidence 0.55
-  → Success (+0.12): 0.55 → 0.67
-  → Success (+0.12): 0.67 → 0.79  ← Now above 0.7 injection threshold
-  → Failure (-0.18): 0.79 → 0.61  ← Drops below threshold
-  → Success (+0.12): 0.61 → 0.73  ← Back above threshold
+New error pattern recorded at confidence 0.55  ← already above the injection floor
+  → Success (+0.15): 0.55 → 0.70
+  → Failure (-0.10): 0.70 → 0.60
+  → Stale 30 days (-0.05): 0.60 → 0.55
 
-Injection threshold: ≥ 0.7
+Injection floor: learning_db_v2.INJECTION_MIN_CONFIDENCE (0.5)
 Pruning threshold: < 0.3 AND older than 90 days
-Graduation: manually marked when embedded into agent/skill
+Graduation: marked when the knowledge is embedded in a durable repo file
 ```
+
+The floor must stay strictly below the lowest birth confidence. Confidence
+rises only for learnings that get injected, so a floor at or above birth
+confidence is a one-way ratchet: a new learning never injects, so it never gets
+boosted, so it never crosses the floor. Both injectors import the constant;
+`hooks/tests/test_injection_floor.py` fails if it ever rises.
 
 ---
 
@@ -217,7 +222,19 @@ When a learning is mature enough to embed directly into an agent:
 ```python
 from learning_db_v2 import mark_graduated
 
-mark_graduated("go-patterns", "mutex-over-atomics", "golang-general-engineer")
+mark_graduated("go-patterns", "mutex-over-atomics", "agent:golang-general-engineer")
 ```
 
-Graduated entries are excluded from injection by default (`exclude_graduated=True`).
+Graduated entries are excluded from injection by default (`exclude_graduated=True`),
+so the target must name a durable repo artifact. `mark_graduated` resolves
+`agent:X` to `agents/X.md`, `skill:X` to that skill's `SKILL.md`, and
+`target:PATH` to `PATH`. It refuses ephemeral targets (`session-artifact`,
+`pruned:*`) and returns False; a path-shaped target that does not resolve is
+written with a stderr warning.
+
+Repair a database that already carries bad targets:
+
+```bash
+python3 scripts/learning-db.py repair-graduations          # dry run: review the table
+python3 scripts/learning-db.py repair-graduations --apply  # clear non-durable targets
+```
