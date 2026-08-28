@@ -150,11 +150,21 @@ pythonpath = ["."]
 # exists at collection time.
 # tmp/ holds local scratch projects and generated experiments, not repository
 # tests. Collecting them makes the suite depend on untracked local artifacts.
-norecursedirs = ["fixtures", ".claude", ".git", "venv", "node_modules", "tmp"]
+# .codex/ is the gitignored Codex mirror of the repo. Its test_*.py copies
+# share basenames with the real ones, so collecting it aborts the entire local
+# run with 23 duplicate-basename errors. CI never sees this: .codex/ is
+# gitignored and absent on runners.
+norecursedirs = ["fixtures", ".claude", ".codex", ".git", "venv", "node_modules", "tmp"]
 markers = [
     "slow: marks tests as slow (subprocess calls)",
-    "integration: marks tests requiring external tools (e.g., Chrome headless)",
+    "integration: marks tests that drive a real external tool end to end (install.sh, Chrome headless)",
+    "performance: marks tests that assert a timing or throughput budget",
 ]
+# The default run skips the four install.sh end-to-end files (slow AND
+# integration, ~830s of the ~1070s scripts/tests wall time) and the timing
+# benchmarks, so the local loop stays usable. CI passes `-m ""` to clear this
+# filter and run the full set — see .github/workflows/test.yml.
+addopts = ["-m", "not (slow and integration) and not performance"]
 
 [tool.mypy]
 python_version = "3.10"

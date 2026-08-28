@@ -144,6 +144,7 @@ def test_no_writes(isolated_db: Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.performance
 def test_performance_10k_rows(isolated_db: Path) -> None:
     """Reads 10k rows in under 100ms (query time, excluding interpreter start)."""
     from learning_db_v2 import record_learning
