@@ -83,15 +83,50 @@ bash scripts/worktree-preflight.sh <intended-branch-name>
 
 If it exits 1, fix the reported issue before proceeding.
 
-## Post-Merge Cleanup
+## Rule 10: Reserve disk capacity before creating a checkout
 
-After a PR is merged, the dispatcher runs:
+The dispatcher runs this before each implementation worktree:
 
 ```bash
+python3 ~/.claude/skills/process/worktree-agent/scripts/worktree_capacity.py \
+  --repo "$(git rev-parse --show-toplevel)" --strict
+```
+
+| State | Dispatcher action |
+|---|---|
+| `ready` (<80% used) | Create the one implementation checkout for the candidate. |
+| `cleanup-soon` (80–<85%) | Reclaim accepted clean checkouts before adding another. Use root read-only review work where possible. |
+| `blocked` (≥85%) | Integrate, deploy, verify, or reclaim; create no new checkout. |
+
+The report lists clean candidates only. The dispatcher confirms their task is inactive before removal.
+
+## Rule 11: Assign checkout roles deliberately
+
+| Task | Checkout policy |
+|---|---|
+| Source implementation or repair | One writable task worktree, reused through review corrections. |
+| Code review, test-plan review, or read-only investigation | Read the candidate through `git diff` or `git show` from the repository root; allocate no checkout. |
+| Large repository implementation | Create a sparse worktree containing declared source/test/config scopes; include whole-repository content only when the task requires it. |
+
+```bash
+git worktree add --no-checkout <worktree-path> -b <branch> <base-sha>
+git -C <worktree-path> sparse-checkout init --no-cone
+git -C <worktree-path> sparse-checkout set --no-cone <declared-path>...
+git -C <worktree-path> checkout
+```
+
+Record any full-checkout reason in the dispatch handoff.
+
+## Post-Merge Cleanup
+
+After integration or a PR merge, the dispatcher confirms the task is inactive and the checkout is clean, then runs:
+
+```bash
+git worktree remove -- <accepted-worktree-path>
 bash scripts/worktree-cleanup.sh --force
 ```
 
-This prunes stale `.git/worktrees` entries and deletes zombie branches (harness-created branches with no active worktree that are already merged into main). Run manually when `git worktree list` shows stale locked entries.
+`git worktree remove` frees the materialized checkout while preserving its branch for recovery. The cleanup script then prunes stale records and removes merged harness branches.
 
 ## Failure Modes This Prevents
 

@@ -103,6 +103,8 @@ Use the Task tool with the prompt template from `./implementer-prompt.md`. Inclu
 - Clear deliverables
 - Permission to ask questions
 
+Allocate one implementation worktree for the task and reuse it for every correction. Dispatch ADR and code-quality reviewers as read-only agents against the committed candidate; those reviews use `git diff` or `git show` and allocate no worktree. Before implementation checkout creation, run the capacity guard from `worktree-agent`; at the hard threshold, reclaim accepted clean checkouts before dispatch.
+
 **Verification and STOP contract**: When the plan follows the executor-ready format (see `skills/process/planning/references/executor-ready-plan-template.md`), append the "Executor-Ready Plans" section of `./implementer-prompt.md` to the dispatch prompt — the contract binds only if the implementer receives it. The implementer runs the ancestry drift check before starting, executes each step's verify command before proceeding, and triggers a STOP on any of the template's five STOP conditions (drift, double verification failure, out-of-scope touch, ambiguous or missing instruction, test regression).
 
 **Implementation constraints** (enforced inline):
@@ -161,6 +163,8 @@ Task [N]: [Title] -- COMPLETE
 ```
 
 Return to Step 1 for the next task.
+
+After integration accepts the task, confirm the worktree is clean and inactive, then remove it with `git worktree remove -- <path>`. Preserve the branch until the normal merged-branch cleanup proves it is disposable.
 
 **Gate**: Both ADR compliance and code quality reviews pass. Task marked complete in TodoWrite. Proceed only when gate passes.
 

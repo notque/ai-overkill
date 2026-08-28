@@ -76,9 +76,11 @@ Write the execution plan before implementation.
 
 ### PHASE 2 — IMPLEMENT
 
-Dispatch the agent+skill that `/do` Phase 2 selected, with worktree isolation. The quality-loop does not choose the agent — it uses whatever the router already picked (e.g., `golang-general-engineer` + `go-patterns` for Go work, `python-general-engineer` + `python-quality-gate` for Python work).
+Dispatch the agent+skill that `/do` Phase 2 selected with one implementation worktree. The quality-loop does not choose the agent — it uses whatever the router already picked (e.g., `golang-general-engineer` + `go-patterns` for Go work, `python-general-engineer` + `python-quality-gate` for Python work).
 
+- Run `worktree_capacity.py --strict` from `references/worktree-rules.md` before checkout creation.
 - Create feature branch in worktree
+- Reuse this checkout for correction rounds. Dispatch read-only reviewers from the repository root using the committed candidate; review allocates no checkout.
 - Agent uses its own skill and reference files for domain-specific implementation
 - Agent commits on the feature branch
 - Inject worktree rules into agent prompt (see `references/worktree-rules.md`)
@@ -268,7 +270,8 @@ Close the loop. Remove temporary artifacts, finalize ADR lifecycle.
 **Artifact cleanup:**
 - Remove `quality-loop-state.md` from worktree
 - Remove `task_plan.md` (work is complete)
-- Clean up worktree if no longer needed
+- Confirm the task is inactive and the checkout is clean, then run `git worktree remove -- <accepted-worktree-path>`; the branch remains recoverable
+- Run `bash scripts/worktree-cleanup.sh --force` after the checkout removal
 
 **Gate:** ADR in completed (if applicable). Artifacts cleaned. Pipeline complete.
 
