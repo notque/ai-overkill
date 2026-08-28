@@ -15,12 +15,16 @@ import pytest
 pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-HOOK_NAME = "user-correction-capture.py"
+# Any shipped hook works here; this one is only a representative file to mirror.
+HOOK_NAME = "prompt-capture.py"
 BASH_PATH = shutil.which("bash")
 
 if BASH_PATH is None:
     pytest.skip("bash not available on this platform", allow_module_level=True)
 BASH = cast(str, BASH_PATH)
+
+if not (REPO_ROOT / "hooks" / HOOK_NAME).exists():  # fail loudly, not 30 times in shutil
+    pytest.fail(f"HOOK_NAME points at a hook that no longer ships: {HOOK_NAME}")
 
 MODES = [
     pytest.param(["--copy", "--force"], None, False, id="copy"),
