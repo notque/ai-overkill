@@ -14,6 +14,8 @@ Usage:
     python3 scripts/learning-db.py import --from-retro ~/.claude/retro
     python3 scripts/learning-db.py import --from-patterns ~/.claude/learning/patterns.db
     python3 scripts/learning-db.py graduate TOPIC KEY TARGET
+    python3 scripts/learning-db.py repair-graduations [--repo-root PATH] [--json]
+    python3 scripts/learning-db.py repair-graduations --apply
     python3 scripts/learning-db.py boost TOPIC KEY [--delta 0.15]
     python3 scripts/learning-db.py prune --category error --dry-run
     python3 scripts/learning-db.py prune --topic unknown --max-confidence 0.5 --older-than 90 --apply
@@ -66,8 +68,10 @@ _repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_repo_root / "hooks" / "lib"))
 
 from learning_db_v2 import (
+    INJECTION_MIN_CONFIDENCE,
     boost_confidence,
     decay_confidence,
+    default_repo_root,
     export_markdown,
     get_connection,
     get_db_path,
@@ -84,6 +88,7 @@ from learning_db_v2 import (
     query_instruction_skip_rate,
     query_learnings,
     record_learning,
+    resolve_graduation_target,
     search_learnings,
 )
 
@@ -210,8 +215,145 @@ def cmd_import(args):
 
 
 def cmd_graduate(args):
-    mark_graduated(args.topic, args.key, args.target)
+    if not mark_graduated(args.topic, args.key, args.target):
+        print(f"Not graduated: {args.topic}/{args.key} → {args.target}", file=sys.stderr)
+        sys.exit(1)
     print(f"Graduated: {args.topic}/{args.key} → {args.target}")
+
+
+# Categories the injectors read. Kept in sync with
+# hooks/pretool-learning-injector.py INJECTABLE_CATEGORIES; session-context.py
+# reads the "error" subset.
+_INJECTABLE_CATEGORIES = ("error", "gotcha", "debug")
+
+_POOL_SQL = (
+    "SELECT COUNT(*) FROM learnings "
+    "WHERE category IN ('error', 'gotcha', 'debug') "
+    "AND source NOT LIKE 'test%' "
+    "AND confidence >= ? "
+)
+
+
+def _pool_count(conn: sqlite3.Connection) -> int:
+    """Rows the injectors can currently reach."""
+    return conn.execute(_POOL_SQL + "AND graduated_to IS NULL", (INJECTION_MIN_CONFIDENCE,)).fetchone()[0]
+
+
+def _pool_gain(conn: sqlite3.Connection, targets: list[str]) -> int:
+    """Rows that would rejoin the pool if `targets` were cleared."""
+    if not targets:
+        return 0
+    gained = 0
+    for chunk in _chunks(targets, 400):
+        placeholders = ", ".join("?" for _ in chunk)
+        gained += conn.execute(
+            _POOL_SQL
+            + f"AND graduated_to IN ({placeholders})",  # security-review: ignore (placeholders only; values bound as ?)
+            (INJECTION_MIN_CONFIDENCE, *chunk),
+        ).fetchone()[0]
+    return gained
+
+
+def _chunks(items: list, size: int):
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def cmd_repair_graduations(args):
+    """Clear graduated_to where the target names no durable repo artifact.
+
+    Dry-run by default; --apply writes. A graduated row is excluded from
+    injection forever, so a target that resolves nowhere — an ephemeral
+    "session-artifact", a deleted path, a machine-local path outside the repo —
+    suppresses the row for nothing. Targets that resolve are left graduated,
+    including the agent:/skill:/target: notations, which are normalized before
+    the existence check.
+    """
+    repo_root = Path(args.repo_root) if args.repo_root else default_repo_root()
+
+    init_db()
+    with get_connection() as conn:
+        grouped = conn.execute(
+            "SELECT graduated_to AS target, COUNT(*) AS n FROM learnings "
+            "WHERE graduated_to IS NOT NULL AND TRIM(graduated_to) != '' "
+            "GROUP BY graduated_to ORDER BY n DESC, target"
+        ).fetchall()
+
+        rows = []
+        for row in grouped:
+            resolved = resolve_graduation_target(row["target"], repo_root=repo_root)
+            rows.append(
+                {
+                    "target": row["target"],
+                    "count": row["n"],
+                    "resolves_to": resolved.path,
+                    "resolved": resolved.durable,
+                    "reason": resolved.reason,
+                    "action": "keep" if resolved.durable else "clear",
+                }
+            )
+
+        clear_targets = [r["target"] for r in rows if r["action"] == "clear"]
+        rows_to_clear = sum(r["count"] for r in rows if r["action"] == "clear")
+        pool_before = _pool_count(conn)
+        pool_after = pool_before + _pool_gain(conn, clear_targets)
+
+        cleared = None
+        if args.apply and clear_targets:
+            for chunk in _chunks(clear_targets, 400):
+                placeholders = ", ".join("?" for _ in chunk)
+                cursor = conn.execute(
+                    f"UPDATE learnings SET graduated_to = NULL WHERE graduated_to IN ({placeholders})",  # security-review: ignore (placeholders only; values bound as ?)
+                    chunk,
+                )
+                cleared = (cleared or 0) + cursor.rowcount
+            conn.commit()
+            pool_after = _pool_count(conn)
+        elif args.apply:
+            cleared = 0
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "repo_root": str(repo_root),
+                    "applied": bool(args.apply),
+                    "targets": rows,
+                    "rows_to_clear": rows_to_clear,
+                    "rows_cleared": cleared,
+                    "pool_before": pool_before,
+                    "pool_after": pool_after,
+                    "injectable_categories": list(_INJECTABLE_CATEGORIES),
+                    "min_confidence": INJECTION_MIN_CONFIDENCE,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    print(f"Repo root: {repo_root}")
+    print(f"Graduation targets: {len(rows)} distinct, {sum(r['count'] for r in rows)} rows")
+    print()
+    print(f"{'COUNT':>5}  {'ACTION':<6}  {'REASON':<12}  TARGET")
+    for r in rows:
+        suffix = ""
+        if r["resolves_to"] and r["resolves_to"] != r["target"]:
+            suffix = f" -> {r['resolves_to']}"
+        print(f"{r['count']:>5}  {r['action']:<6}  {r['reason']:<12}  {r['target']}{suffix}")
+    print()
+    print(
+        f"Injectable pool (error/gotcha/debug, confidence >= {INJECTION_MIN_CONFIDENCE}, not graduated): "
+        f"{pool_before} -> {pool_after}"
+    )
+
+    if not args.apply:
+        print(f"Rows that would be cleared: {rows_to_clear}")
+        print()
+        print("DRY RUN — nothing written. Re-run with --apply to clear.")
+        print("Back up the database first: cp <db> <db>.bak-$(date +%Y%m%d)")
+        return
+
+    print(f"Cleared graduated_to on {cleared} rows.")
 
 
 def cmd_boost(args):
@@ -2284,6 +2426,21 @@ def main():
     p_grad.add_argument("key")
     p_grad.add_argument("target", help="Target (e.g., agent:golang-general-engineer)")
     p_grad.set_defaults(func=cmd_graduate)
+
+    p_repair = subparsers.add_parser(
+        "repair-graduations",
+        help="Clear graduated_to where the target is not a durable repo artifact (dry-run default)",
+    )
+    p_repair.add_argument(
+        "--repo-root",
+        default=None,
+        help="Root used to resolve targets (default: CLAUDE_PROJECT_DIR, else nearest .git ancestor)",
+    )
+    p_repair.add_argument("--json", action="store_true", help="Machine-readable report")
+    p_repair_mode = p_repair.add_mutually_exclusive_group()
+    p_repair_mode.add_argument("--dry-run", action="store_true", help="Preview the table (default)")
+    p_repair_mode.add_argument("--apply", action="store_true", help="Clear graduated_to on non-durable targets")
+    p_repair.set_defaults(func=cmd_repair_graduations)
 
     # boost
     p_boost = subparsers.add_parser("boost", help="Boost confidence")

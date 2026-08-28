@@ -21,6 +21,8 @@ import json
 import os
 import re
 import sqlite3
+import sys
+from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -43,6 +45,25 @@ CATEGORY_DEFAULTS = {
 }
 
 VALID_CATEGORIES = set(CATEGORY_DEFAULTS.keys())
+
+# Confidence floor for injecting a learning into context. Shared by every
+# injector (hooks/pretool-learning-injector.py, hooks/session-context.py) so
+# the value cannot drift apart in two places.
+#
+# INVARIANT: the floor must sit strictly below the lowest birth confidence in
+# CATEGORY_DEFAULTS for any injectable category (error, at 0.55, is the lowest
+# today). Confidence rises only for learnings that get injected: an injected
+# hint is re-recorded and boosted, an un-injected one never is. So a floor at
+# or above birth confidence is a one-way ratchet -- a new learning never
+# injects, so it never gets boosted, so it never crosses the floor -- while
+# confidence-decay.py keeps pulling it down. A 0.70 floor against a 0.55 birth
+# confidence starved the injectable pool to 3 rows.
+#
+# 0.5 also absorbs float drift: decay stores 0.55 - 0.05 as 0.5499999999999999,
+# strictly below a naive 0.55 floor.
+#
+# Enforced by hooks/tests/test_injection_floor.py.
+INJECTION_MIN_CONFIDENCE = 0.5
 
 # Carried over from learning_db.py for backward compatibility
 ERROR_TYPES = {
@@ -1806,12 +1827,145 @@ def decay_confidence(topic: str, key: str, delta: float = 0.10) -> float:
         return new_conf
 
 
-def mark_graduated(topic: str, key: str, target: str) -> bool:
+# ─── Graduation Targets ───────────────────────────────────────
+#
+# A graduated learning is excluded from injection forever (exclude_graduated is
+# the default in query_learnings/search_learnings). So `graduated_to` must name
+# a durable artifact in the repo. Ephemeral values -- "session-artifact" and the
+# "pruned:" family -- suppressed 98 rows permanently while naming nothing a
+# reader could open.
+
+_GRADUATION_SENTINELS = frozenset({"session-artifact", "environment-artifact"})
+_GRADUATION_SENTINEL_PREFIXES = ("pruned:",)
+
+_AGENT_PREFIX = "agent:"
+_SKILL_PREFIX = "skill:"
+_TARGET_PREFIX = "target:"
+
+# agent:/skill: names index into a fixed layout, so keep them to plain names.
+_SAFE_TARGET_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+# Result of resolving a `graduated_to` value against the repo tree.
+#   raw:      the stored value, stripped
+#   path:     repo-relative path it normalizes to, or None when not path-shaped
+#   durable:  True when `path` exists inside the repo
+#   reason:   resolved | missing | outside-repo | sentinel | empty
+#
+# collections.namedtuple, not typing.NamedTuple: `typing` costs ~4ms to import
+# and this module loads on every Bash and Edit tool call.
+GraduationTarget = namedtuple("GraduationTarget", "raw path durable reason")
+
+
+def default_repo_root() -> Path:
+    """Return the repo root: CLAUDE_PROJECT_DIR, else nearest .git ancestor, else cwd."""
+    env_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env_dir:
+        return Path(env_dir)
+    cwd = Path.cwd()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return cwd
+
+
+def _resolve_repo_path(raw: str, value: str, root: Path) -> GraduationTarget:
+    """Resolve a path-shaped target under `root`. Anything escaping it is out of repo."""
+    try:
+        root_real = root.expanduser().resolve()
+        expanded = Path(value).expanduser()
+        candidate = expanded if expanded.is_absolute() else root_real / expanded
+        rel = candidate.resolve().relative_to(root_real)
+    except (ValueError, OSError, RuntimeError):
+        return GraduationTarget(raw, None, False, "outside-repo")
+
+    rel_str = rel.as_posix()
+    if not rel_str or rel_str == ".":
+        return GraduationTarget(raw, None, False, "outside-repo")
+    if (root_real / rel_str).exists():
+        return GraduationTarget(raw, rel_str, True, "resolved")
+    return GraduationTarget(raw, rel_str, False, "missing")
+
+
+def resolve_graduation_target(target: object, *, repo_root: Path | str | None = None) -> GraduationTarget:
+    """Resolve a `graduated_to` value to a durable repo artifact.
+
+    Normalizes every notation the database carries:
+    `agent:X` -> `agents/X.md`, `skill:X` -> that skill's SKILL.md in any
+    group, `target:PATH` -> `PATH`, and a bare path as-is. Values naming no
+    file -- sentinels, deleted paths, machine-local paths outside the repo --
+    come back with durable=False.
+
+    Args:
+        target: The stored `graduated_to` value.
+        repo_root: Root to resolve against. Defaults to default_repo_root().
+    """
+    raw = target.strip() if isinstance(target, str) else ""
+    if not raw:
+        return GraduationTarget(raw, None, False, "empty")
+
+    root = Path(repo_root) if repo_root is not None else default_repo_root()
+
+    value = raw
+    if value.startswith(_TARGET_PREFIX):
+        value = value[len(_TARGET_PREFIX) :].strip()
+        if not value:
+            return GraduationTarget(raw, None, False, "empty")
+
+    lowered = value.lower()
+    if lowered in _GRADUATION_SENTINELS or lowered.startswith(_GRADUATION_SENTINEL_PREFIXES):
+        return GraduationTarget(raw, None, False, "sentinel")
+
+    if value.startswith(_AGENT_PREFIX):
+        name = value[len(_AGENT_PREFIX) :].strip()
+        if not _SAFE_TARGET_NAME.match(name):
+            return GraduationTarget(raw, None, False, "missing")
+        return _resolve_repo_path(raw, f"agents/{name}.md", root)
+
+    if value.startswith(_SKILL_PREFIX):
+        name = value[len(_SKILL_PREFIX) :].strip()
+        if not _SAFE_TARGET_NAME.match(name):
+            return GraduationTarget(raw, None, False, "missing")
+        for match in sorted(root.glob(f"skills/*/{name}/SKILL.md")):
+            return _resolve_repo_path(raw, match.relative_to(root).as_posix(), root)
+        return GraduationTarget(raw, f"skills/{name}", False, "missing")
+
+    return _resolve_repo_path(raw, value, root)
+
+
+def mark_graduated(topic: str, key: str, target: str, *, repo_root: Path | str | None = None) -> bool:
     """Mark entry as graduated to a permanent location.
 
+    Refuses ephemeral targets (`session-artifact`, `pruned:*`, empty): a
+    graduated row never injects again, and a session artifact is not a durable
+    home for a learning. A path-shaped target that does not currently resolve
+    is written with a warning, because the file may exist in another checkout.
+
+    Args:
+        topic: Learning topic.
+        key: Learning key.
+        target: Durable artifact the knowledge moved into.
+        repo_root: Root used to resolve `target`. Defaults to default_repo_root().
+
     Returns:
-        True if an entry was updated, False if no matching entry was found.
+        True if an entry was updated, False if the target was refused or no
+        matching entry was found.
     """
+    resolved = resolve_graduation_target(target, repo_root=repo_root)
+    if resolved.reason in ("sentinel", "empty"):
+        print(
+            f"WARNING: mark_graduated refused non-durable target {target!r} for "
+            f"{topic}/{key} — graduation needs a durable file in the repo",
+            file=sys.stderr,
+        )
+        return False
+    if not resolved.durable:
+        print(
+            f"WARNING: mark_graduated target {target!r} does not resolve to a repo "
+            f"file ({resolved.reason}) — recording anyway for {topic}/{key}",
+            file=sys.stderr,
+        )
+
     init_db()
     with get_connection() as conn:
         cursor = conn.execute(
@@ -1820,8 +1974,6 @@ def mark_graduated(topic: str, key: str, target: str) -> bool:
         )
         conn.commit()
         if cursor.rowcount == 0:
-            import sys
-
             print(f"WARNING: mark_graduated found no entry for topic={topic!r} key={key!r}", file=sys.stderr)
             return False
         return True

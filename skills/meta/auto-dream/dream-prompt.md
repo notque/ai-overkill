@@ -311,6 +311,10 @@ Steps:
    "
    ```
 
+   `{target_file}` must be a durable repo path (or `agent:X` / `skill:X`).
+   `mark_graduated` refuses ephemeral targets such as `session-artifact` and
+   returns False, leaving the entry ungraduated for the next cycle.
+
 6. Record graduations in the report (Phase 7). Include:
    - Number of candidates evaluated
    - Number accepted/rejected with reasons
