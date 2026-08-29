@@ -1059,3 +1059,10 @@ def test_cli_with_gather_runs_under_300ms():
     elapsed = time.perf_counter() - start
     assert result.returncode == 0
     assert elapsed < 0.3, f"took {elapsed:.3f}s"
+
+
+def test_decisions_prior_results_gaps_emit_in_order():
+    spec = {"intent": "x", "gaps": "g", "prior_results": "p", "decisions": "d", "operator_context": "o"}
+    block = bd.build_task_spec(_decision(task_spec=spec))
+    labels = [line.split(":**")[0] for line in block.splitlines() if line.startswith("**")]
+    assert labels == ["**Intent", "**Decisions", "**Prior results", "**Gaps", "**Operator context"]

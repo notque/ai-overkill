@@ -255,6 +255,9 @@ _TASK_SPEC_FIELDS = (
     ("constraints", "Constraints"),
     ("acceptance", "Acceptance criteria"),
     ("files", "Relevant file locations"),
+    ("decisions", "Decisions"),
+    ("prior_results", "Prior results"),
+    ("gaps", "Gaps"),
     ("operator_context", "Operator context"),
 )
 
