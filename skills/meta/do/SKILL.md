@@ -22,7 +22,7 @@ routing:
 
 # /do - Smart Router
 
-ROUTER, not worker. Classify → agent+skill → dispatch. All execution goes to agents. Catching yourself reading/writing code or analyzing — pause and route to an agent. Main: Classify→Select→Dispatch→Evaluate→Re-route→Report.
+ROUTER, not worker. Classify → agent+skill → dispatch. All execution goes to agents. Catching yourself reading/writing code or analyzing — pause and route to an agent. Exception: reading to fill the Task Spec is routing work — up to 5 files as excerpts; more → one read-only Explore dispatch whose deliverable is the excerpt list. Main: Classify→Select→Dispatch→Evaluate→Re-route→Report.
 
 Do the whole thing (tests+docs). Product, not plan. Permanent solve over workaround. Search before building; test before shipping. Decompose into agent-sized tasks. The result reads as "that's done," not "that's a start." Partial → follow-up. Inject Simple+. Confidence in handling directly is a signal to route.
 
@@ -276,13 +276,20 @@ An interview is not terminal when it suspends an active delivery objective. Comp
 
 Ask the current independent frontier in one logical round. In Markdown, include the full frontier with a recommendation for each and wait once. A harness native structured question UI may chunk the frontier only at its capacity per call; do not recompute between chunks unless an answer invalidates a pending question. Single question turns are reserved for true dependency branches. Interviews initiated by the router cap at five questions and three decision rounds, plus at most one concise confirmation response; explicit grills construct and exhaust the material decision tree, with the kinds and number of questions determined by what shared understanding requires. Do not add ceremonial questions. Answering the last frontier does not authorize execution by itself: ask one concise shared understanding confirmation. Skip that extra confirmation only when the same response explicitly says "proceed", "build it", "looks right, continue", or equivalent. Resume nested execution only after explicit proceed or confirmation; a request for only an interview stops at the artifact.
 
-At each pipeline or worker boundary, apply `planning/references/context-boundary.md`: continue while live context is evidence; use a fresh worker with a complete Task Spec when durable artifacts are sufficient; use `pause.md` only for plan or session lifecycle; use `session-handoff` plus the Task Spec for inline worker or agent transfer; compact only under context pressure.
+At each pipeline or worker boundary, apply `planning/references/context-boundary.md`: continue while live context is evidence; use a fresh worker with a complete Task Spec when durable artifacts are sufficient; use `pause.md` only for plan or session lifecycle; use the Task Spec for inline worker or agent transfer, adding `session-handoff` only for live process or PR state; compact only under context pressure.
 
 Check `pairs_with` before stacking. Skills with built-in verification gates may suffice.
 
 anti-rationalization-core always + verification-checklist (code/debug) + anti-rationalization-review + anti-rationalization-security + anti-rationalization-testing; external: **untrusted-content-handling**. Max: load `verification-before-completion` references/anti-rationalization-enforcement.md.
 
-**Gate**: Enhancements applied. Phase 4.
+**Step G: GATHER (Simple+)** — fill the Task Spec before the Gate. Every thin handoff failure in the handoff context A/B (`scripts/routing-ab-results/handoff-context-v1/VERDICT.md`) was a fact the router knew and did not hand over.
+
+1. `request_verbatim`: the user's message, unchanged.
+2. `constraints`: `git status -sb`, `git log -1 --format=%h`, and the CLAUDE.md rules that apply. Fill `decisions` (Phase 3 triage outcomes), `prior_results` (prior agent reports, verbatim), and `gaps` (what you could not find) as their own keys.
+3. `files`: Glob/Grep every named or implied file; record each as `path:lines — excerpt`.
+4. `acceptance`: commands with expected output, `command → expected`.
+
+**Gate**: Enhancements applied, Task Spec filled. Phase 4.
 
 ---
 
@@ -313,14 +320,17 @@ python3 "$SDIR/build-dispatch.py" --json '{
   "health": "-",
   "fallback_reason": "<REQUIRED when agent=general-purpose; omit otherwise>",
   "stack": ["s1","s2"],
-  "task_spec": {"intent": "...", "constraints": "...", "acceptance": "...",
-                "files": "...", "operator_context": "..."},
+  "task_spec": {"request_verbatim": "<user message, unchanged>", "intent": "...",
+                "constraints": "<branch, HEAD, CLAUDE.md rules>",
+                "decisions": "...", "prior_results": "...", "gaps": "...",
+                "acceptance": "<command> → <expected>",
+                "files": "<path:line-range — excerpt>", "operator_context": "..."},
   "flags": {"worktree": false, "local_only": false, "thinking_override": null},
   "token_remaining": 480000
 }'
 ```
 
-`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `pipeline`: the Phase 2 pick, passed so the marker carries it; omit when null. The builder validates each name against its index, then emits this exact action contract once per callable skill, primary first with ordered stack de-duplication: `Call the Skill tool with \`skill-name\`.` Shared-pattern stack entries remain prompt injections. Agents and pipelines stay out of Skill-tool calls. Fan-out: one call per agent, same `skill`/`pipeline`. `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `fallback_reason`: **required when `agent=general-purpose`** — the one-line reason from the Agent-greediness gate, any prose; `build-dispatch.py` slugifies it and appends `fallback=<slug>` to the marker so every fallback is countable. Dispatch fails without it. `stack`: Phase 3. `task_spec`: mandatory Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
+`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `pipeline`: the Phase 2 pick, passed so the marker carries it; omit when null. The builder validates each name against its index, then emits this exact action contract once per callable skill, primary first with ordered stack de-duplication: `Call the Skill tool with \`skill-name\`.` Shared-pattern stack entries remain prompt injections. Agents and pipelines stay out of Skill-tool calls. Fan-out: one call per agent, same `skill`/`pipeline`. `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `fallback_reason`: **required when `agent=general-purpose`** — the one-line reason from the Agent-greediness gate, any prose; `build-dispatch.py` slugifies it and appends `fallback=<slug>` to the marker so every fallback is countable. Dispatch fails without it. `stack`: Phase 3. `task_spec`: mandatory Simple+ (Phase 3 Step G); the script rejects an empty spec at Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
 
 `[do-route]` = SOLE signal for `routing-decision-recorder`. Sub-agents excluded.
 
@@ -390,7 +400,7 @@ All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, 
 
 Simple/Medium: direct. Feature-branch; mods commit. `isolation:"worktree"`→`flags.worktree`. Non-org: 3 reviews→fix→PR. Org: confirm git.
 
-**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
+**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Each agent gets its own `files` and scope. Sequential stages pass the previous report verbatim as `prior_results`; the synthesis agent gets every stage report. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
 
 **Step 4: Auto-Pipeline Fallback** (no match, Simple+) — `auto-pipeline`. None → closest+`objective-loop`. Never empty skill.
 
