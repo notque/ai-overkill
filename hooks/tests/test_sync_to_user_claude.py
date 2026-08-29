@@ -1403,3 +1403,130 @@ class TestCopyIfChanged:
         assert sync_mod._copy_if_changed(src, dst) is True
         assert not dst.is_symlink()
         assert dst.read_text() == "fresh"
+
+
+class TestSyncCodexHookLinks:
+    """Tests for _sync_codex_hook_links: per-file symlinks into ~/.codex/hooks."""
+
+    @pytest.fixture(autouse=True)
+    def _not_ephemeral(self):
+        # Fixtures live in /tmp/; the guard is exercised by test_ephemeral_repo_blocked.
+        with patch.object(sync_mod, "_is_ephemeral_path", return_value=False):
+            yield
+
+    def test_ephemeral_repo_blocked(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        with patch.object(sync_mod, "_is_ephemeral_path", return_value=True):
+            assert sync_mod._sync_codex_hook_links(repo_hooks, codex) is None
+        assert list(codex.iterdir()) == []
+
+    @staticmethod
+    def _repo_hooks(tmp_path: Path) -> Path:
+        repo_hooks = tmp_path / "repo" / "hooks"
+        (repo_hooks / "lib").mkdir(parents=True)
+        (repo_hooks / "tests").mkdir()
+        (repo_hooks / "__pycache__").mkdir()
+        (repo_hooks / "a-hook.py").write_text("print('a')\n")
+        (repo_hooks / "b-hook.py").write_text("print('b')\n")
+        (repo_hooks / "README.md").write_text("# not linked\n")
+        (repo_hooks / "lib" / "hook_utils.py").write_text("x = 1\n")
+        (repo_hooks / "lib" / "warmstart_lib.py").write_text("y = 2\n")
+        (repo_hooks / "lib" / "registry.json").write_text("{}\n")
+        (repo_hooks / "tests" / "test_a.py").write_text("")
+        (repo_hooks / "__pycache__" / "a.cpython-312.pyc").write_bytes(b"")
+        return repo_hooks
+
+    @staticmethod
+    def _repo_root(tmp_path: Path) -> Path:
+        repo_root = tmp_path / "repo"
+        for d in ("skills", "agents", "scripts", "commands"):
+            (repo_root / d).mkdir(parents=True, exist_ok=True)
+        return repo_root
+
+    def test_fresh_dirs_get_one_link_per_py_file(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        (codex / "lib").mkdir(parents=True)
+        result = sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        assert result == (4, 0, 0)
+        for name in ("a-hook.py", "b-hook.py"):
+            assert (codex / name).is_symlink()
+            assert (codex / name).resolve() == (repo_hooks / name).resolve()
+        for name in ("hook_utils.py", "warmstart_lib.py"):
+            assert (codex / "lib" / name).is_symlink()
+            assert (codex / "lib" / name).resolve() == (repo_hooks / "lib" / name).resolve()
+
+    def test_creates_lib_when_hooks_dir_exists(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        result = sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        assert result == (4, 0, 0)
+        assert (codex / "lib").is_dir() and not (codex / "lib").is_symlink()
+        assert (codex / "lib" / "warmstart_lib.py").is_symlink()
+
+    def test_foreign_file_kept_not_replaced(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        (codex / "lib").mkdir(parents=True)
+        (codex / "a-hook.py").write_text("foreign\n")
+        elsewhere = tmp_path / "elsewhere.py"
+        elsewhere.write_text("other\n")
+        (codex / "lib" / "hook_utils.py").symlink_to(elsewhere)
+        result = sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        assert result == (2, 0, 2)
+        assert not (codex / "a-hook.py").is_symlink()
+        assert (codex / "a-hook.py").read_text() == "foreign\n"
+        assert (codex / "lib" / "hook_utils.py").resolve() == elsewhere.resolve()
+
+    def test_absent_codex_hooks_creates_nothing(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        assert sync_mod._sync_codex_hook_links(repo_hooks, codex) is None
+        assert not (tmp_path / "codex").exists()
+
+    def test_tests_pycache_and_non_py_not_linked(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        assert {p.name for p in codex.iterdir()} == {"a-hook.py", "b-hook.py", "lib"}
+        assert {p.name for p in (codex / "lib").iterdir()} == {"hook_utils.py", "warmstart_lib.py"}
+
+    def test_second_run_links_zero(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        assert sync_mod._sync_codex_hook_links(repo_hooks, codex) == (4, 0, 0)
+        assert sync_mod._sync_codex_hook_links(repo_hooks, codex) == (0, 4, 0)
+
+    def test_new_repo_file_linked_on_later_run(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        (repo_hooks / "lib" / "new_lib.py").write_text("z = 3\n")
+        assert sync_mod._sync_codex_hook_links(repo_hooks, codex) == (1, 4, 0)
+        assert (codex / "lib" / "new_lib.py").is_symlink()
+
+    def test_summary_line_reports_codex_hooks(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        self._repo_hooks(tmp_path)
+        repo_root = self._repo_root(tmp_path)
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".codex" / "hooks").mkdir(parents=True)
+        with patch.object(sync_mod.Path, "home", return_value=home):
+            sync_mod._main_inner(repo_root, home / ".claude")
+        assert ".codex/hooks(+4 linked, 0 current)" in capsys.readouterr().out
+
+    def test_summary_line_absent(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        self._repo_hooks(tmp_path)
+        repo_root = self._repo_root(tmp_path)
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        with patch.object(sync_mod.Path, "home", return_value=home):
+            sync_mod._main_inner(repo_root, home / ".claude")
+        assert ".codex/hooks(absent)" in capsys.readouterr().out
+        assert not (home / ".codex" / "hooks").exists()

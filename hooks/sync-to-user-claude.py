@@ -903,6 +903,59 @@ def _sync_skills_flat_symlinks(src: Path, dst: Path, repo_root: "Path | list[Pat
     _clean_codex_orphan_categories(src, dst)
 
 
+def _link_py_files(src_dir: Path, dst_dir: Path) -> tuple[int, int, int]:
+    """Symlink each ``*.py`` in ``src_dir`` into ``dst_dir`` without overwriting.
+
+    Mirrors install.sh's per-file convention (``ln -s src dst/name``; skip when
+    the target exists or is a link). Returns ``(linked, current, kept)``:
+    ``current`` counts links that already resolve to the repo file, ``kept``
+    counts foreign entries left in place. Never deletes, never recurses.
+    """
+    linked = current = kept = 0
+    for item in sorted(src_dir.glob("*.py")):
+        if not item.is_file():
+            continue
+        target = dst_dir / item.name
+        if target.is_symlink() or target.exists():
+            try:
+                same = target.is_symlink() and target.resolve() == item.resolve()
+            except OSError:
+                same = False
+            if same:
+                current += 1
+            else:
+                kept += 1
+            continue
+        target.symlink_to(item)
+        linked += 1
+    return linked, current, kept
+
+
+def _sync_codex_hook_links(repo_hooks: Path, codex_hooks: Path) -> tuple[int, int, int] | None:
+    """Mirror ``hooks/*.py`` and ``hooks/lib/*.py`` into ``~/.codex/hooks/``.
+
+    Only runs when ``codex_hooks`` already exists (Codex installed); returns
+    ``None`` otherwise and creates nothing. Creates ``lib/`` when missing.
+    Skips ``tests/``, ``__pycache__``, and non-``.py`` files by construction:
+    only the two flat globs are read.
+    """
+    if not codex_hooks.is_dir() or not repo_hooks.is_dir():
+        return None
+    if _is_ephemeral_path(repo_hooks):
+        print(f"[sync] BLOCKED: refusing to link Codex hooks to {repo_hooks} (ephemeral path)", file=sys.stderr)
+        return None
+    linked, current, kept = _link_py_files(repo_hooks, codex_hooks)
+    repo_lib = repo_hooks / "lib"
+    if repo_lib.is_dir():
+        codex_lib = codex_hooks / "lib"
+        if not codex_lib.is_symlink() and not codex_lib.exists():
+            codex_lib.mkdir()
+        if codex_lib.is_dir():
+            sub = _link_py_files(repo_lib, codex_lib)
+            linked, current, kept = (linked + sub[0], current + sub[1], kept + sub[2])
+    return linked, current, kept
+
+
 def _is_git_worktree(path: Path) -> bool:
     """Detect if path is inside a git worktree (not the main working tree).
 
@@ -1584,6 +1637,24 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
     elif codex_agents_dst.is_dir():
         total = sum(1 for _ in codex_agents_dst.rglob("*") if _.is_file())
         synced.append(f".codex/agents({total} current)")
+
+    # Sync hook files to ~/.codex/hooks/ as per-file symlinks (install.sh
+    # convention). Without this, hooks and lib modules merged after install
+    # never reach Codex; its adapter then fails the import silently.
+    codex_hooks_dst = Path.home() / ".codex" / "hooks"
+    try:
+        hook_links = _sync_codex_hook_links(repo_root / "hooks", codex_hooks_dst)
+    except Exception as e:
+        errors.append(f"codex-hooks: {e}")
+        hook_links = None
+    if hook_links is None:
+        synced.append(".codex/hooks(absent)")
+    else:
+        linked, current, kept = hook_links
+        parts = [f"+{linked} linked", f"{current} current"]
+        if kept:
+            parts.append(f"{kept} kept")
+        synced.append(f".codex/hooks({', '.join(parts)})")
 
     # Output for hook feedback
     if synced:
