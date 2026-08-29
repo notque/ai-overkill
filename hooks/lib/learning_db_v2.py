@@ -31,7 +31,7 @@ from pathlib import Path
 
 _DEFAULT_DB_DIR = Path.home() / ".claude" / "learning"
 
-_CURRENT_SCHEMA_VERSION = 9
+_CURRENT_SCHEMA_VERSION = 10
 
 CATEGORY_DEFAULTS = {
     "error": 0.55,
@@ -359,6 +359,28 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             "VALUES (9, 'add directive_expected column to instruction_compliance')"
         )
 
+    if current < 10:
+        # v9 -> v10: handoff-completeness telemetry. spec_score counts the
+        # task-spec labels a [do-route] prompt carries (0-7), spec_missing
+        # names the absent ones, prompt_chars is the prompt length. Rows from
+        # non-/do dispatches and rows older than this migration stay NULL
+        # ("before measurement"). Each column may already exist from an ad-hoc
+        # ALTER on a live DB; the duplicate-column error is the expected no-op.
+        for ddl in (
+            "ALTER TABLE evidence_route_decisions ADD COLUMN spec_score INTEGER",
+            "ALTER TABLE evidence_route_decisions ADD COLUMN spec_missing TEXT",
+            "ALTER TABLE evidence_route_decisions ADD COLUMN prompt_chars INTEGER",
+        ):
+            try:
+                conn.execute(ddl)
+            except sqlite3.OperationalError:
+                pass  # column already present
+        conn.execute("PRAGMA user_version = 10")
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, description) "
+            "VALUES (10, 'add spec_score, spec_missing, prompt_chars columns to evidence_route_decisions')"
+        )
+
     conn.commit()
 
 
@@ -570,6 +592,9 @@ CREATE TABLE IF NOT EXISTS evidence_route_decisions (
     stack                TEXT,
     pipeline             TEXT,
     alternates           TEXT,
+    spec_score           INTEGER,
+    spec_missing         TEXT,
+    prompt_chars         INTEGER,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -1230,6 +1255,75 @@ def record_evidence_event(
         return _event_row(row)
 
 
+_ROUTE_DECISION_UPDATE_SET = """
+                session_id = excluded.session_id,
+                route_key = excluded.route_key,
+                agent = excluded.agent,
+                skill = excluded.skill,
+                complexity = excluded.complexity,
+                model = excluded.model,
+                action = excluded.action,
+                health = excluded.health,
+                n = excluded.n,
+                failure = excluded.failure,
+                gate_inputs_present = excluded.gate_inputs_present,
+                outcome = excluded.outcome,
+                outcome_basis = excluded.outcome_basis,
+                request_snippet = excluded.request_snippet,
+                stack = excluded.stack,
+                pipeline = excluded.pipeline,
+                alternates = excluded.alternates,
+"""
+
+# Literal SQL only; both statements are fixed text with `?` placeholders.
+_ROUTE_DECISION_UPSERT_SQL = (
+    """
+            INSERT INTO evidence_route_decisions (
+                decision_id, session_id, route_key, agent, skill, complexity, model, action,
+                health, n, failure, gate_inputs_present, outcome, outcome_basis,
+                request_snippet, stack, pipeline, alternates, spec_score, spec_missing, prompt_chars,
+                created_at, updated_at
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')
+            )
+            ON CONFLICT(decision_id) DO UPDATE SET"""
+    + _ROUTE_DECISION_UPDATE_SET
+    + """                spec_score = excluded.spec_score,
+                spec_missing = excluded.spec_missing,
+                prompt_chars = excluded.prompt_chars,
+                updated_at = datetime('now')
+            """
+)
+
+# Pre-v10 shape: same row without the three spec columns.
+_ROUTE_DECISION_UPSERT_SQL_LEGACY = (
+    """
+            INSERT INTO evidence_route_decisions (
+                decision_id, session_id, route_key, agent, skill, complexity, model, action,
+                health, n, failure, gate_inputs_present, outcome, outcome_basis,
+                request_snippet, stack, pipeline, alternates, created_at, updated_at
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')
+            )
+            ON CONFLICT(decision_id) DO UPDATE SET"""
+    + _ROUTE_DECISION_UPDATE_SET
+    + """                updated_at = datetime('now')
+            """
+)
+_DEBUG_LOG_PATH = "/tmp/claude_hook_debug.log"
+
+
+def _debug_line(message: str) -> None:
+    """Append one line to the hook debug log; never raises."""
+    try:
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(f"[learning_db_v2] {message}\n")
+    except OSError:
+        pass
+
+
 def record_evidence_route_decision(
     *,
     session_id: str | None,
@@ -1249,8 +1343,15 @@ def record_evidence_route_decision(
     decision_id: str | None = None,
     outcome: str | None = None,
     outcome_basis: str | None = None,
+    spec_score: int | None = None,
+    spec_missing: str | None = None,
+    prompt_chars: int | None = None,
 ) -> dict:
-    """Record a route decision plus a companion evidence event."""
+    """Record a route decision plus a companion evidence event.
+
+    spec_score, spec_missing, and prompt_chars carry handoff completeness for
+    /do dispatches; leave them None for anything else.
+    """
     init_db()
     agent = _bounded_text(agent, 160) or "unknown"
     skill = _bounded_text(skill, 160)
@@ -1265,60 +1366,40 @@ def record_evidence_route_decision(
     )
     stack_text = _bounded_text(_json_text(stack), 2000)
     alternates_text = _bounded_text(_json_text(alternates), 2000)
+    base_params = (
+        decision_id,
+        session_id,
+        route_key,
+        agent,
+        skill,
+        _bounded_text(complexity, 80),
+        _bounded_text(model, 160),
+        _bounded_text(action, 80),
+        health,
+        n,
+        None if failure is None else int(bool(failure)),
+        int(bool(gate_inputs_present)),
+        _bounded_text(outcome, 80),
+        _bounded_text(outcome_basis, 120),
+        _bounded_text(request_snippet, 1000),
+        stack_text,
+        _bounded_text(pipeline, 160),
+        alternates_text,
+    )
+    # spec_missing "" means every label present; keep it distinct from NULL.
+    spec_params = (spec_score, spec_missing, prompt_chars)
 
     with get_connection() as conn:
         _record_evidence_session(conn, session_id)
-        conn.execute(
-            """
-            INSERT INTO evidence_route_decisions (
-                decision_id, session_id, route_key, agent, skill, complexity, model, action,
-                health, n, failure, gate_inputs_present, outcome, outcome_basis,
-                request_snippet, stack, pipeline, alternates, created_at, updated_at
-            )
-            VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')
-            )
-            ON CONFLICT(decision_id) DO UPDATE SET
-                session_id = excluded.session_id,
-                route_key = excluded.route_key,
-                agent = excluded.agent,
-                skill = excluded.skill,
-                complexity = excluded.complexity,
-                model = excluded.model,
-                action = excluded.action,
-                health = excluded.health,
-                n = excluded.n,
-                failure = excluded.failure,
-                gate_inputs_present = excluded.gate_inputs_present,
-                outcome = excluded.outcome,
-                outcome_basis = excluded.outcome_basis,
-                request_snippet = excluded.request_snippet,
-                stack = excluded.stack,
-                pipeline = excluded.pipeline,
-                alternates = excluded.alternates,
-                updated_at = datetime('now')
-            """,
-            (
-                decision_id,
-                session_id,
-                route_key,
-                agent,
-                skill,
-                _bounded_text(complexity, 80),
-                _bounded_text(model, 160),
-                _bounded_text(action, 80),
-                health,
-                n,
-                None if failure is None else int(bool(failure)),
-                int(bool(gate_inputs_present)),
-                _bounded_text(outcome, 80),
-                _bounded_text(outcome_basis, 120),
-                _bounded_text(request_snippet, 1000),
-                stack_text,
-                _bounded_text(pipeline, 160),
-                alternates_text,
-            ),
-        )
+        try:
+            conn.execute(_ROUTE_DECISION_UPSERT_SQL, base_params + spec_params)
+        except sqlite3.OperationalError as exc:
+            # A DB that has not run the v10 migration lacks the spec columns.
+            # Keep the decision row; drop only the three new fields.
+            if "column" not in str(exc):
+                raise
+            _debug_line(f"evidence_route_decisions lacks spec columns; wrote row without them: {exc}")
+            conn.execute(_ROUTE_DECISION_UPSERT_SQL_LEGACY, base_params)
         conn.commit()
         row = conn.execute("SELECT * FROM evidence_route_decisions WHERE decision_id = ?", (decision_id,)).fetchone()
 
