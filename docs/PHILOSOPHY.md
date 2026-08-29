@@ -131,8 +131,9 @@ Tokens buy more value as specialists in parallel than as longer prompts to a sin
 | Eager routing is non-negotiable | Dispatching agents is the core execution model, not a cost to avoid |
 | More relevant context > more context | Under-loading is as wrong as over-loading |
 | A dispatch moves work, never copies it | Dispatch shifts work from the expensive model to a cheap one; duplicating context across both pays for the same tokens twice |
+| The handoff carries what the router already paid for | The user's verbatim request, paths with line ranges and excerpts, decisions, prior agent results, and acceptance commands travel with the dispatch. Re-discovering them in the subagent is the duplicate; omitting them is the under-load. Thin is not focused. |
 
-**Test:** Is this agent loading context it will not use for this specific task? If yes, move it to a reference file and load conditionally. Does this dispatch move work from the expensive model to a cheap one, or duplicate context across both? If duplicate, inline it. The Haiku manifest round-trip (above) is the miss this test would have caught: the manifest re-sends skill descriptions the orchestrator already holds.
+**Test:** Is this agent loading context it will not use for this specific task? If yes, move it to a reference file and load conditionally. Does this dispatch move work from the expensive model to a cheap one, or duplicate context across both? If duplicate, inline it. The Haiku manifest round-trip (above) is the miss this test would have caught: the manifest re-sends skill descriptions the orchestrator already holds. Does the receiver get every fact the router already knows that this task needs? If a fact lives only in the router's context, the handoff is under-loaded; the router already paid for it (`scripts/routing-ab-results/handoff-context-v1/VERDICT.md`: 0/3 thin handoffs met acceptance, 3/3 rich did).
 
 ---
 
