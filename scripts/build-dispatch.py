@@ -46,6 +46,8 @@ Input schema (missing optional fields degrade gracefully — block omitted):
       "stack": ["s1", "s2"],                       // optional
       "task_spec": {"intent": "...", "constraints": "...", "acceptance": "...",
                     "files": "...", "operator_context": "..."},
+                                                   // >=1 non-empty field required
+                                                   // for medium/complex
       "flags": {"worktree": false, "local_only": false,
                 "thinking_override": "slow"|"fast"|null},
       "token_remaining": 480000                    // optional
@@ -231,6 +233,9 @@ _SKILL_REQUIRED_COMPLEXITY = frozenset({"simple", "medium", "complex"})
 # adaptive (no directive). Overrides: "slow" => THINKING_SLOW, "fast" =>
 # THINKING_FAST, regardless of complexity.
 _THINKING_BY_COMPLEXITY = {"simple": THINKING_FAST, "complex": THINKING_SLOW}
+
+# Complexities that must carry a non-empty task_spec (thin-handoff gate).
+_TASK_SPEC_REQUIRED_COMPLEXITY = frozenset({"medium", "complex"})
 
 # task_spec input key -> Task Specification block label, in emit order.
 # "Request (verbatim)" is first and string-matched by a downstream hook; keep the label exact.
@@ -690,7 +695,11 @@ def build_token_line(decision: dict, settings_path: Path = SETTINGS_PATH) -> str
 
 
 def build_task_spec(decision: dict) -> str:
-    """Task Specification block from provided fields, or "" when none given."""
+    """Task Specification block from provided fields, or "" when none given.
+
+    Medium and complex dispatches must carry at least one non-empty field;
+    an empty spec there is an input error, not a silent omission.
+    """
     spec = decision.get("task_spec") or {}
     if not isinstance(spec, dict):
         raise InputError("'task_spec' must be an object")
@@ -701,6 +710,12 @@ def build_task_spec(decision: dict) -> str:
             continue
         lines.append(f"**{label}:** {str(value).strip()}")
     if not lines:
+        complexity = str(decision.get("complexity") or "").lower()
+        if complexity in _TASK_SPEC_REQUIRED_COMPLEXITY:
+            raise InputError(
+                f"'task_spec' required for medium/complex (complexity={complexity}): "
+                f"give at least one non-empty field of {'/'.join(k for k, _ in _TASK_SPEC_FIELDS)}"
+            )
         return ""
     return "## Task Specification (auto-extracted)\n\n" + "\n".join(lines)
 

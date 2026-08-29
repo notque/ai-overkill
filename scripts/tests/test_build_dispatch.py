@@ -396,6 +396,39 @@ def test_request_verbatim_absent_leaves_output_unchanged():
     assert with_empty == with_none
 
 
+@pytest.mark.parametrize("complexity", ["medium", "complex"])
+@pytest.mark.parametrize("task_spec", [None, {}, {"intent": ""}, {"intent": "   ", "files": None}])
+def test_empty_task_spec_rejected_for_medium_and_complex(complexity, task_spec):
+    """A thin handoff must fail closed, not pass as exit 0 with no spec block."""
+    with pytest.raises(bd.InputError, match="'task_spec' required for medium/complex"):
+        bd.build_preamble(_decision(complexity=complexity, task_spec=task_spec))
+
+
+@pytest.mark.parametrize("complexity", ["trivial", "simple"])
+@pytest.mark.parametrize("task_spec", [None, {}, {"intent": ""}])
+def test_empty_task_spec_allowed_for_trivial_and_simple(complexity, task_spec):
+    preamble = bd.build_preamble(_decision(complexity=complexity, task_spec=task_spec))
+    assert "## Task Specification" not in preamble
+
+
+def test_any_single_field_satisfies_task_spec_gate():
+    preamble = bd.build_preamble(_decision(task_spec={"files": "scripts/x.py"}))
+    assert "**Relevant file locations:** scripts/x.py" in preamble
+
+
+def test_empty_task_spec_on_medium_exits_2_via_cli():
+    decision = _decision(task_spec={})
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--json", json.dumps(decision)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "task_spec" in result.stderr
+
+
 def test_token_budget_reads_settings_and_defaults(tmp_path):
     settings = tmp_path / "settings.json"
     settings.write_text(json.dumps({"orchestration": {"token_budget": 250000}}))
