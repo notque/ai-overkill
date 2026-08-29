@@ -474,3 +474,16 @@ def test_cli_rejects_allowlist_with_missing_target_hook(tmp_path):
     assert result.returncode == 1
     assert "missing-hook.py" in result.stderr
     assert not output.exists()
+
+
+def test_subagent_start_warmstart_builds_a_subagent_start_block():
+    """The SubagentStart warm-start hook mirrors to Codex once the owner adds this line."""
+    line = "SubagentStart:subagent-start-warmstart.py matcher=* class=native mode=native failure=open"
+    entries = parse_allowlist(line)
+    result = build_hooks_json(entries, codex_hooks_dir="/codex/hooks")
+    assert list(result["hooks"]) == ["SubagentStart"]
+    block = result["hooks"]["SubagentStart"][0]
+    assert block["matcher"] == "*"
+    command = block["hooks"][0]["command"]
+    assert "--hook /codex/hooks/subagent-start-warmstart.py" in command
+    assert "--event SubagentStart" in command

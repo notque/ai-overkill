@@ -74,7 +74,7 @@ UNSUPPORTED_REGISTRATIONS = {
         "Codex SubagentStart omits the Agent task prompt and tool input this reference injector requires."
     ),
     ("PreToolUse", "pretool-subagent-warmstart.py"): (
-        "Codex SubagentStart omits the dispatched Agent prompt needed to build the warm-start payload."
+        "Codex has no PreToolUse Agent event; the warm-start block moved to SubagentStart:subagent-start-warmstart.py."
     ),
     ("PreToolUse", "creation-protocol-enforcer.py"): (
         "Codex SubagentStart does not expose the Agent task text used to detect creation requests."

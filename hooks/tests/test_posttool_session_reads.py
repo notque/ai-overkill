@@ -78,17 +78,105 @@ class TestToolNameFiltering:
             stdout, stderr, code = run_hook(event)
             assert code == 0
 
-    def test_ignores_bash_tool(self, tmp_path, monkeypatch):
-        """Bash tool events should be ignored (no file_path to extract)."""
+    def test_ignores_non_read_bash_command(self, tmp_path, monkeypatch):
+        """A Bash command that is not a read-only pager records nothing."""
         monkeypatch.chdir(tmp_path)
         stdout, stderr, code = run_hook({"tool_name": "Bash", "tool_input": {"command": "ls"}})
         assert code == 0
+        assert load_entries(tmp_path) == []
 
     def test_ignores_agent_tool(self, tmp_path, monkeypatch):
         """Agent tool events should be ignored."""
         monkeypatch.chdir(tmp_path)
         stdout, stderr, code = run_hook({"tool_name": "Agent", "tool_input": {"prompt": "do something"}})
         assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# Bash Read Recording (Codex cannot intercept the built-in Read tool)
+# ---------------------------------------------------------------------------
+
+
+def bash_event(command: str, session: str = "sess-1") -> dict:
+    return {"tool_name": "Bash", "session_id": session, "tool_input": {"command": command}}
+
+
+class TestBashReadRecording:
+    """Read-only Bash commands record the existing files they name."""
+
+    def test_cat_records_existing_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "hooks").mkdir()
+        (tmp_path / "hooks" / "afk-mode.py").write_text("x")
+        _, _, code = run_hook(bash_event("cat hooks/afk-mode.py"))
+        assert code == 0
+        assert [e["path"] for e in load_entries(tmp_path)] == ["hooks/afk-mode.py"]
+
+    def test_rm_records_nothing(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "hooks").mkdir()
+        (tmp_path / "hooks" / "x.py").write_text("x")
+        _, _, code = run_hook(bash_event("rm hooks/x.py"))
+        assert code == 0
+        assert load_entries(tmp_path) == []
+
+    def test_mutating_and_redirect_commands_record_nothing(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "a.py").write_text("x")
+        for command in (
+            "cat a.py > b.py",
+            "cat a.py && rm a.py",
+            "cat a.py; mv a.py c.py",
+            "cat a.py | cp /dev/stdin d.py",
+            "sed -i s/x/y/ a.py",
+        ):
+            _, _, code = run_hook(bash_event(command))
+            assert code == 0
+            assert load_entries(tmp_path) == [], command
+
+    def test_every_read_verb_qualifies(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "a.py").write_text("x")
+        for verb in ("cat", "sed -n 1,5p", "head -20", "tail -n 5", "less", "bat"):
+            paths = mod.bash_read_paths(f"{verb} a.py", cwd=tmp_path)
+            assert paths == ["a.py"], verb
+
+    def test_missing_files_and_flags_are_skipped(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "real.py").write_text("x")
+        assert mod.bash_read_paths("cat -n real.py missing.py", cwd=tmp_path) == ["real.py"]
+
+    def test_paths_outside_cwd_are_skipped(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        outside = tmp_path.parent / "outside-session-reads.txt"
+        outside.write_text("x")
+        try:
+            assert mod.bash_read_paths(f"cat {outside}", cwd=tmp_path) == []
+            assert mod.bash_read_paths("cat ../outside-session-reads.txt", cwd=tmp_path) == []
+        finally:
+            outside.unlink()
+
+    def test_credential_paths_are_never_recorded(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".env").write_text("x")
+        (tmp_path / "ok.py").write_text("x")
+        assert mod.bash_read_paths("cat .env ok.py", cwd=tmp_path) == ["ok.py"]
+
+    def test_cap_at_max_bash_paths(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        names = [f"f{i:02d}.py" for i in range(mod.MAX_BASH_PATHS + 5)]
+        for name in names:
+            (tmp_path / name).write_text("x")
+        paths = mod.bash_read_paths("cat " + " ".join(names), cwd=tmp_path)
+        assert len(paths) == mod.MAX_BASH_PATHS
+        assert paths == names[: mod.MAX_BASH_PATHS]
+
+    def test_bash_and_read_entries_share_one_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "a.py").write_text("x")
+        run_hook(read_event("/abs/b.py"))
+        run_hook(bash_event("cat a.py"))
+        assert [e["path"] for e in load_entries(tmp_path)] == ["/abs/b.py", "a.py"]
 
 
 # ---------------------------------------------------------------------------
