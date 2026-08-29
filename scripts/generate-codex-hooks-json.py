@@ -73,17 +73,11 @@ UNSUPPORTED_REGISTRATIONS = {
     ("PreToolUse", "reference-loading-enforcer.py"): (
         "Codex SubagentStart omits the Agent task prompt and tool input this reference injector requires."
     ),
-    ("PreToolUse", "pretool-subagent-warmstart.py"): (
-        "Codex has no PreToolUse Agent event; the warm-start block moved to SubagentStart:subagent-start-warmstart.py."
-    ),
     ("PreToolUse", "creation-protocol-enforcer.py"): (
         "Codex SubagentStart does not expose the Agent task text used to detect creation requests."
     ),
     ("PreToolUse", "pretool-section-integrity-validator.py"): (
         "Codex SubagentStart does not expose the Agent tool input whose routed sections this validator checks."
-    ),
-    ("PostToolUse", "posttool-session-reads.py"): (
-        "Codex tool hooks do not intercept the built-in Read path that supplies this session-read event."
     ),
     ("PostToolUse", "usage-tracker.py"): (
         "Codex has no PostToolUse surface for Claude Skill or Agent tool invocations tracked here."

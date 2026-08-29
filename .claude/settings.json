@@ -280,12 +280,6 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/pretool-subagent-warmstart.py\"",
-            "description": "Inject parent session context into subagent prompts (ADR-088)",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/creation-protocol-enforcer.py\"",
             "description": "Soft-warn when Agent dispatch is a creation request without a recent ADR session",
             "timeout": 3000
@@ -389,12 +383,12 @@
         ]
       },
       {
-        "matcher": "Read",
+        "matcher": "Read|Bash",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/posttool-session-reads.py\"",
-            "description": "Track files read this session for subagent warmstart (ADR-088)",
+            "description": "Track files read this session (Read tool and read-only Bash commands) for subagent warmstart (ADR-088); single PostToolUse registration, do not add a second Bash entry",
             "timeout": 2000
           }
         ]
@@ -451,6 +445,19 @@
             "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/precompact-archive.py\"",
             "description": "Inject the ADR survival anchor before context compression so a pipeline session can recover",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/subagent-start-warmstart.py\"",
+            "description": "Inject parent session context into the subagent at start (SubagentStart lands in the subagent; PreToolUse:Agent lands in the parent, so this hook owns the warmstart block and PreToolUse must not re-register it)",
             "timeout": 5000
           }
         ]
