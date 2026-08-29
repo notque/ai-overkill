@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 2.0.0
+# hook-version: 2.1.0
 """
 PostToolUse Hook: Session Read Tracker
 
@@ -14,14 +14,22 @@ prune entries older than RETENTION_DAYS and drop v1 legacy plain-path
 lines, so the file cannot accumulate cross-session state indefinitely.
 Credential-shaped paths (.ssh/, .env, *.pem, ...) are never recorded.
 
+v2.1 (Bash reads): a Bash command that starts with a read-only pager
+(cat, sed, head, tail, less, bat) also records every argument that resolves
+to an existing file under cwd, capped at MAX_BASH_PATHS. Codex cannot
+intercept the built-in Read tool, so this keeps the warm-start file list
+populated there. Commands containing rm, mv, cp, or a redirect are ignored.
+
 Design Principles:
 - SILENT output (no context injection)
 - Non-blocking (always exits 0)
-- Only processes Read tool results
+- Processes Read tool results and read-only Bash commands
 - Deduplicates (session, path) pairs
 """
 
 import json
+import re
+import shlex
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -38,6 +46,68 @@ SESSION_READS_FILE = ".claude/session-reads.txt"
 
 # Entries older than this are pruned on every write.
 RETENTION_DAYS = 7
+
+# Bash commands that read files without changing them.
+_READ_CMD_RE = re.compile(r"^\s*(cat|sed|head|tail|less|bat)\b")
+# Any of these anywhere in the command means it may write or move; skip it.
+_MUTATING_RE = re.compile(r"(^|[\s;&|])(rm|mv|cp)\b|>")
+MAX_BASH_PATHS = 20
+
+
+def bash_read_paths(command: str, cwd: Path | None = None) -> list[str]:
+    """Return file paths a read-only Bash command touches, in argument order.
+
+    Only commands that open with cat/sed/head/tail/less/bat qualify. Commands
+    that mention rm, mv, cp, or a `>` redirect return nothing. Each argument
+    is kept when it names an existing file under cwd; the result is capped
+    at MAX_BASH_PATHS. Credential-shaped paths are dropped.
+    """
+    if not isinstance(command, str) or not _READ_CMD_RE.match(command):
+        return []
+    if _MUTATING_RE.search(command):
+        return []
+    try:
+        args = shlex.split(command)
+    except ValueError:
+        return []
+    if args and args[0] == "sed" and any(a.startswith("-i") or a == "--in-place" for a in args[1:]):
+        return []  # in-place edit, not a read
+    base = (cwd or Path.cwd()).resolve()
+    paths: list[str] = []
+    for arg in args[1:]:
+        if not arg or arg.startswith("-"):
+            continue
+        try:
+            candidate = (base / arg).resolve()
+            if not candidate.is_file() or not candidate.is_relative_to(base):
+                continue
+        except (OSError, ValueError):
+            continue
+        rel = str(candidate.relative_to(base))
+        if is_sensitive_path(rel) or rel in paths:
+            continue
+        paths.append(rel)
+        if len(paths) >= MAX_BASH_PATHS:
+            break
+    return paths
+
+
+def event_paths(event: dict) -> list[str]:
+    """Paths to record for one event: Read file_path, or read-only Bash args."""
+    tool_input = event.get("tool_input", {})
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(tool_input, dict):
+        return []
+    if event.get("tool_name") == "Bash":
+        return bash_read_paths(str(tool_input.get("command", "")))
+    file_path = tool_input.get("file_path", "")
+    if not file_path or is_sensitive_path(file_path):
+        return []
+    return [str(file_path)]
 
 
 def _parse_entry(line: str) -> dict | None:
@@ -66,10 +136,10 @@ def _fresh(entry: dict, cutoff: datetime) -> bool:
 
 
 def main() -> None:
-    """Record a Read tool file path for the current session.
+    """Record Read tool file paths and read-only Bash paths for this session.
 
     Flow:
-    1. Read stdin JSON; extract file_path from tool_input
+    1. Read stdin JSON; extract file_path (Read) or command paths (Bash)
     2. Skip credential-shaped paths entirely
     3. Rewrite .claude/session-reads.txt: fresh entries + the new one,
        deduplicated on (session, path)
@@ -82,20 +152,12 @@ def main() -> None:
 
         event = json.loads(event_data)
 
-        # tool_name filter removed — matcher "Read" in settings.json prevents
-        # this hook from spawning for non-Read tools.
-
-        tool_input = event.get("tool_input", {})
-        if isinstance(tool_input, str):
-            try:
-                tool_input = json.loads(tool_input)
-            except (json.JSONDecodeError, TypeError):
-                return
-        if not isinstance(tool_input, dict):
+        # The settings.json matcher ("Read" or "Bash") limits which tools
+        # spawn this hook; event_paths() decides what each event records.
+        if not isinstance(event, dict):
             return
-
-        file_path = tool_input.get("file_path", "")
-        if not file_path or is_sensitive_path(file_path):
+        new_paths = event_paths(event)
+        if not new_paths:
             return
 
         session_id = event.get("session_id") or get_session_id()
@@ -121,8 +183,10 @@ def main() -> None:
             except OSError:
                 pass
 
-        if (session_id, file_path) not in seen:
-            entries.append({"ts": now.isoformat(), "session": session_id, "path": file_path})
+        for file_path in new_paths:
+            if (session_id, file_path) not in seen:
+                seen.add((session_id, file_path))
+                entries.append({"ts": now.isoformat(), "session": session_id, "path": file_path})
 
         tmp_path = reads_path.with_suffix(".tmp")
         tmp_path.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")

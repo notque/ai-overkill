@@ -110,6 +110,14 @@ Source: `hooks/session-manifest-cache.py`.
 Meaning: The /do routing-manifest cache at the given path is verified against current INDEX inputs (`fresh`) or was just rebuilt (`refreshed`).
 Action: None required now. When /do Phase 2 Step 0 runs, its cache-first block reads this file instead of running `routing-manifest.py`; the bash sha256 check re-proves freshness at read time.
 
+## Subagent-Start Tags (injected into a subagent before its first prompt)
+
+### `[warmstart] Parent session context for {agent_type}:` (plus `[warmstart] …` lines)
+
+Source: `hooks/subagent-start-warmstart.py` (SubagentStart; builder in `hooks/lib/warmstart_lib.py`). The superseded `hooks/pretool-subagent-warmstart.py` emits the same block on PreToolUse:Agent, which lands in the parent, not the subagent.
+Meaning: What the parent session already has: files seen this session (Read tool and read-only Bash commands, from the `session-reads.txt` file under `.claude/`), task plan goal and status, ADR session pointer, decisions, and discovery briefs. Only current-session entries within 24 hours are included; credential-shaped paths are never listed. Capped at 4000 chars.
+Action: Skip re-reading files the block lists unless the task needs their content. Treat listed decisions and the ADR pointer as settled parent state. `Files seen (0): none` means no parent read state exists; discover from scratch.
+
 ## Prompt-Signal Tags (emitted mid-conversation, require routing action)
 
 ### `[pipeline-creator]` plus `[auto-skill] pipeline-scaffolder` (plus JSON snapshot)
