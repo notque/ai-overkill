@@ -2523,3 +2523,172 @@ class TestFinalizerOrphanBounded:
             f.main()
         still = ros.peek_pending_outcomes(session)
         assert len(still) == 1 and still[0]["attempts"] == 1, still
+
+
+# ---------------------------------------------------------------------------
+# Handoff-completeness telemetry: spec_score / spec_missing / prompt_chars
+# ---------------------------------------------------------------------------
+
+BUILD_DISPATCH_PATH = HOOKS_DIR.parent / "scripts" / "build-dispatch.py"
+SPEC_LABELS_ALL = (
+    "Request (verbatim),Intent,Acceptance criteria,Relevant file locations,Decisions,Prior results,## Repo state"
+)
+SPEC_COLUMNS = ("spec_score", "spec_missing", "prompt_chars")
+
+
+def _build_preamble_full() -> str:
+    """build_preamble() with every task_spec field filled and the repo-state block on."""
+    mod = _load(BUILD_DISPATCH_PATH, "build_dispatch_for_spec_score")
+    return mod.build_preamble(
+        {
+            "agent": "python-general-engineer",
+            "skill": "test-driven-development",
+            "complexity": "medium",
+            "model": "opus",
+            "task_spec": {
+                "request_verbatim": "score handoff completeness",
+                "intent": "Add telemetry.",
+                "constraints": "No commits.",
+                "acceptance": "Tests pass.",
+                "files": "hooks/routing-decision-recorder.py",
+                "decisions": "Score only [do-route] dispatches.",
+                "prior_results": "pre-route fallthrough.",
+                "gaps": "none",
+                "operator_context": "personal profile",
+            },
+        }
+    )
+
+
+def _spec_row(db_env) -> dict:
+    """The three spec fields of the newest evidence_route_decisions row."""
+    import sqlite3
+
+    import learning_db_v2 as ldb
+
+    conn = sqlite3.connect(ldb.get_db_path())
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT spec_score, spec_missing, prompt_chars FROM evidence_route_decisions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is not None, "no evidence_route_decisions row recorded"
+    return dict(row)
+
+
+def _run_recorder_prompt(monkeypatch, prompt: str, name: str) -> None:
+    """Run recorder main() in-process on an Agent event whose prompt is exactly `prompt`."""
+    a = _load(A_PATH, f"rdr_spec_{name}")
+    monkeypatch.setattr(a, "append_pending_outcome", lambda *_a, **_k: None)
+    monkeypatch.setattr(a, "claim_dispatch", lambda *_a, **_k: True)
+    event = _agent_event(marker=False, body=prompt)
+    with patch("sys.exit"), patch("sys.stdin.read", return_value=json.dumps(event)):
+        a.main()
+
+
+class TestSpecScore:
+    def test_full_preamble_scores_seven(self, db_env, monkeypatch):
+        # (a) every task_spec field filled: all seven labels present.
+        prompt = _build_preamble_full()
+        _run_recorder_prompt(monkeypatch, prompt, "full")
+        assert _spec_row(db_env) == {"spec_score": 7, "spec_missing": "", "prompt_chars": len(prompt)}
+
+    def test_marker_only_scores_zero(self, db_env, monkeypatch):
+        # (b) marker alone: every label absent, listed in fixed order.
+        prompt = "[do-route] agent=python-general-engineer skill=test-driven-development complexity=medium\n"
+        _run_recorder_prompt(monkeypatch, prompt, "marker_only")
+        assert _spec_row(db_env) == {"spec_score": 0, "spec_missing": SPEC_LABELS_ALL, "prompt_chars": len(prompt)}
+
+    def test_no_marker_leaves_fields_null(self, db_env, monkeypatch):
+        # (c) no marker: the recorder skips the event, so the only row is the
+        # seeded one and its fields stay NULL.
+        import learning_db_v2 as ldb
+
+        ldb.record_evidence_route_decision(session_id="s1", agent="python-general-engineer", skill="x")
+        _run_recorder_prompt(monkeypatch, "**Intent:** x\n## Repo state\n", "no_marker")
+        assert _spec_row(db_env) == {"spec_score": None, "spec_missing": None, "prompt_chars": None}
+        import sqlite3
+
+        conn = sqlite3.connect(ldb.get_db_path())
+        try:
+            assert conn.execute("SELECT COUNT(*) FROM evidence_route_decisions").fetchone()[0] == 1
+        finally:
+            conn.close()
+
+    def test_disable_env_var_leaves_fields_null(self, db_env, monkeypatch):
+        # (d) VEXJOY_SPEC_SCORE_DISABLE=1 with a full preamble.
+        monkeypatch.setenv("VEXJOY_SPEC_SCORE_DISABLE", "1")
+        _run_recorder_prompt(monkeypatch, _build_preamble_full(), "disabled")
+        assert _spec_row(db_env) == {"spec_score": None, "spec_missing": None, "prompt_chars": None}
+
+    def test_pre_migration_db_degrades_to_decision_row(self, db_env, monkeypatch):
+        # A DB without the spec columns: the decision row is still written and
+        # the hook does not raise.
+        import sqlite3
+
+        import learning_db_v2 as ldb
+
+        conn = sqlite3.connect(ldb.get_db_path())
+        for col in SPEC_COLUMNS:
+            conn.execute(f"ALTER TABLE evidence_route_decisions DROP COLUMN {col}")
+        conn.commit()
+        conn.close()
+        prompt = "[do-route] agent=python-general-engineer skill=- complexity=medium\n**Intent:** x\n"
+        _run_recorder_prompt(monkeypatch, prompt, "pre_migration")
+        conn = sqlite3.connect(ldb.get_db_path())
+        try:
+            assert conn.execute("SELECT COUNT(*) FROM evidence_route_decisions").fetchone()[0] == 1
+        finally:
+            conn.close()
+
+
+class TestSpecScoreMigration:
+    def test_pre_migration_db_gains_columns_once(self, tmp_path, monkeypatch):
+        # (e) a DB at user_version 9 without the columns; migrate twice; each
+        # column exists exactly once and the migration row is recorded once.
+        import sqlite3
+
+        sys.path.insert(0, str(LIB_DIR))
+        import learning_db_v2 as ldb
+
+        db_dir = tmp_path / "learning"
+        db_dir.mkdir()
+        monkeypatch.setenv("CLAUDE_LEARNING_DIR", str(db_dir))
+        monkeypatch.setattr(ldb, "_initialized", False, raising=False)
+
+        db_path = db_dir / "learning.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(ldb._SCHEMA)
+        for col in SPEC_COLUMNS:
+            conn.execute(f"ALTER TABLE evidence_route_decisions DROP COLUMN {col}")
+        conn.execute("PRAGMA user_version = 9")
+        conn.commit()
+        conn.close()
+
+        def columns():
+            c = sqlite3.connect(db_path)
+            try:
+                return [r[1] for r in c.execute("PRAGMA table_info(evidence_route_decisions)")]
+            finally:
+                c.close()
+
+        assert not set(SPEC_COLUMNS) & set(columns())
+
+        ldb.init_db()
+        monkeypatch.setattr(ldb, "_initialized", False, raising=False)
+        ldb.init_db()
+
+        after = columns()
+        for col in SPEC_COLUMNS:
+            assert after.count(col) == 1, (col, after)
+
+        c = sqlite3.connect(db_path)
+        try:
+            assert c.execute("PRAGMA user_version").fetchone()[0] == ldb._CURRENT_SCHEMA_VERSION
+            assert c.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+            rows = c.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 10").fetchone()[0]
+        finally:
+            c.close()
+        assert rows == 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.4.0
+# hook-version: 1.5.0
 """
 PostToolUse Hook: Routing Decision Recorder (action A, formerly /do Phase 5)
 
@@ -152,6 +152,41 @@ _ALTS_RE = re.compile(r"\balts=([a-z0-9:_,-]+)", re.IGNORECASE)
 # emits it whenever the router picked general-purpose or coerced an unknown agent).
 # Independent \b token, same charset as alts= items. Absent => None.
 _FALLBACK_RE = re.compile(r"\bfallback=([a-z0-9][a-z0-9:_-]*)", re.IGNORECASE)
+
+# Handoff-completeness telemetry. Thin handoffs failed acceptance 3/3 and
+# rich ones passed 3/3 (scripts/routing-ab-results/handoff-context-v1), so
+# every [do-route] Agent dispatch records how many task-spec labels its
+# prompt carries. The seven labels, in report order; scripts/build-dispatch.py
+# emits the first six as `**Label:**` and the last as a section heading. A
+# label counts when its text appears anywhere in the prompt. Substring
+# checks, no regex: this runs on the hot path.
+_SPEC_LABELS = (
+    "Request (verbatim)",
+    "Intent",
+    "Acceptance criteria",
+    "Relevant file locations",
+    "Decisions",
+    "Prior results",
+    "## Repo state",
+)
+_SPEC_SCORE_DISABLE_ENV = "VEXJOY_SPEC_SCORE_DISABLE"
+
+
+def score_handoff_spec(prompt: str) -> tuple[int, str]:
+    """Return (spec_score 0-7, comma-joined absent labels in _SPEC_LABELS order)."""
+    missing = [label for label in _SPEC_LABELS if label not in prompt]
+    return len(_SPEC_LABELS) - len(missing), ",".join(missing)
+
+
+def handoff_spec_fields(prompt: str | None) -> tuple[int | None, str | None, int | None]:
+    """(spec_score, spec_missing, prompt_chars) for one Agent prompt.
+
+    All None when the prompt is absent or VEXJOY_SPEC_SCORE_DISABLE=1.
+    """
+    if prompt is None or os.environ.get(_SPEC_SCORE_DISABLE_ENV) == "1":
+        return None, None, None
+    score, missing = score_handoff_spec(prompt)
+    return score, missing, len(prompt)
 
 
 def _line_containing(text: str, pos: int) -> str:
@@ -679,7 +714,11 @@ def main() -> None:
             if not agent:
                 return  # malformed marker => nothing to key on
             decisions = [(agent, skill, dispatch_signature(agent, skill, description, prompt), prompt)]
+            # Agent path only: a Workflow script packs N prompts, so a per-marker
+            # score is not observable there and the fields stay NULL.
+            spec_score, spec_missing, prompt_chars = handoff_spec_fields(prompt)
         else:
+            spec_score, spec_missing, prompt_chars = None, None, None
             script = tool_input.get("script") or ""
             occurrence: dict[str, int] = {}  # nth sighting of each identical marker line
             decisions = []
@@ -792,6 +831,8 @@ def main() -> None:
             try:
                 from learning_db_v2 import record_evidence_route_decision
 
+                # On a DB that lacks the v10 spec columns the DB layer keeps
+                # the decision row, drops the three fields, and logs one line.
                 record_evidence_route_decision(
                     session_id=session_id or None,
                     agent=agent,
@@ -808,6 +849,9 @@ def main() -> None:
                     alternates=health["alternates"],
                     gate_inputs_present=bool(health["gate_inputs_present"]),
                     decision_id=f"{session_id or 'no-session'}:{sig}",
+                    spec_score=spec_score,
+                    spec_missing=spec_missing,
+                    prompt_chars=prompt_chars,
                 )
             except Exception:
                 pass

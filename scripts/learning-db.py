@@ -9,6 +9,7 @@ Usage:
     python3 scripts/learning-db.py route-weights --json
     python3 scripts/learning-db.py route-delta --from REF --to REF [--key AGENT:SKILL] [--metric error|tokens] [--json]
     python3 scripts/learning-db.py route-health [--json]
+    python3 scripts/learning-db.py handoff-report [--json]
     python3 scripts/learning-db.py route-failure AGENT:SKILL --reason "re-route after unusable output" --routing-relevant yes [--session SID --marker MK]
     python3 scripts/learning-db.py record-routing-outcome AGENT_SKILL --success
     python3 scripts/learning-db.py record-routing-outcome AGENT_SKILL --failure --reason "user re-routed"
@@ -1166,6 +1167,103 @@ def cmd_route_health(args: argparse.Namespace) -> None:
     _print_routing_shape(shape, fit, misroutes)
 
 
+_SPEC_SCORE_MAX = 7
+_UNDERSPECIFIED_BASIS = "route_fit:underspecified"
+
+
+def _percentile(values: list[int], q: float) -> int | None:
+    """Nearest-rank percentile of `values`; None when empty."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, round(q * len(ordered)))
+    return ordered[min(rank, len(ordered)) - 1]
+
+
+def _read_handoff_report() -> dict:
+    """Handoff-completeness summary over scored evidence_route_decisions rows.
+
+    Scored means spec_score IS NOT NULL: /do Agent dispatches recorded after the
+    v10 migration with the kill switch off. Read-only.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT spec_score, spec_missing, prompt_chars, outcome_basis, created_at "
+            "FROM evidence_route_decisions WHERE spec_score IS NOT NULL"
+        ).fetchall()
+    if not rows:
+        return {"scored": 0}
+    histogram = {score: 0 for score in range(_SPEC_SCORE_MAX + 1)}
+    underspecified: dict[int, dict[str, int]] = {}
+    missing_counts: dict[str, int] = {}
+    chars: list[int] = []
+    dates: list[str] = []
+    for row in rows:
+        score = int(row["spec_score"])
+        histogram[score] = histogram.get(score, 0) + 1
+        bucket = underspecified.setdefault(score, {"n": 0, "underspecified": 0})
+        bucket["n"] += 1
+        if row["outcome_basis"] == _UNDERSPECIFIED_BASIS:
+            bucket["underspecified"] += 1
+        missing = row["spec_missing"] if row["spec_missing"] is not None else ""
+        missing_counts[missing] = missing_counts.get(missing, 0) + 1
+        if row["prompt_chars"] is not None:
+            chars.append(int(row["prompt_chars"]))
+        if row["created_at"]:
+            dates.append(str(row["created_at"])[:10])
+    top_missing = sorted(missing_counts.items(), key=lambda item: (-item[1], item[0]))[:5]
+    return {
+        "scored": len(rows),
+        "first": min(dates) if dates else None,
+        "last": max(dates) if dates else None,
+        "histogram": histogram,
+        "prompt_chars_median": _percentile(chars, 0.5),
+        "prompt_chars_p25": _percentile(chars, 0.25),
+        "underspecified_by_score": {
+            score: {
+                "n": bucket["n"],
+                "underspecified": bucket["underspecified"],
+                "rate_pct": bucket["underspecified"] / bucket["n"] * 100,
+            }
+            for score, bucket in sorted(underspecified.items())
+        },
+        "top_missing": [{"spec_missing": text, "count": count} for text, count in top_missing],
+    }
+
+
+def cmd_handoff_report(args: argparse.Namespace) -> None:
+    """Show how complete /do handoffs are: spec_score, prompt size, underspecified rate.
+
+    Baseline before measurement (scripts/routing-ab-results/handoff-context-v2/VERDICT.md):
+    handoff median 3.7k chars, `path:line` present in 11-28%, verbatim request ~0%.
+    """
+    init_db()
+    report = _read_handoff_report()
+    if getattr(args, "json", False):
+        _print_json(report)
+        return
+    if not report["scored"]:
+        print("no scored dispatches yet")
+        return
+    print(f"Scored dispatches: {report['scored']} ({report['first']} to {report['last']})")
+    print()
+    print("spec_score distribution (0-7):")
+    for score in range(_SPEC_SCORE_MAX + 1):
+        count = report["histogram"][score]
+        print(f"  {score}  {'#' * count:<20} {count}")
+    print()
+    print(f"prompt_chars: median {report['prompt_chars_median']}, p25 {report['prompt_chars_p25']}")
+    print()
+    print("route-fit: underspecified by spec_score:")
+    for score, bucket in report["underspecified_by_score"].items():
+        print(f"  {score}  {bucket['underspecified']}/{bucket['n']} ({bucket['rate_pct']:.1f}%)")
+    print()
+    print("most common spec_missing:")
+    for item in report["top_missing"]:
+        label = item["spec_missing"] or "(none missing)"
+        print(f"  {item['count']:>4}  {label}")
+
+
 def _print_freq_table(records: list[dict[str, str | int]], label: str, key_fn: object) -> None:
     """Print a frequency table sorted by count descending."""
     from collections import Counter
@@ -1539,6 +1637,11 @@ def main():
     p_route_health = subparsers.add_parser("route-health", help="Quick routing feedback loop health check")
     p_route_health.add_argument("--json", action="store_true", help="Output as JSON")
     p_route_health.set_defaults(func=cmd_route_health)
+
+    # handoff-report (spec_score / prompt_chars telemetry from the recorder hook)
+    p_handoff = subparsers.add_parser("handoff-report", help="Handoff completeness of /do dispatches")
+    p_handoff.add_argument("--json", action="store_true", help="Output as JSON")
+    p_handoff.set_defaults(func=cmd_handoff_report)
 
     # record-review-fp (structured review false-positive recording)
     p_rrfp = subparsers.add_parser("record-review-fp", help="Record a review false positive with full metadata")
