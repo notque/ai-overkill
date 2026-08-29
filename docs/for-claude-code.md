@@ -113,7 +113,7 @@ Trivial = reading a file the user named by exact path. Everything else routes th
 
 ## Sync Lifecycle
 
-`hooks/sync-to-user-claude.py` fires on `SessionStart` when cwd is this repo. Copies into `~/.claude/` so Claude Code in *other* repos gets agents, skills, hooks, scripts.
+`hooks/sync-to-user-claude.py` fires on `SessionStart` when cwd is this repo. Copies into `~/.claude/` so Claude Code in *other* repos gets agents, skills, hooks, scripts. When `~/.codex/hooks/` exists, it also adds per-file symlinks for new `hooks/*.py` and `hooks/lib/*.py` there (never overwrites, never deletes; reported as `.codex/hooks(+N linked, M current)`).
 
 | Source | Destination | Sync Mode |
 |--------|-------------|-----------|
