@@ -285,7 +285,7 @@ anti-rationalization-core always + verification-checklist (code/debug) + anti-ra
 **Step G: GATHER (Simple+)** — fill the Task Spec before the Gate. Every thin-handoff failure in the handoff-context-v1 A/B was a fact the router knew and did not hand over.
 
 1. `request_verbatim`: the user's message, unchanged.
-2. `constraints`: `git status -sb`, `git rev-parse --short HEAD`, and the CLAUDE.md rules that apply. Add labeled lines `decisions:` (Phase 3 triage outcomes), `prior_results:` (prior agent reports, verbatim), and `gaps:` (what you could not find) inside this field; `build-dispatch.py` drops keys outside `_TASK_SPEC_FIELDS`.
+2. `constraints`: `git status -sb`, `git rev-parse --short HEAD`, and the CLAUDE.md rules that apply. Fill `decisions` (Phase 3 triage outcomes), `prior_results` (prior agent reports, verbatim), and `gaps` (what you could not find) as their own keys.
 3. `files`: Glob/Grep every named or implied file; record each as `path:line-range — excerpt`.
 4. `acceptance`: commands with expected output, `command → expected`.
 
@@ -321,7 +321,8 @@ python3 "$SDIR/build-dispatch.py" --json '{
   "fallback_reason": "<REQUIRED when agent=general-purpose; omit otherwise>",
   "stack": ["s1","s2"],
   "task_spec": {"request_verbatim": "<user message, unchanged>", "intent": "...",
-                "constraints": "<branch, HEAD, CLAUDE.md rules>; decisions: ...; prior_results: ...; gaps: ...",
+                "constraints": "<branch, HEAD, CLAUDE.md rules>",
+                "decisions": "...", "prior_results": "...", "gaps": "...",
                 "acceptance": "<command> → <expected>",
                 "files": "<path:line-range — excerpt>", "operator_context": "..."},
   "flags": {"worktree": false, "local_only": false, "thinking_override": null},
@@ -399,7 +400,7 @@ All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, 
 
 Simple/Medium: direct. Feature-branch; mods commit. `isolation:"worktree"`→`flags.worktree`. Non-org: 3 reviews→fix→PR. Org: confirm git.
 
-**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Each agent gets its own `files` and scope. Sequential stages pass the previous report verbatim as `prior_results:`; the synthesis agent gets every stage report. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
+**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Each agent gets its own `files` and scope. Sequential stages pass the previous report verbatim as `prior_results`; the synthesis agent gets every stage report. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
 
 **Step 4: Auto-Pipeline Fallback** (no match, Simple+) — `auto-pipeline`. None → closest+`objective-loop`. Never empty skill.
 
