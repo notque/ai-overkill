@@ -282,11 +282,11 @@ Check `pairs_with` before stacking. Skills with built-in verification gates may 
 
 anti-rationalization-core always + verification-checklist (code/debug) + anti-rationalization-review + anti-rationalization-security + anti-rationalization-testing; external: **untrusted-content-handling**. Max: load `verification-before-completion` references/anti-rationalization-enforcement.md.
 
-**Step G: GATHER (Simple+)** — fill the Task Spec before the Gate. Every thin-handoff failure in the handoff-context-v1 A/B was a fact the router knew and did not hand over.
+**Step G: GATHER (Simple+)** — fill the Task Spec before the Gate. Every thin handoff failure in the handoff context A/B (`scripts/routing-ab-results/handoff-context-v1/VERDICT.md`) was a fact the router knew and did not hand over.
 
 1. `request_verbatim`: the user's message, unchanged.
-2. `constraints`: `git status -sb`, `git rev-parse --short HEAD`, and the CLAUDE.md rules that apply. Fill `decisions` (Phase 3 triage outcomes), `prior_results` (prior agent reports, verbatim), and `gaps` (what you could not find) as their own keys.
-3. `files`: Glob/Grep every named or implied file; record each as `path:line-range — excerpt`.
+2. `constraints`: `git status -sb`, `git log -1 --format=%h`, and the CLAUDE.md rules that apply. Fill `decisions` (Phase 3 triage outcomes), `prior_results` (prior agent reports, verbatim), and `gaps` (what you could not find) as their own keys.
+3. `files`: Glob/Grep every named or implied file; record each as `path:lines — excerpt`.
 4. `acceptance`: commands with expected output, `command → expected`.
 
 **Gate**: Enhancements applied, Task Spec filled. Phase 4.
