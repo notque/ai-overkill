@@ -13,14 +13,19 @@ Covers:
 - Graceful degradation: missing optional fields omit their block only.
 - Token budget: explicit value, settings.json read, 500000 default.
 - CLI: --json / --json-file / stdin; exit 2 + empty stdout on bad input.
+- task_spec.files: missing paths rejected by name, `new:` allowed, sensitive skipped.
+- Repo state block: present by default, absent with --no-gather, capped, degrades
+  to `unavailable` lines outside a repo, deterministic, under 300 ms end to end.
 
 Run with: python3 -m pytest scripts/tests/test_build_dispatch.py -v
 """
 
+import functools
 import importlib.util
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -42,6 +47,10 @@ def _load(path: Path, name: str):
 bd = _load(SCRIPT_PATH, "build_dispatch")
 recorder = _load(RECORDER_PATH, "routing_decision_recorder")
 
+# Existing-behaviour tests must stay byte-stable across repo edits, so they
+# skip the repo-state block. Gather tests call bd.build_preamble directly.
+_preamble = functools.partial(bd.build_preamble, gather=False)
+
 
 def _decision(**overrides):
     """A complete, valid routing decision; overrides replace top-level keys."""
@@ -56,7 +65,7 @@ def _decision(**overrides):
             "intent": "Fix the flaky retry test.",
             "constraints": "Branch from main; no force-push.",
             "acceptance": "pytest green; CI green.",
-            "files": "scripts/retry.py, scripts/tests/test_retry.py",
+            "files": "scripts/build-dispatch.py, scripts/tests/test_build_dispatch.py",
             "operator_context": "personal profile, full autonomy",
         },
         "flags": {"worktree": False, "local_only": False, "thinking_override": None},
@@ -230,7 +239,7 @@ ROUND_TRIP_CASES = [
 @pytest.mark.parametrize(("overrides", "expected"), ROUND_TRIP_CASES)
 def test_marker_round_trip_with_real_recorder(overrides, expected):
     """Every emitted marker parses with the shipped recorder, field for field."""
-    preamble = bd.build_preamble(_decision(**overrides))
+    preamble = _preamble(_decision(**overrides))
 
     routed = recorder.parse_do_route_marker(preamble)
     assert routed == (expected["agent"], expected["skill"])
@@ -250,7 +259,7 @@ def test_marker_round_trip_with_real_recorder(overrides, expected):
 
 def test_marker_is_first_line_at_line_start():
     """The recorder anchors ^\\s*\\[do-route\\]; the marker must open line 1."""
-    preamble = bd.build_preamble(_decision())
+    preamble = _preamble(_decision())
     assert preamble.splitlines()[0].startswith("[do-route] agent=")
 
 
@@ -260,7 +269,7 @@ def test_marker_is_first_line_at_line_start():
 
 
 def test_preamble_contains_every_mandatory_block_in_order():
-    preamble = bd.build_preamble(_decision(complexity="complex"))
+    preamble = _preamble(_decision(complexity="complex"))
     ordered = [
         "[do-route] agent=python-general-engineer skill=test-driven-development complexity=complex model=opus",
         "Call the Skill tool with `test-driven-development`.",
@@ -271,7 +280,7 @@ def test_preamble_contains_every_mandatory_block_in_order():
         "**Intent:** Fix the flaky retry test.",
         "**Constraints:** Branch from main; no force-push.",
         "**Acceptance criteria:** pytest green; CI green.",
-        "**Relevant file locations:** scripts/retry.py, scripts/tests/test_retry.py",
+        "**Relevant file locations:** scripts/build-dispatch.py, scripts/tests/test_build_dispatch.py",
         "**Operator context:** personal profile, full autonomy",
         bd.INJ_REFERENCE_LOADING,
         bd.INJ_COMPLETENESS,
@@ -287,10 +296,10 @@ def test_preamble_contains_every_mandatory_block_in_order():
 
 
 def test_worktree_and_local_only_blocks_follow_flags():
-    both = bd.build_preamble(_decision(flags={"worktree": True, "local_only": True}))
+    both = _preamble(_decision(flags={"worktree": True, "local_only": True}))
     assert bd.WORKTREE_RULES in both
     assert bd.LOCAL_ONLY_BLOCK in both
-    neither = bd.build_preamble(_decision())
+    neither = _preamble(_decision())
     assert bd.WORKTREE_RULES not in neither
     assert bd.LOCAL_ONLY_BLOCK not in neither
 
@@ -318,18 +327,18 @@ def test_shared_pattern_stack_entry_is_not_a_skill_call():
 @pytest.mark.parametrize("name", ["reviewer-code", "feature-pipeline", "not-a-real-component"])
 def test_non_skill_stack_names_fail_closed(name):
     with pytest.raises(bd.InputError, match="skill call"):
-        bd.build_preamble(_decision(stack=[name]))
+        _preamble(_decision(stack=[name]))
 
 
 def test_pipeline_is_validated_and_marked_but_never_called_as_a_skill():
-    preamble = bd.build_preamble(_decision(pipeline="feature-pipeline"))
+    preamble = _preamble(_decision(pipeline="feature-pipeline"))
     assert " pipeline=feature-pipeline " in preamble.splitlines()[0] + " "
     assert "Call the Skill tool with `feature-pipeline`." not in preamble
 
 
 def test_unknown_pipeline_fails_closed():
     with pytest.raises(bd.InputError, match="pipeline-index"):
-        bd.build_preamble(_decision(pipeline="not-a-pipeline"))
+        _preamble(_decision(pipeline="not-a-pipeline"))
 
 
 @pytest.mark.parametrize(
@@ -348,10 +357,10 @@ def test_thinking_directive_by_complexity_and_override(complexity, override, exp
     directive = bd.build_thinking(decision)
     assert directive == (getattr(bd, expected) if expected else "")
     if expected:
-        assert getattr(bd, expected) in bd.build_preamble(decision)
+        assert getattr(bd, expected) in _preamble(decision)
     else:
-        assert bd.THINKING_FAST not in bd.build_preamble(decision)
-        assert bd.THINKING_SLOW not in bd.build_preamble(decision)
+        assert bd.THINKING_FAST not in _preamble(decision)
+        assert bd.THINKING_SLOW not in _preamble(decision)
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +372,7 @@ def test_missing_optional_fields_omit_their_blocks_only():
     # Trivial is the only complexity that may omit the skill (the
     # skill-greediness gate is HARD for simple/medium/complex).
     minimal = {"agent": "claude", "complexity": "trivial", "model": "opus"}
-    preamble = bd.build_preamble(minimal)
+    preamble = _preamble(minimal)
     assert preamble.startswith("[do-route] agent=claude skill=- complexity=trivial model=opus health=-\n")
     assert "## Task Specification" not in preamble
     assert "Call the Skill tool" not in preamble
@@ -375,14 +384,14 @@ def test_missing_optional_fields_omit_their_blocks_only():
 
 
 def test_partial_task_spec_emits_only_given_fields():
-    preamble = bd.build_preamble(_decision(task_spec={"intent": "Do the thing."}))
+    preamble = _preamble(_decision(task_spec={"intent": "Do the thing."}))
     assert "**Intent:** Do the thing." in preamble
     assert "**Constraints:**" not in preamble
     assert "**Acceptance criteria:**" not in preamble
 
 
 def test_request_verbatim_is_first_task_spec_line_with_exact_label():
-    preamble = bd.build_preamble(_decision(task_spec={"intent": "x", "request_verbatim": "hello world"}))
+    preamble = _preamble(_decision(task_spec={"intent": "x", "request_verbatim": "hello world"}))
     block = preamble.split("## Task Specification (auto-extracted)\n\n", 1)[1]
     lines = block.split("\n")
     assert lines[0] == "**Request (verbatim):** hello world"
@@ -390,8 +399,8 @@ def test_request_verbatim_is_first_task_spec_line_with_exact_label():
 
 
 def test_request_verbatim_absent_leaves_output_unchanged():
-    with_none = bd.build_preamble(_decision(task_spec={"intent": "x"}))
-    with_empty = bd.build_preamble(_decision(task_spec={"intent": "x", "request_verbatim": "  "}))
+    with_none = _preamble(_decision(task_spec={"intent": "x"}))
+    with_empty = _preamble(_decision(task_spec={"intent": "x", "request_verbatim": "  "}))
     assert "Request (verbatim)" not in with_none
     assert with_empty == with_none
 
@@ -401,19 +410,19 @@ def test_request_verbatim_absent_leaves_output_unchanged():
 def test_empty_task_spec_rejected_for_medium_and_complex(complexity, task_spec):
     """A thin handoff must fail closed, not pass as exit 0 with no spec block."""
     with pytest.raises(bd.InputError, match="'task_spec' required for medium/complex"):
-        bd.build_preamble(_decision(complexity=complexity, task_spec=task_spec))
+        _preamble(_decision(complexity=complexity, task_spec=task_spec))
 
 
 @pytest.mark.parametrize("complexity", ["trivial", "simple"])
 @pytest.mark.parametrize("task_spec", [None, {}, {"intent": ""}])
 def test_empty_task_spec_allowed_for_trivial_and_simple(complexity, task_spec):
-    preamble = bd.build_preamble(_decision(complexity=complexity, task_spec=task_spec))
+    preamble = _preamble(_decision(complexity=complexity, task_spec=task_spec))
     assert "## Task Specification" not in preamble
 
 
 def test_any_single_field_satisfies_task_spec_gate():
-    preamble = bd.build_preamble(_decision(task_spec={"files": "scripts/x.py"}))
-    assert "**Relevant file locations:** scripts/x.py" in preamble
+    preamble = _preamble(_decision(task_spec={"files": "new:scripts/x.py"}))
+    assert "**Relevant file locations:** new:scripts/x.py" in preamble
 
 
 def test_empty_task_spec_on_medium_exits_2_via_cli():
@@ -442,7 +451,7 @@ def test_token_budget_reads_settings_and_defaults(tmp_path):
 
 def test_determinism_same_input_same_bytes():
     decision = _decision()
-    assert bd.build_preamble(decision) == bd.build_preamble(decision)
+    assert _preamble(decision) == _preamble(decision)
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +478,7 @@ def test_determinism_same_input_same_bytes():
 )
 def test_invalid_input_raises(overrides):
     with pytest.raises(bd.InputError):
-        bd.build_preamble(_decision(**overrides))
+        _preamble(_decision(**overrides))
 
 
 # ---------------------------------------------------------------------------
@@ -480,12 +489,12 @@ def test_invalid_input_raises(overrides):
 def test_model_required_for_medium_errors_on_omission():
     """Medium complexity with no model must fail — the live incident this fixes."""
     with pytest.raises(bd.InputError, match="'model' is required"):
-        bd.build_preamble(_decision(model=None))
+        _preamble(_decision(model=None))
 
 
 def test_model_required_for_complex_errors_on_omission():
     with pytest.raises(bd.InputError, match="'model' is required"):
-        bd.build_preamble(_decision(complexity="complex", model=None))
+        _preamble(_decision(complexity="complex", model=None))
 
 
 # ---------------------------------------------------------------------------
@@ -496,7 +505,7 @@ def test_model_required_for_complex_errors_on_omission():
 
 def test_route_fit_injection_present_on_every_dispatch():
     for complexity in ("trivial", "simple", "medium", "complex"):
-        preamble = bd.build_preamble(_decision(complexity=complexity, model="opus"))
+        preamble = _preamble(_decision(complexity=complexity, model="opus"))
         assert bd.INJ_ROUTE_FIT in preamble, complexity
         assert "route-fit:" in preamble
 
@@ -541,7 +550,7 @@ def test_unreadable_agent_index_fails_open(tmp_path):
 
 def test_general_purpose_requires_a_fallback_reason():
     with pytest.raises(bd.InputError, match="fallback_reason"):
-        bd.build_preamble(_decision(agent="general-purpose"))
+        _preamble(_decision(agent="general-purpose"))
 
 
 def test_general_purpose_with_a_reason_emits_the_token():
@@ -576,7 +585,7 @@ def test_reason_without_a_letter_or_digit_raises():
 @pytest.mark.parametrize("skill", [None, "", "-"])
 def test_missing_skill_raises_for_simple_and_above(complexity, skill):
     with pytest.raises(bd.InputError, match="'skill' is required"):
-        bd.build_preamble(_decision(complexity=complexity, skill=skill, model="opus"))
+        _preamble(_decision(complexity=complexity, skill=skill, model="opus"))
 
 
 def test_missing_skill_allowed_for_trivial():
@@ -586,7 +595,7 @@ def test_missing_skill_allowed_for_trivial():
 def test_model_optional_for_trivial_and_simple():
     """Trivial/simple may omit model — inheritance risk is acceptable."""
     for complexity in ("trivial", "simple"):
-        preamble = bd.build_preamble(_decision(complexity=complexity, model=None))
+        preamble = _preamble(_decision(complexity=complexity, model=None))
         assert "model=-" in preamble.splitlines()[0]
 
 
@@ -897,19 +906,19 @@ def _run_cli(*args, stdin_text=None):
 
 
 def test_cli_json_flag_emits_preamble():
-    result = _run_cli("--json", json.dumps(_decision()))
+    result = _run_cli("--json", json.dumps(_decision()), "--no-gather")
     assert result.returncode == 0
-    assert result.stdout == bd.build_preamble(_decision())
+    assert result.stdout == _preamble(_decision())
 
 
 def test_cli_json_file_and_stdin(tmp_path):
     decision = _decision()
     path = tmp_path / "route.json"
     path.write_text(json.dumps(decision))
-    from_file = _run_cli("--json-file", str(path))
-    from_stdin = _run_cli("--json-file", "-", stdin_text=json.dumps(decision))
+    from_file = _run_cli("--json-file", str(path), "--no-gather")
+    from_stdin = _run_cli("--json-file", "-", "--no-gather", stdin_text=json.dumps(decision))
     assert from_file.returncode == from_stdin.returncode == 0
-    assert from_file.stdout == from_stdin.stdout == bd.build_preamble(decision)
+    assert from_file.stdout == from_stdin.stdout == _preamble(decision)
 
 
 @pytest.mark.parametrize(
@@ -934,3 +943,119 @@ def test_cli_model_missing_error_message():
     assert result.returncode == 2
     assert "'model' is required" in result.stderr
     assert "Model Selection" in result.stderr or "sonnet" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# task_spec.files path validation and the repo-state block.
+# ---------------------------------------------------------------------------
+
+
+def test_missing_spec_path_is_rejected_by_name():
+    decision = _decision(task_spec={"intent": "x", "files": "scripts/does-not-exist.py"})
+    with pytest.raises(bd.InputError, match=r"scripts/does-not-exist\.py"):
+        _preamble(decision)
+    result = _run_cli("--json", json.dumps(decision))
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "scripts/does-not-exist.py" in result.stderr
+
+
+def test_new_prefix_allows_a_path_the_task_creates():
+    decision = _decision(task_spec={"intent": "x", "files": "new:scripts/future.py"})
+    assert "new:scripts/future.py" in _preamble(decision)
+    assert _run_cli("--json", json.dumps(decision)).returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("files", "expected"),
+    [
+        ("scripts/build-dispatch.py:690-703 — build_task_spec", ["scripts/build-dispatch.py"]),
+        ("`scripts/build-dispatch.py:12`, README.md.", ["scripts/build-dispatch.py", "README.md"]),
+        ("the retry helper, and its test", []),
+        ("scripts/a.py\nscripts/a.py", ["scripts/a.py"]),
+    ],
+)
+def test_path_candidates_strip_line_suffix_excerpt_and_prose(files, expected):
+    assert bd._path_candidates(files) == expected
+
+
+def test_gather_block_present_by_default_with_outline_and_boundary():
+    decision = _decision(task_spec={"intent": "x", "files": "scripts/build-dispatch.py:690-703 — build_task_spec"})
+    preamble = bd.build_preamble(decision)
+    assert "## Repo state (auto-gathered)" in preamble
+    assert "SECURITY:" in preamble
+    assert "<untrusted-content>" in preamble and "</untrusted-content>" in preamble
+    assert "def build_task_spec" in preamble
+    assert "### git status" in preamble
+    # Block order: after the task spec, before the mandatory injections.
+    assert (
+        preamble.index("## Task Specification")
+        < preamble.index("## Repo state")
+        < preamble.index(bd.INJ_REFERENCE_LOADING)
+    )
+
+
+def test_no_gather_omits_the_block_and_matches_library_output():
+    decision = _decision()
+    result = _run_cli("--json", json.dumps(decision), "--no-gather")
+    assert result.returncode == 0
+    assert "## Repo state" not in result.stdout
+    assert result.stdout == _preamble(decision)
+    with_gather = _run_cli("--json", json.dumps(decision)).stdout
+    assert "## Repo state" in with_gather
+
+
+def test_sensitive_path_is_skipped_not_validated_or_gathered(tmp_path):
+    secret = tmp_path / ".ssh" / "id_rsa"
+    secret.parent.mkdir()
+    secret.write_text("PRIVATE")
+    (tmp_path / "ok.md").write_text("fine")
+    decision = _decision(task_spec={"intent": "x", "files": ".ssh/id_rsa, config/.env.local, ok.md"})
+    preamble = bd.build_preamble(decision, repo_root=tmp_path)
+    assert "PRIVATE" not in preamble
+    assert "gather: .ssh/id_rsa skipped (sensitive path)" in preamble
+    assert "gather: config/.env.local skipped (sensitive path)" in preamble
+    assert "### ok.md" in preamble
+
+
+def test_file_head_is_capped_at_30_lines(tmp_path):
+    (tmp_path / "long.md").write_text("\n".join(f"line {i}" for i in range(1, 101)))
+    decision = _decision(task_spec={"intent": "x", "files": "long.md"})
+    block = bd.build_gather_block(decision, repo_root=tmp_path)
+    assert "line 30" in block
+    assert "line 31" not in block
+    assert "[70 more lines]" in block
+
+
+def test_gather_block_is_capped_with_truncation_note(tmp_path):
+    for i in range(6):
+        (tmp_path / f"big{i}.md").write_text("x" * 5000)
+    decision = _decision(task_spec={"intent": "x", "files": ", ".join(f"big{i}.md" for i in range(6))})
+    block = bd.build_gather_block(decision, repo_root=tmp_path)
+    assert len(block) <= bd._GATHER_BLOCK_CAP
+    assert "[truncated " in block
+    assert block.endswith("</untrusted-content>")
+
+
+def test_outside_repo_degrades_to_unavailable_lines(tmp_path):
+    decision = _decision(task_spec={"intent": "x", "files": "new:x.py"})
+    block = bd.build_gather_block(decision, repo_root=tmp_path)
+    for item in ("git status", "git diff --stat", "git log -5"):
+        assert f"gather: {item} unavailable" in block
+    # A repo root that does not exist at all degrades the same way.
+    block = bd.build_gather_block(decision, repo_root=tmp_path / "absent")
+    assert "gather: git status unavailable" in block
+
+
+def test_gather_is_deterministic_for_a_fixed_repo_state():
+    decision = _decision()
+    assert bd.build_preamble(decision) == bd.build_preamble(decision)
+
+
+def test_cli_with_gather_runs_under_300ms():
+    decision = _decision()
+    start = time.perf_counter()
+    result = _run_cli("--json", json.dumps(decision))
+    elapsed = time.perf_counter() - start
+    assert result.returncode == 0
+    assert elapsed < 0.3, f"took {elapsed:.3f}s"
