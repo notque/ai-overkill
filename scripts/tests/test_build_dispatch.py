@@ -381,6 +381,21 @@ def test_partial_task_spec_emits_only_given_fields():
     assert "**Acceptance criteria:**" not in preamble
 
 
+def test_request_verbatim_is_first_task_spec_line_with_exact_label():
+    preamble = bd.build_preamble(_decision(task_spec={"intent": "x", "request_verbatim": "hello world"}))
+    block = preamble.split("## Task Specification (auto-extracted)\n\n", 1)[1]
+    lines = block.split("\n")
+    assert lines[0] == "**Request (verbatim):** hello world"
+    assert lines[1] == "**Intent:** x"
+
+
+def test_request_verbatim_absent_leaves_output_unchanged():
+    with_none = bd.build_preamble(_decision(task_spec={"intent": "x"}))
+    with_empty = bd.build_preamble(_decision(task_spec={"intent": "x", "request_verbatim": "  "}))
+    assert "Request (verbatim)" not in with_none
+    assert with_empty == with_none
+
+
 def test_token_budget_reads_settings_and_defaults(tmp_path):
     settings = tmp_path / "settings.json"
     settings.write_text(json.dumps({"orchestration": {"token_budget": 250000}}))

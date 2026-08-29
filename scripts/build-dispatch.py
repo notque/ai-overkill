@@ -233,7 +233,9 @@ _SKILL_REQUIRED_COMPLEXITY = frozenset({"simple", "medium", "complex"})
 _THINKING_BY_COMPLEXITY = {"simple": THINKING_FAST, "complex": THINKING_SLOW}
 
 # task_spec input key -> Task Specification block label, in emit order.
+# "Request (verbatim)" is first and string-matched by a downstream hook; keep the label exact.
 _TASK_SPEC_FIELDS = (
+    ("request_verbatim", "Request (verbatim)"),
     ("intent", "Intent"),
     ("constraints", "Constraints"),
     ("acceptance", "Acceptance criteria"),
