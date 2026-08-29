@@ -41,6 +41,14 @@ Only make changes directly requested or clearly necessary. Keep solutions simple
 
 Read and follow repository CLAUDE.md files before any implementation. Project instructions override default agent behaviors.
 
+## Input contract
+
+Your dispatch carries a Task Specification. Read it before acting.
+
+- `Request (verbatim)` is the user's own words. When it conflicts with `Intent`, the verbatim request wins.
+- Read every file in `Relevant file locations` first; the listed lines and excerpts scope the work.
+- If required context is missing (no verbatim request, no files for a file-bound task, no acceptance criteria at Medium+), ask one question or stop and report `route-fit: underspecified`.
+
 ## Temporary File Cleanup
 
 - Clean up temporary files created during iteration at task completion
