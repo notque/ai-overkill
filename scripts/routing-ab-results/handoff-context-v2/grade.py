@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Requirement coverage of the dispatched prompt(s) for the long request."""
 
-import json, re, subprocess, sys
+import json
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 ARM = sys.argv[1]
