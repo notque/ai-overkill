@@ -114,7 +114,7 @@ Action: None required now. When /do Phase 2 Step 0 runs, its cache-first block r
 
 ### `[warmstart] Parent session context for {agent_type}:` (plus `[warmstart] …` lines)
 
-Source: `hooks/subagent-start-warmstart.py` (SubagentStart; builder in `hooks/lib/warmstart_lib.py`). The superseded `hooks/pretool-subagent-warmstart.py` emits the same block on PreToolUse:Agent, which lands in the parent, not the subagent.
+Source: `hooks/subagent-start-warmstart.py` (SubagentStart; builder in `hooks/lib/warmstart_lib.py`). The retired `hooks/pretool-subagent-warmstart.py` (no longer registered) emitted the same block on PreToolUse:Agent, which lands in the parent, not the subagent.
 Meaning: What the parent session already has: files seen this session (Read tool and read-only Bash commands, from the `session-reads.txt` file under `.claude/`), task plan goal and status, ADR session pointer, decisions, and discovery briefs. Only current-session entries within 24 hours are included; credential-shaped paths are never listed. Capped at 4000 chars.
 Action: Skip re-reading files the block lists unless the task needs their content. Treat listed decisions and the ADR pointer as settled parent state. `Files seen (0): none` means no parent read state exists; discover from scratch.
 

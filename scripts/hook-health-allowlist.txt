@@ -18,6 +18,7 @@ instruction-reminder.py                   # retired stub: superseded by session-
 retro-knowledge-injector.py               # retired stub: dream payload now injected by session-context.py (ADR-147)
 creation-request-enforcer-userprompt.py   # retired stub: /do Phase 1 handles creation-request enforcement
 skill-evaluator.py                        # disabled stub: main() is a no-op; routing-injection superseded by /do SKILL.md routing tables (overlaps /do)
+pretool-subagent-warmstart.py             # retired: replaced by SubagentStart:subagent-start-warmstart.py; its additionalContext landed in the parent, not the subagent
 
 # --- Deferred blockers (false-block risk; opt-in only) ---
 mcp-health-check.py                        # deferred: PreToolUse exits 2 (BLOCK) on unhealthy MCP within backoff; would block tool use on a session with a transiently-failing MCP server — needs explicit opt-in, not default-on
@@ -28,6 +29,3 @@ pretool-config-protection.py               # deferred (ADR-115): denies ANY Writ
 voice-output-gate.py                       # superseded: voice-writer skill internalizes output gating (HOOK-GATE/CLOSE-GATE phases); private-skills install registers it separately when voice stack is active
 posttool-voice-quality-check.py            # superseded: voice-writer ANTI-AI phase covers AI-pattern checks; advisory-only, not needed default-on
 pretool-voice-publish-gate.py              # superseded: voice-writer pipeline phases enforce publish-readiness; dispatches voice-pipeline-tracker.py; private voice-stack installer registers it when active
-
-# --- Pending owner registration (persistence change approved separately) ---
-subagent-start-warmstart.py               # pending: register on SubagentStart in .claude/settings.json, then add SubagentStart:subagent-start-warmstart.py to scripts/codex-hooks-allowlist.txt; replaces PreToolUse:pretool-subagent-warmstart.py, whose additionalContext lands in the parent

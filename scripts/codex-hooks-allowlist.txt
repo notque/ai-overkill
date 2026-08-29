@@ -12,7 +12,7 @@
 # entry is explicit; generator legacy parsing exists only for upgrade errors.
 #
 # Accounting against .claude/settings.json:
-#   64 registrations = 24 native + 29 adapted + 11 unsupported.
+#   64 registrations = 26 native + 29 adapted + 9 unsupported.
 
 # Native SessionStart (12)
 SessionStart:afk-mode.py matcher=startup|resume|clear|compact class=native mode=native failure=open
@@ -59,10 +59,11 @@ PreToolUse:pipeline-phase-gate.py matcher=Edit|Write class=adapted mode=patch fa
 PreToolUse:pretool-adr-creation-gate.py matcher=Edit|Write class=adapted mode=patch failure=closed
 PreToolUse:pretool-file-backup.py matcher=Edit|Write class=adapted mode=patch failure=open
 
-# Native PostToolUse Bash observers (3)
+# Native PostToolUse Bash observers (4)
 PostToolUse:adr-lifecycle-on-merge.py matcher=Bash class=native mode=native failure=open
 PostToolUse:posttool-bash-injection-scan.py matcher=Bash class=native mode=native failure=open
 PostToolUse:posttool-rename-sweep.py matcher=Bash class=native mode=native failure=open
+PostToolUse:posttool-session-reads.py matcher=Bash class=native mode=native failure=open
 
 # Adapted PostToolUse apply_patch/Edit|Write observers (10)
 PostToolUse:posttool-lint-hint.py matcher=Edit|Write class=adapted mode=patch failure=open
@@ -79,6 +80,9 @@ PostToolUse:posttool-auto-test.py matcher=Edit|Write class=adapted mode=patch fa
 # Adapted PreCompact: Codex lacks Claude conversation_history telemetry (1)
 PreCompact:precompact-archive.py matcher=manual|auto class=adapted mode=precompact failure=open
 
+# SubagentStart (1 native)
+SubagentStart:subagent-start-warmstart.py matcher=* class=native mode=native failure=open
+
 # SubagentStop (1 native, 1 adapted)
 SubagentStop:routing-outcome-recorder.py matcher=* class=native mode=native failure=open
 SubagentStop:subagent-completion-guard.py matcher=* class=adapted mode=subagent-stop failure=open
@@ -89,6 +93,6 @@ Stop:session-summary.py class=adapted mode=stop failure=open
 Stop:rules-distill-trigger.py class=adapted mode=stop failure=open
 Stop:routing-outcome-stop-fallback.py class=adapted mode=stop failure=open
 
-# Unsupported 11 remain explicit in scripts/tests/test_codex_hooks_allowlist.py:
-# four PreToolUse:Agent; five PostToolUse:Read/Skill/Agent/Workflow;
+# Unsupported 9 remain explicit in scripts/tests/test_codex_hooks_allowlist.py:
+# three PreToolUse:Agent; four PostToolUse:Skill/Agent/Workflow;
 # StopFailure; and PostCompact model-context reinjection.
