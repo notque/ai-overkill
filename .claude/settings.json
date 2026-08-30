@@ -289,6 +289,12 @@
             "command": "python3 \"$HOME/.claude/hooks/pretool-section-integrity-validator.py\"",
             "description": "Advisory: warn when subagent_type is a skill name or unknown (ARCH-002)",
             "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/pretool-dispatch-spec-gate.py\"",
+            "description": "Advisory: warn when a medium/complex [do-route] dispatch drops Request (verbatim), Acceptance criteria, or Repo state (DISPATCH_SPEC_GATE_MODE=deny to block)",
+            "timeout": 3000
           }
         ]
       }

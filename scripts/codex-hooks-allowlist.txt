@@ -12,7 +12,7 @@
 # entry is explicit; generator legacy parsing exists only for upgrade errors.
 #
 # Accounting against .claude/settings.json:
-#   64 registrations = 26 native + 29 adapted + 9 unsupported.
+#   65 registrations = 26 native + 29 adapted + 10 unsupported.
 
 # Native SessionStart (12)
 SessionStart:afk-mode.py matcher=startup|resume|clear|compact class=native mode=native failure=open
