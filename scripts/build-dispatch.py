@@ -65,6 +65,9 @@ Usage:
     python3 scripts/build-dispatch.py --json '...' --no-gather        # skip repo state
     python3 scripts/build-dispatch.py --json '...' --repo-root /path  # gather elsewhere
 
+Repo root: `--repo-root` when given; else the git toplevel of the caller's
+cwd; else this script's own repo. Path validation and gathering share it.
+
 Exit codes:
     0 — preamble printed to stdout
     2 — invalid input (message on stderr, nothing on stdout)
@@ -83,11 +86,9 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-# Preserve the invoked runtime path when scripts/ is itself a symlink. Resolving
-# __file__ would jump back to the source checkout and validate against its
-# unfiltered inventories instead of ~/.claude, ~/.codex, or another deployed
-# harness root.
-REPO_ROOT = Path(__file__).absolute().parent.parent
+# Resolve symlinks: /do invokes this script through ~/.claude/scripts ->
+# <repo>/scripts, and the unresolved parent (~/.claude) is not a git repo.
+REPO_ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
 DEFAULT_TOKEN_BUDGET = 500000
 
@@ -745,7 +746,7 @@ _GATHER_MAX_FILES = 6
 _GATHER_HEAD_LINES = 30
 _GATHER_STATUS_LINES = 40
 _GATHER_DIFF_LINES = 20
-_GATHER_TIMEOUT_SECONDS = 2
+_GATHER_TIMEOUT_SECONDS = 5
 _GATHER_BLOCK_CAP = 12000
 _GATHER_HEADING = "## Repo state (auto-gathered)"
 _GATHER_SECURITY = (
@@ -818,12 +819,22 @@ def _resolve_under(repo_root: Path, token: str) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
-def validate_spec_paths(decision: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+@lru_cache(maxsize=1)
+def default_repo_root() -> Path:
+    """Git toplevel of the caller's cwd; REPO_ROOT when cwd is not in a repo."""
+    lines, _reason = _run_git(Path.cwd(), ["rev-parse", "--show-toplevel"], None)
+    if lines and lines[0]:
+        return Path(lines[0])
+    return REPO_ROOT
+
+
+def validate_spec_paths(decision: dict, repo_root: Path | None = None) -> list[str]:
     """Existing, non-sensitive paths from `task_spec.files`; raise on a missing one.
 
     `new:` marks a file the task will create; it is allowed and not returned.
     Sensitive paths are neither checked nor returned.
     """
+    repo_root = repo_root or default_repo_root()
     spec = decision.get("task_spec") or {}
     if not isinstance(spec, dict):
         return []
@@ -840,8 +851,13 @@ def validate_spec_paths(decision: dict, repo_root: Path = REPO_ROOT) -> list[str
     return existing
 
 
-def _run_git(repo_root: Path, args: list[str], cap: int | None) -> list[str] | None:
-    """Lines of `git <args>` in repo_root, capped; None on any failure."""
+def _run_git(repo_root: Path, args: list[str], cap: int | None) -> tuple[list[str] | None, str]:
+    """(capped lines of `git <args>` in repo_root, "") or (None, reason) on failure.
+
+    Reasons: `not a git repository`, `timeout after Ns`, `exit N`, `git not found`.
+    """
+    if not repo_root.is_dir():
+        return None, "not a git repository"
     try:
         result = subprocess.run(
             ["git", *args],
@@ -851,14 +867,20 @@ def _run_git(repo_root: Path, args: list[str], cap: int | None) -> list[str] | N
             timeout=_GATHER_TIMEOUT_SECONDS,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except subprocess.TimeoutExpired:
+        return None, f"timeout after {_GATHER_TIMEOUT_SECONDS}s"
+    except FileNotFoundError:
+        return None, "git not found"
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"exit {getattr(exc, 'returncode', 1)}"
     if result.returncode != 0:
-        return None
+        if "not a git repository" in result.stderr:
+            return None, "not a git repository"
+        return None, f"exit {result.returncode}"
     lines = result.stdout.rstrip("\n").split("\n") if result.stdout.strip() else []
     if cap is not None and len(lines) > cap:
         lines = [*lines[:cap], f"[{len(lines) - cap} more lines]"]
-    return lines
+    return lines, ""
 
 
 def _outline_python(text: str) -> list[str] | None:
@@ -884,8 +906,8 @@ def _gather_file(repo_root: Path, token: str) -> list[str]:
             names = sorted(child.name for child in path.iterdir())
             return [f"### {token}/ ({len(names)} entries)", *names[:_GATHER_HEAD_LINES]]
         text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return [f"gather: {token} unavailable"]
+    except OSError as exc:
+        return [f"gather: {token} unavailable ({exc.strerror or 'read error'})"]
     if path.suffix == ".py":
         outline = _outline_python(text)
         if outline is not None:
@@ -907,12 +929,13 @@ def _cap_block(text: str, cap: int = _GATHER_BLOCK_CAP) -> str:
     return f"{body[: cap - len(note) - len(tail)]}{note}{tail}"
 
 
-def build_gather_block(decision: dict, repo_root: Path = REPO_ROOT) -> str:
+def build_gather_block(decision: dict, repo_root: Path | None = None) -> str:
     """Repo state block: git status, diff stat, recent log, then per-file outlines.
 
-    Every item degrades to one `gather: <item> unavailable` line on failure.
-    Deterministic for a fixed repo state.
+    Every item degrades to one `gather: <item> unavailable (<reason>)` line on
+    failure. Deterministic for a fixed repo state.
     """
+    repo_root = repo_root or default_repo_root()
     spec = decision.get("task_spec") or {}
     tokens = _path_candidates(spec.get("files")) if isinstance(spec, dict) else []
     sections: list[str] = []
@@ -921,9 +944,9 @@ def build_gather_block(decision: dict, repo_root: Path = REPO_ROOT) -> str:
         ("git diff --stat", ["diff", "--stat"], _GATHER_DIFF_LINES),
         ("git log -5", ["log", "-5", "--oneline"], None),
     ):
-        lines = _run_git(repo_root, args, cap)
+        lines, reason = _run_git(repo_root, args, cap)
         if lines is None:
-            sections.append(f"gather: {label} unavailable")
+            sections.append(f"gather: {label} unavailable ({reason})")
         else:
             sections.append("\n".join([f"### {label}", *(lines or ["(empty)"])]))
     gathered = 0
@@ -937,7 +960,7 @@ def build_gather_block(decision: dict, repo_root: Path = REPO_ROOT) -> str:
             sections.append(f"gather: {token} skipped (sensitive path)")
             continue
         if not _resolve_under(repo_root, token).exists():
-            sections.append(f"gather: {token} unavailable")
+            sections.append(f"gather: {token} unavailable (not found under {repo_root})")
             continue
         sections.append("\n".join(_gather_file(repo_root, token)))
         gathered += 1
@@ -951,13 +974,14 @@ def build_preamble(
     settings_path: Path = SETTINGS_PATH,
     *,
     gather: bool = True,
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path | None = None,
 ) -> str:
     """Complete dispatch preamble, blocks in dispatch order, blank-line separated.
 
     `gather=False` omits the repo-state block and leaves every other byte unchanged.
-    Path validation runs either way.
+    Path validation runs either way. `repo_root=None` means `default_repo_root()`.
     """
+    repo_root = repo_root or default_repo_root()
     if not isinstance(decision, dict):
         raise InputError("routing decision must be a JSON object")
     flags = decision.get("flags") or {}
@@ -998,8 +1022,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--repo-root",
         type=Path,
-        default=REPO_ROOT,
-        help="Root for path validation and repo-state gathering (default: this script's repo)",
+        default=None,
+        help="Root for path validation and repo-state gathering (default: cwd's git toplevel, else this script's repo)",
     )
     args = parser.parse_args(argv)
 
