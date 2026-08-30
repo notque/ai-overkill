@@ -1052,6 +1052,115 @@ def test_gather_is_deterministic_for_a_fixed_repo_state():
     assert bd.build_preamble(decision) == bd.build_preamble(decision)
 
 
+# ---------------------------------------------------------------------------
+# Repo-root resolution: --repo-root > cwd git toplevel > the script's own repo.
+# Every test pins cwd; none depends on the machine's cwd or on ~/.claude.
+# ---------------------------------------------------------------------------
+
+_SOURCE_DECISION = {"intent": "x", "files": "scripts/build-dispatch.py"}
+
+
+def _run_cli_from(cwd, script=None, *args):
+    return subprocess.run(
+        [sys.executable, str(script or SCRIPT_PATH), *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _git_repo(root: Path) -> Path:
+    """A tmp git repo with one committed file, `tracked.md`."""
+    root.mkdir()
+    (root / "tracked.md").write_text("tracked\n")
+    for args in (["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"]):
+        subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)
+    return root
+
+
+def test_symlinked_script_from_non_repo_cwd_gathers_real_git_output(tmp_path):
+    # Mirror the deployed layout: ~/.claude/{scripts,agents,skills,hooks} -> <repo>/...
+    for name in ("scripts", "agents", "skills", "hooks"):
+        (tmp_path / name).symlink_to(REPO_ROOT / name)
+    link = tmp_path / "scripts"
+    result = _run_cli_from(
+        tmp_path, link / "build-dispatch.py", "--json", json.dumps(_decision(task_spec=_SOURCE_DECISION))
+    )
+    assert result.returncode == 0, result.stderr
+    assert "### git status" in result.stdout
+    assert "### git log -5" in result.stdout
+    assert "def build_task_spec" in result.stdout
+    assert "gather:" not in result.stdout
+
+
+def test_cwd_inside_a_git_repo_picks_that_repo(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    decision = _decision(task_spec={"intent": "x", "files": "tracked.md"})
+    result = _run_cli_from(repo, None, "--json", json.dumps(decision))
+    assert result.returncode == 0, result.stderr
+    assert "### tracked.md" in result.stdout
+    assert "init" in result.stdout.split("### git log -5", 1)[1]
+    assert "gather:" not in result.stdout
+
+
+def test_cwd_outside_any_repo_falls_back_to_the_script_repo(tmp_path):
+    result = _run_cli_from(tmp_path, None, "--json", json.dumps(_decision(task_spec=_SOURCE_DECISION)))
+    assert result.returncode == 0, result.stderr
+    assert "def build_task_spec" in result.stdout
+    assert "gather:" not in result.stdout
+
+
+def test_repo_root_flag_overrides_the_cwd_repo(tmp_path):
+    cwd_repo = _git_repo(tmp_path / "cwd")
+    other = _git_repo(tmp_path / "other")
+    (other / "only-here.md").write_text("here\n")
+    decision = _decision(task_spec={"intent": "x", "files": "only-here.md"})
+    without = _run_cli_from(cwd_repo, None, "--json", json.dumps(decision))
+    assert without.returncode == 2
+    assert f"does not exist under {cwd_repo}" in without.stderr
+    with_flag = _run_cli_from(cwd_repo, None, "--json", json.dumps(decision), "--repo-root", str(other))
+    assert with_flag.returncode == 0, with_flag.stderr
+    assert "### only-here.md" in with_flag.stdout
+
+
+def test_missing_file_names_the_root_it_was_checked_under(tmp_path):
+    block = bd.build_gather_block(_decision(task_spec={"intent": "x", "files": "absent.md"}), repo_root=tmp_path)
+    assert f"gather: absent.md unavailable (not found under {tmp_path})" in block
+
+
+def test_non_repo_dir_reports_not_a_git_repository(tmp_path):
+    lines, reason = bd._run_git(tmp_path, ["status"], None)
+    assert lines is None and reason == "not a git repository"
+    lines, reason = bd._run_git(tmp_path / "absent", ["status"], None)
+    assert lines is None and reason == "not a git repository"
+
+
+@pytest.mark.parametrize(
+    ("effect", "reason"),
+    [
+        (
+            subprocess.TimeoutExpired(["git"], bd._GATHER_TIMEOUT_SECONDS),
+            f"timeout after {bd._GATHER_TIMEOUT_SECONDS}s",
+        ),
+        (FileNotFoundError(2, "No such file", "git"), "git not found"),
+        (subprocess.CompletedProcess(["git"], 128, "", "fatal: not a git repository"), "not a git repository"),
+        (subprocess.CompletedProcess(["git"], 129, "", "usage"), "exit 129"),
+    ],
+)
+def test_run_git_reports_each_failure_reason(tmp_path, effect, reason):
+    kwargs = {"side_effect": effect} if isinstance(effect, Exception) else {"return_value": effect}
+    with patch.object(bd.subprocess, "run", **kwargs):
+        lines, got = bd._run_git(tmp_path, ["status"], None)
+    assert lines is None and got == reason
+    with patch.object(bd.subprocess, "run", **kwargs):
+        block = bd.build_gather_block(_decision(task_spec={"intent": "x", "files": "new:x.py"}), repo_root=tmp_path)
+    assert f"gather: git status unavailable ({reason})" in block
+
+
+def test_gather_timeout_is_five_seconds():
+    assert bd._GATHER_TIMEOUT_SECONDS == 5
+
+
 def test_cli_with_gather_runs_under_300ms():
     decision = _decision()
     start = time.perf_counter()
