@@ -1079,8 +1079,10 @@ def _git_repo(root: Path) -> Path:
 
 
 def test_symlinked_script_from_non_repo_cwd_gathers_real_git_output(tmp_path):
+    # Mirror the deployed layout: ~/.claude/{scripts,agents,skills,hooks} -> <repo>/...
+    for name in ("scripts", "agents", "skills", "hooks"):
+        (tmp_path / name).symlink_to(REPO_ROOT / name)
     link = tmp_path / "scripts"
-    link.symlink_to(SCRIPT_PATH.parent)
     result = _run_cli_from(
         tmp_path, link / "build-dispatch.py", "--json", json.dumps(_decision(task_spec=_SOURCE_DECISION))
     )
@@ -1088,7 +1090,7 @@ def test_symlinked_script_from_non_repo_cwd_gathers_real_git_output(tmp_path):
     assert "### git status" in result.stdout
     assert "### git log -5" in result.stdout
     assert "def build_task_spec" in result.stdout
-    assert "unavailable" not in result.stdout
+    assert "gather:" not in result.stdout
 
 
 def test_cwd_inside_a_git_repo_picks_that_repo(tmp_path):
@@ -1098,14 +1100,14 @@ def test_cwd_inside_a_git_repo_picks_that_repo(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "### tracked.md" in result.stdout
     assert "init" in result.stdout.split("### git log -5", 1)[1]
-    assert "unavailable" not in result.stdout
+    assert "gather:" not in result.stdout
 
 
 def test_cwd_outside_any_repo_falls_back_to_the_script_repo(tmp_path):
     result = _run_cli_from(tmp_path, None, "--json", json.dumps(_decision(task_spec=_SOURCE_DECISION)))
     assert result.returncode == 0, result.stderr
     assert "def build_task_spec" in result.stdout
-    assert "unavailable" not in result.stdout
+    assert "gather:" not in result.stdout
 
 
 def test_repo_root_flag_overrides_the_cwd_repo(tmp_path):

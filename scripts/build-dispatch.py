@@ -86,10 +86,13 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-# Resolve symlinks: /do invokes this script through ~/.claude/scripts ->
-# <repo>/scripts, and the unresolved parent (~/.claude) is not a git repo.
+# INSTALL_ROOT keeps the invoked path: through ~/.claude/scripts -> <repo>/scripts,
+# inventories (INDEX.json, settings, hook_utils) must come from the install dir,
+# which a profile filter may have shaped. REPO_ROOT resolves the symlink; it is
+# the gather/validation fallback only, since ~/.claude is not a git repo.
+INSTALL_ROOT = Path(__file__).absolute().parent.parent
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
+SETTINGS_PATH = INSTALL_ROOT / ".claude" / "settings.json"
 DEFAULT_TOKEN_BUDGET = 500000
 
 # ---------------------------------------------------------------------------
@@ -219,12 +222,12 @@ _KEY_RE = re.compile(r"^[a-z0-9:_-]+$")  # alts= / stack= items (comma is the se
 # general-purpose with no recorded reason, so the regression was invisible for
 # six weeks. Every fallback now carries a reason token on the marker line.
 FALLBACK_AGENT = "general-purpose"
-AGENT_INDEX_PATH = REPO_ROOT / "agents" / "INDEX.json"
+AGENT_INDEX_PATH = INSTALL_ROOT / "agents" / "INDEX.json"
 AGENT_INDEX_LOCAL = "INDEX.local.json"
-SKILL_INDEX_PATH = REPO_ROOT / "skills" / "INDEX.json"
+SKILL_INDEX_PATH = INSTALL_ROOT / "skills" / "INDEX.json"
 SKILL_INDEX_LOCAL = "INDEX.local.json"
-PIPELINE_INDEX_PATH = REPO_ROOT / "skills" / "workflow" / "references" / "pipeline-index.json"
-SHARED_PATTERNS_DIR = REPO_ROOT / "skills" / "shared-patterns"
+PIPELINE_INDEX_PATH = INSTALL_ROOT / "skills" / "workflow" / "references" / "pipeline-index.json"
+SHARED_PATTERNS_DIR = INSTALL_ROOT / "skills" / "shared-patterns"
 # Harness-provided agents that exist outside agents/INDEX.json. Superset of
 # validate-do-references.py's set: the Agent tool accepts these names, so
 # coercing them would MANUFACTURE fallbacks instead of catching them.
@@ -767,7 +770,9 @@ def _sensitive_path_checker():
     try:
         import importlib.util
 
-        spec = importlib.util.spec_from_file_location("_bd_hook_utils", REPO_ROOT / "hooks" / "lib" / "hook_utils.py")
+        spec = importlib.util.spec_from_file_location(
+            "_bd_hook_utils", INSTALL_ROOT / "hooks" / "lib" / "hook_utils.py"
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         checker = module.is_sensitive_path
