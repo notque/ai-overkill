@@ -3,7 +3,7 @@
 
 ADR-182's six-hook Bash-only allowlist was correct for the older Codex hook
 surface. Codex now supports apply_patch aliases and more lifecycle events.
-These tests pin the reviewed 64-registration accounting so a new Claude hook
+These tests pin the reviewed 65-registration accounting so a new Claude hook
 cannot silently create or remove Codex coverage.
 """
 
@@ -61,14 +61,14 @@ def _claude_registrations() -> set[tuple[str, str]]:
     return registrations
 
 
-def test_inventory_accounting_is_64_equals_26_plus_29_plus_9() -> None:
+def test_inventory_accounting_is_65_equals_26_plus_29_plus_10() -> None:
     """Every Claude registration has one reviewed current Codex decision."""
     entries = _entries()
     classes = Counter(entry["classification"] for entry in entries)
     assert len(entries) == 55
     assert classes == {"native": 26, "adapted": 29}
-    assert len(UNSUPPORTED_REGISTRATIONS) == 9
-    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 64
+    assert len(UNSUPPORTED_REGISTRATIONS) == 10
+    assert len(entries) + len(UNSUPPORTED_REGISTRATIONS) == 65
 
 
 def test_supported_and_unsupported_sets_partition_claude_settings() -> None:
@@ -120,6 +120,7 @@ def test_unsupported_boundaries_are_exact() -> None:
         ("PreToolUse", "reference-loading-enforcer.py"),
         ("PreToolUse", "creation-protocol-enforcer.py"),
         ("PreToolUse", "pretool-section-integrity-validator.py"),
+        ("PreToolUse", "pretool-dispatch-spec-gate.py"),
         ("PostToolUse", "usage-tracker.py"),
         ("PostToolUse", "review-capture.py"),
         ("PostToolUse", "routing-decision-recorder.py"),
@@ -132,7 +133,7 @@ def test_unsupported_boundaries_are_exact() -> None:
 def test_unsupported_inventory_has_machine_owned_precise_reasons() -> None:
     """Every excluded registration carries a reviewable production reason."""
     reasons = GENERATOR.UNSUPPORTED_REGISTRATIONS
-    assert len(reasons) == 9
+    assert len(reasons) == 10
     assert all(isinstance(reason, str) and len(reason.split()) >= 6 for reason in reasons.values())
     assert all("unsupported" not in reason.lower() for reason in reasons.values())
 

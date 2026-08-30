@@ -79,6 +79,9 @@ UNSUPPORTED_REGISTRATIONS = {
     ("PreToolUse", "pretool-section-integrity-validator.py"): (
         "Codex SubagentStart does not expose the Agent tool input whose routed sections this validator checks."
     ),
+    ("PreToolUse", "pretool-dispatch-spec-gate.py"): (
+        "Codex SubagentStart does not expose the Agent prompt whose handoff blocks this gate checks."
+    ),
     ("PostToolUse", "usage-tracker.py"): (
         "Codex has no PostToolUse surface for Claude Skill or Agent tool invocations tracked here."
     ),
