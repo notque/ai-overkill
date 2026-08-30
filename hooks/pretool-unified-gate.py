@@ -555,12 +555,13 @@ def _persistent_git_alias_payload(
             cwd=lookup_cwd,
             capture_output=True,
             text=True,
-            timeout=0.05,
+            timeout=0.5,
             check=False,
         )
         expansion = result.stdout.strip() if result.returncode == 0 else ""
     except (subprocess.TimeoutExpired, OSError):
-        expansion = ""
+        # Fail open, but do not cache: a slow git must not pin "no alias".
+        return ""
     payload = (expansion[1:] if expansion.startswith("!") else f"git {expansion}") if expansion else ""
     cache[key] = payload or None
     return payload
