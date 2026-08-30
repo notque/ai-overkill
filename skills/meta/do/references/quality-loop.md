@@ -128,6 +128,8 @@ Dispatch 3 parallel review agents against the diff (feature branch vs main):
 2. **Business logic reviewer** (reviewer-domain) — correctness, edge cases, domain rules, error handling
 3. **Architecture reviewer** (reviewer-perspectives) — design patterns, coupling, API contracts, performance
 
+Give each reviewer the diff plus the `request_verbatim` and `acceptance` fields of the Task Spec, read from the PHASE 2 state artifact. Reviewers judge the diff against what the user asked for, not against the diff alone.
+
 Each reviewer produces findings as:
 - CRITICAL: Must fix before merge
 - IMPROVEMENT: Should fix, not blocking
@@ -174,7 +176,7 @@ For each CRITICAL finding, dispatch a fresh domain agent to fix it.
 - Each fix is a separate commit with a message referencing the finding
 - Read `quality-loop-state.md` to determine which domain agent PHASE 2 used — do not rely on session memory
 - Fresh agent context — not the same agent that made the mistake — because the original agent has anchoring bias toward its own implementation
-- Include the specific CRITICAL finding text in the agent prompt
+- Give the fix agent the full Task Spec (`request_verbatim`, `acceptance`, `files`, `decisions`, `prior_results`) plus the specific CRITICAL finding text. The finding alone is not enough context.
 
 **Gate:** All CRITICAL findings addressed with commits. Proceed to PHASE 8.
 
