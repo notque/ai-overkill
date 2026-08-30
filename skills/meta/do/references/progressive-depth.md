@@ -61,7 +61,7 @@ Recommended level: 2 (Methodical)
 Work completed so far: Fixed the primary file (docs/router-ab-runbook.md), discovered 6 other references that need matching updates
 ```
 
-The router receives this signal, preserves the work completed so far, and re-dispatches at the recommended level with context about what was already done.
+The router receives this signal and re-dispatches at the recommended level. The block becomes the `prior_results` field of the new Task Spec. The router copies these fields into it: current level, reason, work completed so far, and files touched.
 
 ---
 

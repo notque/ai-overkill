@@ -147,16 +147,17 @@ Hooks are Python scripts registered in `~/.claude/settings.json` under event typ
 
 ### Event Types
 
-Nine event types, registered in settings.json:
+Ten event types, registered in settings.json:
 
 | Event | When | Hooks Registered |
 |-------|------|-----------------|
 | `SessionStart` | Session begins | sync-to-user-claude, afk-mode, session-context, cross-repo-agents, fish-shell-detector, zsh-shell-detector, sapcc-go-detector, operator-context-detector, session-github-briefing, session-adr-health-check, team-config-loader, rules-distill-injector, hook-version-parity-check, session-manifest-cache |
 | `UserPromptSubmit` | Before processing each prompt | pipeline-context-detector, review-false-positive-capture, codex-auto-review, prompt-capture, routing-outcome-finalizer |
-| `PreToolUse` | Before tool execution | suggest-compact, pretool-unified-gate, pretool-worktree-edit-guard, pretool-branch-safety, ci-merge-gate, pretool-ruff-format-gate, pretool-private-name-leak-gate, security-review-hook, pretool-synthesis-gate, pretool-plan-gate, pretool-prompt-injection-scanner, pipeline-phase-gate, pretool-adr-creation-gate, pretool-file-backup, reference-loading-enforcer, pretool-subagent-warmstart, creation-protocol-enforcer, pretool-section-integrity-validator |
+| `PreToolUse` | Before tool execution | suggest-compact, pretool-unified-gate, pretool-worktree-edit-guard, pretool-branch-safety, ci-merge-gate, pretool-ruff-format-gate, pretool-private-name-leak-gate, security-review-hook, pretool-synthesis-gate, pretool-plan-gate, pretool-prompt-injection-scanner, pipeline-phase-gate, pretool-adr-creation-gate, pretool-file-backup, reference-loading-enforcer, creation-protocol-enforcer, pretool-section-integrity-validator |
 | `PostToolUse` | After tool execution | posttool-lint-hint, agent-grade-on-change, adr-enforcement, posttool-security-scan, posttool-skill-frontmatter-check, posttooluse-joy-check-warn, posttooluse-sync-skill-index, posttooluse-sync-agent-index, posttool-docs-drift-alert, security-review-hook, adr-lifecycle-on-merge, posttool-rename-sweep, posttool-bash-injection-scan, posttool-session-reads, usage-tracker, review-capture, routing-decision-recorder, posttool-auto-test |
 | `PreCompact` | Before context compression | precompact-archive |
 | `PostCompact` | After context compression | postcompact-handler |
+| `SubagentStart` | When a subagent starts | subagent-start-warmstart |
 | `SubagentStop` | When a subagent exits | subagent-completion-guard, routing-outcome-recorder |
 | `Stop` | Session ends | session-summary, routing-outcome-stop-fallback, rules-distill-trigger, stop-drift-guard |
 | `StopFailure` | Session ends abnormally | stop-failure-handler |
