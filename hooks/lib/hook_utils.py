@@ -10,19 +10,47 @@ Provides common functionality used across multiple hooks:
 Inspired by shared/lib patterns.
 """
 
-import hashlib
+from __future__ import annotations
+
 import json
 import os
-import subprocess
 import sys
-import tempfile
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar
 
-T = TypeVar("T")
+# Every hook imports this module, so its import cost is paid on every event.
+# `hashlib`, `subprocess`, `tempfile`, `yaml`, `dataclasses`, and `typing`
+# together cost ~35 ms at startup; each is imported inside the function that
+# needs it. `__getattr__` below keeps `hook_utils.subprocess` and friends
+# resolvable for callers and test patches.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import Any, Callable, Optional, TypeVar
+
+    T = TypeVar("T")
+
+_LAZY_MODULES = frozenset({"hashlib", "subprocess", "tempfile", "yaml"})
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve lazily imported modules as module attributes."""
+    if name in _LAZY_MODULES:
+        import importlib
+
+        return importlib.import_module(name)
+    if name == "YAML_AVAILABLE":
+        return _yaml() is not None
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _yaml():
+    """Return the PyYAML module, or None when it is not installed."""
+    try:
+        import yaml
+    except ImportError:
+        return None
+    return yaml
 
 
 # =============================================================================
@@ -51,10 +79,12 @@ def json_escape(text: str) -> str:
 # =============================================================================
 
 
-@dataclass
 class HookOutput:
     """
     Structured hook output with user message support.
+
+    A plain class, not a dataclass: importing `dataclasses` costs ~8 ms per
+    hook start. Constructor, equality, and repr match the dataclass form.
 
     Attributes:
         event_name: The hook event name (SessionStart, UserPromptSubmit, etc.)
@@ -63,10 +93,32 @@ class HookOutput:
         metadata: Additional key-value pairs for the output
     """
 
-    event_name: str
-    additional_context: Optional[str] = None
-    user_message: Optional[str] = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    def __init__(
+        self,
+        event_name: str,
+        additional_context: Optional[str] = None,
+        user_message: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None:
+        self.event_name = event_name
+        self.additional_context = additional_context
+        self.user_message = user_message
+        self.metadata = {} if metadata is None else metadata
+
+    def _astuple(self) -> tuple:
+        return (self.event_name, self.additional_context, self.user_message, self.metadata)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, HookOutput):
+            return NotImplemented
+        return self._astuple() == other._astuple()
+
+    def __repr__(self) -> str:
+        return (
+            f"HookOutput(event_name={self.event_name!r}, "
+            f"additional_context={self.additional_context!r}, "
+            f"user_message={self.user_message!r}, metadata={self.metadata!r})"
+        )
 
     # Events that support hookSpecificOutput per Claude Code's schema.
     # All other events must emit top-level fields or an empty object.
@@ -330,13 +382,6 @@ def discover_files(
 # YAML Frontmatter Parsing (with fallback)
 # =============================================================================
 
-try:
-    import yaml
-
-    YAML_AVAILABLE = True
-except ImportError:
-    YAML_AVAILABLE = False
-
 
 def parse_frontmatter(content: str) -> Optional[dict[str, Any]]:
     """
@@ -366,7 +411,8 @@ def parse_frontmatter(content: str) -> Optional[dict[str, Any]]:
     frontmatter = content[4:end_match].strip()
 
     # Try YAML parser first
-    if YAML_AVAILABLE:
+    yaml = _yaml()
+    if yaml is not None:
         try:
             return yaml.safe_load(frontmatter)
         except yaml.YAMLError:
@@ -767,6 +813,8 @@ def working_tree_diff(cwd: Optional[str], timeout: int = 15) -> str:
     Fails closed to an empty string on any error (non-repo, git missing,
     timeout) so callers can treat "no diff" and "couldn't diff" the same way.
     """
+    import subprocess
+
     try:
         result = subprocess.run(
             ["git", "diff", "--no-color", "HEAD"],
@@ -904,6 +952,8 @@ class DiffDedup:
         from colliding. Fails open: if normalization ever raises, fall back to
         hashing the raw diff (the original byte-identical behavior).
         """
+        import hashlib
+
         try:
             normalized = normalize_diff_for_fingerprint(diff)
         except Exception:
@@ -951,6 +1001,8 @@ class DiffDedup:
             "cwd": cwd or "",
         }
         try:
+            import tempfile
+
             self.state_dir.mkdir(parents=True, exist_ok=True)
             fd, tmp = tempfile.mkstemp(dir=str(self.state_dir), suffix=".tmp")
             try:
