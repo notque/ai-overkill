@@ -493,8 +493,17 @@ class TestDestructiveGitOperations:
             run.assert_not_called()
 
     def test_alias_lookup_error_fails_open(self):
-        with patch.object(mod.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 0.05)):
+        with patch.object(mod.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 0.5)):
             assert mod._destructive_git_operation("git unknown-alias") is None
+
+    def test_alias_lookup_timeout_is_not_cached(self):
+        cache: dict = {}
+        with patch.object(mod.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 0.5)):
+            assert mod._persistent_git_alias_payload("nuke", None, cache) == ""
+        assert cache == {}
+        completed = subprocess.CompletedProcess(["git"], 0, stdout="reset --hard\n", stderr="")
+        with patch.object(mod.subprocess, "run", return_value=completed):
+            assert mod._persistent_git_alias_payload("nuke", None, cache) == "git reset --hard"
 
 
 COMPOUND_TOKEN_CASES = [
