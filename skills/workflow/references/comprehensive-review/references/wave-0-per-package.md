@@ -4,8 +4,8 @@
 
 | Language | Discovery Command | Agent Type | Min Package Size |
 |----------|-------------------|------------|-----------------|
-| Go | `find . -name "*.go" -path "*/internal/*" \| xargs dirname \| sort -u` | `golang-general-engineer-compact` | 1 file |
-| Go (also) | `find . -name "*.go" -not -path "*/internal/*" -not -path "*/vendor/*" \| xargs dirname \| sort -u` | `golang-general-engineer-compact` | 1 file |
+| Go | `find . -name "*.go" -path "*/internal/*" \| xargs dirname \| sort -u` | `golang-general-engineer` | 1 file |
+| Go (also) | `find . -name "*.go" -not -path "*/internal/*" -not -path "*/vendor/*" \| xargs dirname \| sort -u` | `golang-general-engineer` | 1 file |
 | Python | `find . -name "__init__.py" \| xargs dirname \| sort -u` | `python-general-engineer` | 1 file |
 | TypeScript | `find . -name "index.ts" -o -name "index.tsx" \| xargs dirname \| sort -u` | `typescript-frontend-engineer` | 1 file |
 
@@ -26,7 +26,7 @@ find . -name "index.ts" -o -name "index.tsx" | grep -v node_modules | xargs dirn
 
 | Language | Agent |
 |----------|-------|
-| Go | `golang-general-engineer-compact` |
+| Go | `golang-general-engineer` |
 | Python | `python-general-engineer` |
 | TypeScript | `typescript-frontend-engineer` |
 | Mixed | Use language of majority files in that package |

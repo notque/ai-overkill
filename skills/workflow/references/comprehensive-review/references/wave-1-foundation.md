@@ -27,7 +27,7 @@ Use `model: sonnet` for all Wave 1 agents. The orchestrator runs on Opus; dispat
 
 | File Types | Agent |
 |-----------|-------|
-| `.go` files | `golang-general-engineer` or `golang-general-engineer-compact` |
+| `.go` files | `golang-general-engineer` |
 | `.py` files | `python-general-engineer` |
 | `.ts`/`.tsx` files | `typescript-frontend-engineer` |
 | Mixed or other | `Explore` |

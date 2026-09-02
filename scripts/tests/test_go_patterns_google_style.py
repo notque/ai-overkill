@@ -71,23 +71,10 @@ def test_snapshot_parts_fit_reference_size_limit() -> None:
 
 
 def test_go_agents_require_the_companion_skill() -> None:
-    for name in ("golang-general-engineer.md", "golang-general-engineer-compact.md"):
-        agent = (ROOT / "agents" / name).read_text(encoding="utf-8")
-        assert "Call the Skill tool with `go-patterns`." in agent
-        frontmatter = yaml.safe_load(agent.split("---", 2)[1])
-        assert "Skill" in frontmatter["allowed-tools"]
-
-
-def test_compact_agent_error_guidance_is_deliberate() -> None:
-    agent = (ROOT / "agents" / "golang-general-engineer-compact.md").read_text(encoding="utf-8")
-    operational = agent.split("## Error Handling (Compact)", 1)[1]
-    assert 'return fmt.Errorf("context: %w", err)' not in operational
-    assert "Wrap with context using %w" not in operational
-    assert "Wrap with %w" not in operational
-    assert "Return the error unchanged when it is already clear" in operational
-    assert "use `%w` deliberately when callers" in operational
-    assert "otherwise use `%v`" in operational
-    assert GENERIC_ERROR_WRAP_RE.search(operational) is None
+    agent = (ROOT / "agents" / "golang-general-engineer.md").read_text(encoding="utf-8")
+    assert "Call the Skill tool with `go-patterns`." in agent
+    frontmatter = yaml.safe_load(agent.split("---", 2)[1])
+    assert "Skill" in frontmatter["allowed-tools"]
 
 
 def test_prescriptive_go_guidance_has_no_generic_error_wraps() -> None:

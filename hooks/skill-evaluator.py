@@ -21,7 +21,6 @@ REPO_ROOT = Path(__file__).parent.parent
 AGENT_ROUTING = {
     # Language/Framework Experts
     "golang-general-engineer": "Go development, concurrency, testing, interfaces",
-    "golang-general-engineer-compact": "Go tasks with tight context limits",
     "python-general-engineer": "Python development, async, typing, pytest",
     "python-openstack-engineer": "OpenStack Python, oslo libraries, Tempest",
     "typescript-frontend-engineer": "TypeScript, React, type safety, Zod",
@@ -139,7 +138,7 @@ def get_evaluation_prompt(complexity: str) -> str:
     # Group agents by category for readability
     agent_sections = """
 **Agents by Domain:**
-- Go: golang-general-engineer (full) or golang-general-engineer-compact (tight context)
+- Go: golang-general-engineer
 - Python: python-general-engineer, python-openstack-engineer (OpenStack)
 - TypeScript/React: typescript-frontend-engineer, typescript-debugging-engineer (bugs)
 - Node.js: nodejs-api-engineer, nextjs-ecommerce-engineer, react-portfolio-engineer
