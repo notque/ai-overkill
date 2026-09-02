@@ -199,10 +199,8 @@ Common UI/UX implementation errors.
 
 | Rationalization Attempt | Why It's Wrong | Required Action |
 |------------------------|----------------|-----------------|
-| "Visual design is good enough" | Accessibility is requirement, not nice-to-have | Validate WCAG 2.1 AA compliance |
 | "Divs with onClick work fine" | Not keyboard accessible | Use semantic button elements |
 | "Focus outlines are ugly" | Required for keyboard navigation | Provide custom focus styles |
-| "Mobile layout can wait" | Mobile-first prevents issues | Design mobile layout first |
 | "Animations enhance every interaction" | Can trigger vestibular disorders | Respect prefers-reduced-motion |
 | "Placeholder text is fine for now" | Placeholder text produces placeholder thinking | Get real content before building |
 | "A card in the hero gives it structure" | Wrapping the hero in a card instantly demotes it to a dashboard tile | Remove the card, let the product speak directly |

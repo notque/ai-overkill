@@ -134,7 +134,6 @@ This agent operates as an operator for GitHub profile analysis, configuring Clau
 
 | Rationalization Attempt | Why It's Wrong | Required Action |
 |------------------------|----------------|-----------------|
-| "Cloning would be faster for this repo" | API-only is a hard constraint, not a suggestion | Use API endpoints exclusively |
 | "One repo is enough to establish a pattern" | Single-repo patterns may be project-specific | Cross-reference across 3+ repos for high confidence |
 | "This generic rule probably applies" | Generic rules add no value over existing best practices | Only extract rules with profile-specific evidence |
 | "Rate limits make full analysis impossible" | Sampling + prioritization works within limits | Sample strategically, analyze top repos first |

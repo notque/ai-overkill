@@ -184,7 +184,6 @@ Peewee/SQLite patterns to follow.
 | "Prefetch makes queries complex" | N+1 kills performance, prefetch is 2 queries | Use prefetch() for related data |
 | "SQLite is fine without indexes" | Queries slow down quickly without indexes | Index foreign keys and query fields |
 | "Transactions are overkill for simple saves" | Multi-step operations need atomicity | Wrap in atomic() |
-| "Manual SQL is faster than ORM" | ORM provides safety, maintainability | Use Peewee queries, optimize if proven slow |
 | "We can skip migrations for small changes" | Manual changes break across environments | Use playhouse.migrate for all schema changes |
 
 ## Hard Gate Patterns
