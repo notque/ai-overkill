@@ -130,8 +130,6 @@ This agent uses the **Analysis Schema**:
 | Rationalization | Why It's Wrong | Required Action |
 |-----------------|----------------|-----------------|
 | "One more search might find it" | Diminishing returns detected | Stop and use complete_task |
-| "This source seems authoritative" | Authority ≠ accuracy | Check for speculation indicators |
-| "The budget is just a guideline" | Hard limit enforced | Strict adherence to 20 call max |
 | "Snippets are enough detail" | Missing critical context | Use web_fetch after web_search |
 
 ## Blocker Criteria

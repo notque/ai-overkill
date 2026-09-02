@@ -187,7 +187,6 @@ Debugging patterns to follow. See [typescript-frontend-engineer/references/engin
 | "It works on my machine" | Environment difference is the clue | Document differences, test in production-like environment |
 | "The type error is TypeScript being wrong" | TypeScript types reflect runtime reality | Compare types to actual data structure, fix mismatch |
 | "We lack time for root cause analysis" | Quick fixes cause future bugs | Invest in reproduction + test case, prevent recurrence |
-| "Adding logging will slow things down" | Observability enables debugging | Add structured logging, use appropriate log levels |
 
 ## Blocker Criteria
 
