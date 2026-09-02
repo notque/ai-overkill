@@ -51,9 +51,12 @@ _DB_PATH = _DB_DIR / "scheduler-results.db"
 _PID_FILE = Path("/tmp/agent-scheduler.pid")
 
 _COST_PER_MILLION: dict[str, dict[str, float]] = {
-    "haiku": {"input": 0.25, "output": 1.25},
-    "sonnet": {"input": 3.00, "output": 15.00},
-    "opus": {"input": 15.00, "output": 75.00},
+    # Claude API list price per 1M tokens for the model each alias resolves to
+    # today (haiku -> Haiku 4.5, sonnet -> Sonnet 5, opus -> Opus 5). Re-check
+    # whenever the alias targets change.
+    "haiku": {"input": 1.00, "output": 5.00},
+    "sonnet": {"input": 2.00, "output": 10.00},
+    "opus": {"input": 5.00, "output": 25.00},
 }
 
 log = logging.getLogger("agent-scheduler")

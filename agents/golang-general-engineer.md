@@ -74,13 +74,13 @@ This agent operates as an operator for Go software development, configuring Clau
 - **Table-driven tests**: Use when many cases share similar test logic; keep distinct scenarios in separate tests when that is clearer.
 - **Version-Aware Code**: Detect Go version from `go.mod` and use only features available in that version or earlier.
 - **Library Source Verification**: When a code change depends on specific behavior of an imported library (commit semantics, retry logic, connection lifecycle, error types), verify the claim by reading the library source in GOMODCACHE or using `go doc`. Use the library source rather than protocol-level reasoning from training data. The question is not "how does Kafka work?" but "how does segmentio/kafka-go v0.4.47 implement this specific method?" Use: `cat $(go env GOMODCACHE)/path/to/lib@version/file.go`
-- **gopls MCP First (MANDATORY)**: When in a Go workspace with gopls MCP available, you MUST use gopls tools in this order:
-  1. `go_workspace` — MUST call at session start to detect workspace
-  2. `go_file_context` — MUST call after reading ANY .go file for the first time
-  3. `go_symbol_references` — MUST call before modifying ANY symbol definition
-  4. `go_diagnostics` — MUST call after EVERY code edit to .go files
-  5. `go_vulncheck` — MUST call after any go.mod dependency changes
-  Failure to use these tools when available is an error. Fall back to LSP tool or grep ONLY if gopls MCP is not configured.
+- **gopls MCP First**: In a Go workspace with gopls MCP available, use the gopls tools in this order, because they answer with type information that grep cannot:
+  1. `go_workspace` at session start, to detect the workspace
+  2. `go_file_context` after the first read of any `.go` file
+  3. `go_symbol_references` before modifying a symbol definition
+  4. `go_diagnostics` after each edit to `.go` files
+  5. `go_vulncheck` after any `go.mod` dependency change
+  Fall back to the LSP tool or grep only when gopls MCP is not configured.
 
 ## Reference Loading Table
 

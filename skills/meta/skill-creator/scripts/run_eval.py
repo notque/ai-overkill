@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skill-path", required=True, help="Path to the skill directory (contains SKILL.md)")
     p.add_argument("--prompt", required=True, help="Test prompt text to run")
     p.add_argument("--output-dir", required=True, help="Directory to write outputs, transcript, timing, metrics")
-    p.add_argument("--model", default="claude-sonnet-4-6", help="Claude model to use (default: claude-sonnet-4-6)")
+    p.add_argument("--model", default=None, help="Claude model for claude -p (default: your configured model)")
     p.add_argument("--no-skill", action="store_true", help="Run without loading the skill (baseline run)")
     p.add_argument("--timeout", type=int, default=300, help="Max seconds to wait for claude -p (default: 300)")
     return p
@@ -59,7 +59,7 @@ def build_claude_command(
     skill_path: Path,
     prompt: str,
     outputs_dir: Path,
-    model: str,
+    model: str | None,
     no_skill: bool,
 ) -> list[str]:
     """Construct the claude -p command with appropriate flags."""
@@ -67,8 +67,7 @@ def build_claude_command(
         "claude",
         "-p",
         prompt,
-        "--model",
-        model,
+        *(["--model", model] if model else []),
         "--output-format",
         "json",
     ]
@@ -143,7 +142,7 @@ def run_eval(args: argparse.Namespace) -> int:
     # Write transcript
     transcript_lines = [
         "# Execution Transcript\n",
-        f"**Model**: {args.model}\n",
+        f"**Model**: {args.model or 'configured default'}\n",
         f"**Skill loaded**: {not args.no_skill}\n",
         f"**Duration**: {duration:.2f}s\n",
         f"**Exit code**: {result.returncode}\n\n",

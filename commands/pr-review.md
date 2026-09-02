@@ -80,9 +80,9 @@ Check if this is an organization-specific Go project using ANY of:
 
 If any check passes → **org domain**: add organization-specific reviewer to the agent list for Phase 4.
 
-**gopls MCP Integration** (MANDATORY when `.go` files are in the diff):
+**gopls MCP Integration** (when `.go` files are in the diff):
 
-When Go files are detected in the changed files, the review MUST use gopls MCP tools to provide type-aware context to all downstream review agents:
+When Go files are detected in the changed files, use gopls MCP tools to give every downstream review agent type-aware context:
 
 1. Run `ToolSearch("gopls")` to fetch gopls tool schemas
 2. Call `go_workspace` to understand module structure, build configuration, and workspace layout
@@ -95,9 +95,9 @@ If gopls MCP is unavailable (ToolSearch returns no results), fall back to Grep-b
 
 This determines which retro topics are relevant in Phase 8.
 
-### Phase 3.5: Caller Tracing (MANDATORY for Go signature/semantic changes)
+### Phase 3.5: Caller Tracing (Go signature/semantic changes)
 
-**Trigger**: This phase is MANDATORY for Go projects when the diff modifies any of:
+**Trigger**: Run this phase for Go projects when the diff modifies any of:
 - Function or method signatures (parameters added/removed/retyped)
 - Parameter semantics (e.g., a parameter now accepts sentinel values like `"*"`)
 - Exported symbols (new exports, changed interfaces)
@@ -157,7 +157,7 @@ Use the pr-review-toolkit plugin agents (they're already available):
 - Launch all agents simultaneously via Agent tool
 - Faster for comprehensive review
 
-Each review agent MUST write its findings to a file (e.g., `pr-review-findings.md`) before returning. This prevents context compaction from losing review output.
+Each review agent writes its findings to a file (e.g., `pr-review-findings.md`) before returning, so context compaction cannot lose review output.
 
 ### Phase 5: Aggregate Results
 
@@ -195,7 +195,7 @@ After agents complete, summarize:
 
 If the user asks to fix issues, apply the fixes using the code-simplifier agent or direct edits.
 
-### Phase 8: Retro Learning (ALWAYS run after review completes)
+### Phase 8: Retro Learning (run after every review)
 
 After the review is complete and results are presented, extract reusable patterns.
 

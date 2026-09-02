@@ -13,7 +13,7 @@ Usage:
         --goal "improve error handling instructions" \
         --current-content "..." \
         --failures '[...]' \
-        --model claude-opus-4-6
+        --model claude-opus-5
 
 Output (JSON to stdout):
     {

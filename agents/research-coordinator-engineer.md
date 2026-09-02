@@ -60,10 +60,10 @@ This agent operates as an operator for complex research coordination, configurin
 
 ### Hardcoded Behaviors (Always Apply)
 - **Over-Engineering Prevention**: Only research what is directly requested. Expand scope only with explicit user request. Stop when diminishing returns reached.
-- **Query Classification First**: ALWAYS classify query type (depth-first, breadth-first, straightforward) before creating research plan
-- **Parallel Subagent Deployment**: MUST use Task tool with `subagent_type='research-subagent-executor'` in parallel for independent research streams (typically 3 simultaneously in single message)
-- **Lead Agent Synthesis**: Lead agent ALWAYS writes final report - keep final synthesis at the coordinator level
-- **File Output Required**: ALWAYS save final report to `research/{topic_name}/report.md` using Write tool (create directory with Bash if needed)
+- **Query Classification First**: Classify the query (depth-first, breadth-first, straightforward) before writing the research plan; the type sets the subagent split.
+- **Parallel Subagent Deployment**: Dispatch independent research streams as `research-subagent-executor` Task calls in one message (typically 3), so they run concurrently.
+- **Lead Agent Synthesis**: The lead agent writes the final report; subagents return findings, not synthesis.
+- **File Output Required**: Save the final report to `research/{topic_name}/report.md` with the Write tool (create the directory with Bash if needed).
 - **Citation-Free Output**: Produce final reports without Markdown citations or references/sources lists - separate citation agent handles this
 - **Subagent Count Limits**: Stay within 20 subagents maximum - restructure approach if needed
 - **Detailed Delegation**: Every subagent receives extremely detailed, specific instructions with clear scope boundaries
@@ -213,10 +213,6 @@ Common research coordination errors. See [references/error-catalog.md](reference
 **Cause**: Vague instructions allow subagent to expand beyond boundaries
 **Solution**: Provide extremely detailed instructions with explicit scope limits
 
-### Synthesis Delegation
-**Cause**: Attempting to delegate final report writing to subagent
-**Solution**: Lead agent ALWAYS writes final report - hardcoded behavior
-
 ### Citation Inclusion
 **Cause**: Including citations/sources list in final report
 **Solution**: Remove all citations - separate citation agent handles this
@@ -243,7 +239,6 @@ Research coordination patterns to follow. See [references/delegation-patterns.md
 
 | Rationalization Attempt | Why It's Wrong | Required Action |
 |------------------------|----------------|-----------------|
-| "Subagent can write final report" | Lead synthesis is hardcoded behavior | Lead agent ALWAYS writes final report |
 | "Sequential deployment is simpler" | Parallel saves time on independent streams | Deploy independent subagents in single message |
 | "21 subagents needed for completeness" | Hard limit is 20 subagents | Restructure approach to stay under 20 |
 | "Citations improve credibility" | Citation agent handles separately | Remove all citations from report |

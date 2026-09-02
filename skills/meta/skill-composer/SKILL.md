@@ -90,9 +90,9 @@ Construct the execution DAG as a JSON structure with nodes (skills) and edges (d
 python3 ${CLAUDE_SKILL_DIR}/scripts/build_dag.py skill-index.json task-description.json
 ```
 
-**Step 2: Validate the DAG (MANDATORY before execution)**
+**Step 2: Validate the DAG**
 
-ALWAYS validate the execution graph is acyclic before moving to execution. Validation checks:
+Validate the execution graph before moving to execution. Validation checks:
 - **Acyclic**: No circular dependencies exist between skills
 - **Compatibility**: Output types from each skill match input requirements of downstream skills (consult `references/compatibility-matrix.md`)
 - **Availability**: All referenced skills exist in the skill index
@@ -104,9 +104,9 @@ If validation fails, fix the issue and re-validate. Common fixes:
 - Missing skill: Check spelling, re-run discovery
 - Ordering violation: Reorder phases to satisfy dependencies
 
-**Step 3: Present the execution plan (Dry run is MANDATORY)**
+**Step 3: Present the execution plan**
 
-ALWAYS show the execution plan and get user confirmation before running skills. This prevents wasting time on composition errors:
+Show the execution plan and get user confirmation before running skills, so composition errors surface before any skill runs:
 
 ```
 === Execution Plan ===
@@ -155,7 +155,7 @@ For parallel phases:
 
 **Step 2: Pass context between skills**
 
-ALWAYS verify output/input compatibility between chained skills before passing context:
+Verify output/input compatibility between chained skills before passing context:
 
 1. Capture output from completed skill
 2. Transform to format expected by next skill (validate using `references/compatibility-matrix.md`)
@@ -173,7 +173,7 @@ Show command output rather than describing it. Be concise but informative.
 
 **Step 4: Handle failures during execution**
 
-ALWAYS catch skill failures and determine if remaining chain can continue. If a skill fails mid-chain:
+Catch skill failures and decide whether the remaining chain can continue. If a skill fails mid-chain:
 
 1. **Assess impact**: Does this block downstream skills?
    - Critical (blocks all downstream): Stop chain, report what completed
