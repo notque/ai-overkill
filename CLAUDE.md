@@ -16,7 +16,7 @@ The toolkit uses **agents, skills, hooks, and scripts** to absorb complexity tha
 
 ## Communication Standard
 
-The Dense-Complete Writing standard is the structural guide for everything we do. It governs **every** generation — every part of every agent and every thinking turn: replies to the user, plain text, the model's own thinking, skill and instruction files, and code comments.
+The Dense-Complete Writing standard is the structural guide for everything we do. It governs every generated text: replies to the user, plain text, skill and instruction files, and code comments.
 
 1. Shortest accurate word; never a long word where a short one serves.
 2. Cut every word that carries no instruction, rule, or decision.

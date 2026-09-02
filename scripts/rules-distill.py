@@ -372,15 +372,16 @@ Extract up to 10 behavioral principles from this skill that:
 2. Would be useful as shared rules for ALL Claude Code agents
 3. Have a clear violation risk (what breaks if ignored)
 
-Return ONLY a JSON array of strings. Each string is one principle (1-2 sentences max).
+Return the principles as a JSON array of strings, one principle per string (1-2 sentences each).
 Example: ["Always exit 0 from hooks regardless of errors", "Never auto-apply changes without explicit user approval"]
 
 Return [] if no universal principles are found."""
 
         raw, _ = _run_claude_code(prompt, model="sonnet")
         raw = raw.strip()
-        # Parse JSON
-        principles = json.loads(raw)
+        # Parse the first JSON array in the reply; tolerate surrounding prose or fences.
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        principles = json.loads(match.group(0) if match else raw)
         if not isinstance(principles, list):
             return None
         return [

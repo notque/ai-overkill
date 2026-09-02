@@ -84,7 +84,7 @@ Based on the review request, load the appropriate reference(s):
 
 ### Phase 3: Analyze and Find
 
-6. Apply each loaded domain reference's methodology. Report at most 3 findings per domain dimension because more than 3 per dimension produces noise that buries the critical issues across 9 possible domains.
+6. Apply each loaded domain reference's methodology. Report only the findings that matter most in each domain dimension; a long list per dimension buries the critical issues across 9 possible domains.
 7. Each finding MUST include all 4 fields: **component** (service/file/module), **severity** (CRITICAL / HIGH / MEDIUM / LOW), **evidence command** (the Grep/Glob/Read invocation that proves the finding), and **one-sentence fix**. Do not describe findings without these four fields because findings without actionable specifics get ignored.
 8. Lead each finding with the actionable content; add context only where the fix depends on it, because reviewers read findings across multiple domains.
 9. Cross-reference findings across loaded domains. A silent failure in error handling that also creates an observability gap is one finding with two domain tags, not two separate findings.
