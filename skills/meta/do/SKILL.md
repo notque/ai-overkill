@@ -32,7 +32,7 @@ Google Developer Documentation Style (`build-dispatch.py` injects; `skills/share
 
 ## Instructions
 
-### Phase Banners (MANDATORY)
+### Phase Banners
 
 Every phase: `/do > Phase N: PHASE_NAME — description...`
 After Phase 2: `===` routing banner. Both required.
@@ -50,11 +50,11 @@ Read CLAUDE.md first.
 | Medium | Required | Required | Route |
 | Complex | 2+ | 2+ | Route |
 
-Beyond user-named file = Simple+, MUST route. Uncertain → UP. Depth: `references/progressive-depth.md`. NOT Trivial: repos/URLs, opinions, git, codebase Qs, retro, comparisons.
+Beyond user-named file = Simple+, must route. Uncertain → UP. Depth: `references/progressive-depth.md`. NOT Trivial: repos/URLs, opinions, git, codebase Qs, retro, comparisons.
 
 Parallel FIRST: 2+ failures / 3+ subtasks → multiple Agent tools. Research→research-coordinator-engineer; coord→project-coordinator-engineer; plan+exec→subagent-driven-development; feature→feature-lifecycle (.feature/→feature-state.py status). Force Direct: OFF.
 
-**Creation Detection** (MANDATORY): create/scaffold/build/"add new"/"new [component]" targeting agent/skill/pipeline/hook/feature/plugin/workflow/voice. ANY + Simple+ → `is_creation=true`, Phase 4 Step 0. Not: debug/review/fix/refactor/explain/audit.
+**Creation Detection**: create/scaffold/build/"add new"/"new [component]" targeting agent/skill/pipeline/hook/feature/plugin/workflow/voice. Any of these + Simple+ → `is_creation=true`, Phase 4 Step 0. Not: debug/review/fix/refactor/explain/audit.
 
 **Gate**: Complexity set. Creation → `[CREATION REQUEST DETECTED]`. Trivial: direct. Simple+: Phase 2.
 
@@ -96,15 +96,15 @@ Hold the decision internally as JSON. It stays unprinted; the `[do-route]` marke
 
 ```
 SECTION-INTEGRITY RULE (HARD CONSTRAINT — never violate):
-- `agent` MUST be a name listed in the manifest's AGENTS: section, or null. Never put a skill name in `agent`.
-- `skill` MUST be a name listed in the SKILLS: section, or null. Never put an agent name in `skill`.
-- `pipeline` MUST be a name listed in the PIPELINES: section, or null.
+- `agent` must be a name listed in the manifest's AGENTS: section, or null. Do not put a skill name in `agent`.
+- `skill` must be a name listed in the SKILLS: section, or null. Do not put an agent name in `skill`.
+- `pipeline` must be a name listed in the PIPELINES: section, or null.
 - If no agent fits, return `"agent": null` — DO NOT promote a skill into the `agent` slot. The router falls back to a default agent (e.g. `general-purpose`) and pairs it with your chosen skill.
 - Skills marked FORCE are still skills, not agents. They fill the `skill` slot only. Example: `shell-config` is a SKILL — on a match set `"skill": "shell-config"` and pick a separate agent (or null) for `agent`.
 - Pipelines marked FORCE are still pipelines. They fill the `pipeline` slot only, and the run still needs its own `agent` and `skill`.
-- Every name in `agents` MUST also be an AGENTS: name, and distinct from `agent`.
+- Every name in `agents` must also be an AGENTS: name, and distinct from `agent`.
 
-FORCE-ROUTE RULE: manifest entries marked FORCE — in SKILLS: or in PIPELINES: — MUST be selected when their domain clearly matches the user's intent. FORCE matching is SEMANTIC, not keyword-based — match what the user MEANS, not individual words:
+FORCE-ROUTE RULE: manifest entries marked FORCE — in SKILLS: or in PIPELINES: — are selected when their domain clearly matches the user's intent. FORCE matching is semantic, not keyword-based — match what the user means, not individual words:
 - "push my changes" → pr-workflow ✓ (git push) | "push back on this design" → NOT pr-workflow (means resist)
 - "configure my fish shell" → shell-config ✓ (the Fish shell) | "fish for bugs" → NOT shell-config (means search)
 - "quick fix to the login page" → quick ✓ (small edit) | "quick overview of the architecture" → NOT quick (means explore)
@@ -128,7 +128,7 @@ SPECIFICITY RULES:
 - Agent handles the domain. Skill handles the methodology. Pick both when possible.
 - Prefer entries whose description semantically matches the request, not just keyword overlap.
 - A task verb in the request (review, debug, refactor, test) prefers the skill matching that verb.
-- GENUINE git / version-control operations — actually pushing code, committing files, opening or merging a pull request — ALWAYS select pr-workflow. Metaphorical uses ("commit to a decision", "merge ideas in your head", "push back on a proposal") NEVER route to pr-workflow.
+- GENUINE git / version-control operations — actually pushing code, committing files, opening or merging a pull request — select pr-workflow. Metaphorical uses ("commit to a decision", "merge ideas in your head", "push back on a proposal") do not route to pr-workflow.
 - Return a single skill name as a string, not an array. Multiple candidates → pick the primary one.
 ```
 
@@ -184,9 +184,9 @@ No row fits → read the manifest's AGENTS: section again and match on descripti
 
 **Pairing rule (the measured defect).** 72% of those 128 (92) carried a named domain skill, fallbacks excluded: the router read the domain and had no slot to say so. A specific domain skill therefore obliges a matching domain agent — or a stated reason no agent covers it.
 
-**Fallback reason (MANDATORY).** Every `general-purpose` pick carries a written reason, one line, in both places the dispatch records it: the Step 3 banner's `-> Agent:` why field, and `task_spec.constraints` handed to `build-dispatch.py`. Shape: `general-purpose: <why no listed agent covers this domain>`. A pick with no reason is a routing bug — return to the table.
+**Fallback reason.** Every `general-purpose` pick carries a written reason, one line, in both places the dispatch records it: the Step 3 banner's `-> Agent:` why field, and `task_spec.constraints` handed to `build-dispatch.py`. Shape: `general-purpose: <why no listed agent covers this domain>`. A pick with no reason is a routing bug — return to the table.
 
-**Section validator (MANDATORY before dispatch):**
+**Section validator (before dispatch):**
 
 ```
 agents = tokens(manifest, "AGENTS:", "SKILLS:")
@@ -211,12 +211,12 @@ rm -f "$REQUEST_FILE"
 
 → `PRE_ROUTE_RESULT`.
 
-- **(a) Safety-critical force-route override — the one case that beats Step 0.** `"confidence": "high"` with a `force_route` match for `pr-workflow` or a security skill overrides a disagreeing semantic pick: genuine push, commit, create-PR, and merge work, and security work, MUST hit the quality gates (lint, tests, CI). Record `match_type`. The agent stays the Step 0 pick, or the Agent-greediness table result when Step 0 returned null.
+- **(a) Safety-critical force-route override — the one case that beats Step 0.** `"confidence": "high"` with a `force_route` match for `pr-workflow` or a security skill overrides a disagreeing semantic pick: genuine push, commit, create-PR, and merge work, and security work, must hit the quality gates (lint, tests, CI). Record `match_type`. The agent stays the Step 0 pick, or the Agent-greediness table result when Step 0 returned null.
 - **(b) Every other result keeps the Step 0 decision.** Phrase and unigram guards inside `pre-route.py` already suppress idiom false positives ("fish out", metaphorical commit/merge), so a guarded or non-matching result leaves the semantic pick standing. Matching only force-routes is by design — the semantic route owns the long tail.
 
 **Step 2: Apply skill override** — "review"→systematic-code-review, "debug"→workflow (systematic-debugging pipeline), "refactor"→workflow (systematic-refactoring pipeline), "TDD"→test-driven-development. Full table in INDEX.
 
-**Step 3: Routing banner** (MANDATORY — first visible output)
+**Step 3: Routing banner** (first visible output)
 
 ```
 ===================================================================
@@ -305,7 +305,7 @@ anti-rationalization-core always + verification-checklist (code/debug) + anti-ra
 
 **Step 2: Invoke agent**
 
-**`build-dispatch.py` (MANDATORY)** — source for `[do-route]`, exact Skill-tool calls, thinking, budget, Task Spec, injections, worktree/local-only. Never hand-assemble.
+**`build-dispatch.py`** — source for `[do-route]`, exact Skill-tool calls, thinking, budget, Task Spec, injections, worktree/local-only. Do not hand-assemble it.
 
 ```bash
 python3 "$SDIR/build-dispatch.py" --json '{
@@ -389,7 +389,7 @@ All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, 
 
 **Coordinator model.** The main-thread coordinator routes and evaluates but never executes; its cost is input-dominated (largest context, short outputs), and DeepSWE Pass@1 measures execution it never does. Picks: anthropic harness → `opus` (Opus 5, the session model — it replaces the prior sonnet pick); openai harness → `gpt-5.6-terra`/`high`. Safe because deterministic scripts (pre-route, manifest, build-dispatch, health weights) absorb routing complexity and the learning loop bounds misroute cost. Downgrade the anthropic coordinator to `sonnet` only as a deliberate plan-limit measure. Session model is set via harness config (`/model`), not per-turn.
 
-**Medium+ MUST set a model or policy.** Codex prompts stay read-only and public unless a task requires otherwise.
+**Medium+ must set a model or policy.** Codex prompts stay read-only and public unless a task requires otherwise.
 
 **Complex (3+ sources):**
 
