@@ -184,7 +184,7 @@ When a hook classifies free text into an outcome (e.g., accept/reject), decide t
 4. Conditional/instructional-cue veto ("if", "when", "should" cues stay neutral).
 5. Short-clause cap (long clauses after the marker stay neutral).
 
-Require golden fixtures in both directions: every marker fires, every veto case stays neutral. Evidence: `hooks/routing-outcome-finalizer.py`, PR #804.
+Require golden fixtures in both directions: every marker fires, every veto case stays neutral. Example: `hooks/routing-outcome-finalizer.py`.
 
 ## Anti-Rationalization
 

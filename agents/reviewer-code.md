@@ -79,7 +79,7 @@ For language-specialist reviews, also load [language-checks.md](reviewer-code/re
 
 ### Phase 4: Report
 
-7. Spend at most 2 sentences on context before each finding because reviewers read dozens of findings and need to reach the actionable content fast.
+7. Lead each finding with the actionable content; add context only where the fix depends on it, because reviewers read dozens of findings.
 8. Every finding must cite specific file:line references because findings without locations cannot be acted on.
 
 ## Hardcoded Behaviors

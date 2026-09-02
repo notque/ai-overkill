@@ -262,7 +262,7 @@ class TestCostEstimation:
     def test_token_count_parsing(self) -> None:
         stdout = "Some output\ninput_tokens: 1000\noutput_tokens: 500\n"
         cost = agent_scheduler.estimate_cost("haiku", stdout)
-        expected = (1000 / 1_000_000) * 0.25 + (500 / 1_000_000) * 1.25
+        expected = (1000 / 1_000_000) * 1.00 + (500 / 1_000_000) * 5.00
         assert abs(cost - round(expected, 6)) < 0.000001
 
     def test_unknown_model_falls_back_to_sonnet(self) -> None:

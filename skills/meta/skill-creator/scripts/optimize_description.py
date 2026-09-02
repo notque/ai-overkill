@@ -35,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--skill-path", required=True, help="Path to the skill directory (contains SKILL.md)")
     p.add_argument("--eval-set", required=True, help="Path to trigger-eval.json")
-    p.add_argument("--model", default="claude-sonnet-4-6", help="Claude model to use (default: claude-sonnet-4-6)")
+    p.add_argument("--model", default=None, help="Claude model for claude -p (default: your configured model)")
     p.add_argument("--max-iterations", type=int, default=5, help="Maximum optimization iterations (default: 5)")
     p.add_argument("--seed", type=int, default=42, help="Random seed for train/test split (default: 42)")
     p.add_argument("--dry-run", action="store_true", help="Show split and current accuracy without optimizing")
@@ -105,7 +105,7 @@ def test_trigger(query: str, description: str, model: str) -> bool:
 
     try:
         result = subprocess.run(
-            ["claude", "-p", prompt, "--model", model],
+            ["claude", "-p", prompt, *(["--model", model] if model else [])],
             capture_output=True,
             text=True,
             timeout=30,
@@ -175,7 +175,7 @@ def propose_improvement(
 
     try:
         result = subprocess.run(
-            ["claude", "-p", prompt, "--model", model],
+            ["claude", "-p", prompt, *(["--model", model] if model else [])],
             capture_output=True,
             text=True,
             timeout=60,
