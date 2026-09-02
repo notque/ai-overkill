@@ -147,7 +147,7 @@ Strips built-in tool-use instructions. The toolkit's agents, skills, hooks, and 
 
 | Layer | Count | Does |
 |---|---|---|
-| Agents | 44 | Domain knowledge: idiom tables, failure mode catalogs, error-to-fix mappings |
+| Agents | 43 | Domain knowledge: idiom tables, failure mode catalogs, error-to-fix mappings |
 | Skills | 122 | Phased methodology with gates. Can't skip steps. Each phase has exit criteria requiring evidence. |
 | Hooks | 78 | Fire on lifecycle events. Block incomplete work. Zero LLM cost. |
 | Scripts | 136 | Determinism: test runners, linters, validators. No LLM judgment. |
