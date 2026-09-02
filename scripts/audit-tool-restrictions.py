@@ -93,7 +93,6 @@ AGENT_ROLES = {
     "database-engineer": "code-modifier",
     "github-profile-rules-engineer": "research",
     "golang-general-engineer": "code-modifier",
-    "golang-general-engineer-compact": "code-modifier",
     "hook-development-engineer": "code-modifier",
     "kubernetes-helm-engineer": "code-modifier",
     "mcp-local-docs-engineer": "code-modifier",

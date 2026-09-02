@@ -227,7 +227,7 @@ echo "Saved Wave 0 findings: $(wc -l < "$REVIEW_DIR/wave0-findings.md") lines"
 - Error handling that assumes specific error types from imported libraries
 - Control flow that depends on library lifecycle (reconnect, rebalance, retry)
 
-**Step 2: Dispatch a single `golang-general-engineer-compact` agent** (model: sonnet):
+**Step 2: Dispatch a single `golang-general-engineer` agent** (model: sonnet):
 
 ```
 You are a library contract verifier. Your job is to read library source code

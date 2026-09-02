@@ -59,7 +59,6 @@ routing:
     - Go lint
   pairs_with:
     - golang-general-engineer
-    - golang-general-engineer-compact
     - systematic-code-review
 ---
 

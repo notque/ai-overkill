@@ -97,7 +97,6 @@ Request deep expertise: *"Use the [name] agent"*
 | Agent | Domain |
 |-------|--------|
 | `golang-general-engineer` | Go 1.26+, debugging, code review, performance (with frontmatter hooks) |
-| `golang-general-engineer-compact` | Go - compact version for tight context budgets |
 | `python-general-engineer` | Python 3.12+, debugging, code review, performance (with frontmatter hooks) |
 | `python-openstack-engineer` | OpenStack: Nova, Neutron, Cinder, Oslo libraries, WSGI middleware |
 | `kotlin-general-engineer` | Kotlin: features, coroutines, debugging, code quality, multiplatform |

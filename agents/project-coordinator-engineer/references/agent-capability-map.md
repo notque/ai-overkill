@@ -8,7 +8,7 @@
 
 | Task Type | Primary Agent | Fallback | Avoid |
 |-----------|--------------|----------|-------|
-| Go source code | `golang-general-engineer` | `golang-general-engineer-compact` | general-purpose |
+| Go source code | `golang-general-engineer` | — | general-purpose |
 | TypeScript backend API | `nodejs-api-engineer` | `typescript-frontend-engineer` | general-purpose |
 | TypeScript frontend/React | `typescript-frontend-engineer` | — | nodejs-api-engineer |
 | Python scripts/data | `python-general-engineer` | `python-openstack-engineer` | general-purpose |
