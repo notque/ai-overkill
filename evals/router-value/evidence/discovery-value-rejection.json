@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "experiment": "cross-repo discovery catalog deduplication",
+  "decision": "rejected_before_live_ab",
+  "decision_basis": "Insufficient current-repository byte savings for added implementation complexity; not a behavioral failure or statistical result.",
+  "provenance": {
+    "evidence_files": {
+      "/tmp/vexjoy-discovery-ab/CANCELLED.json": "d9f6d92e370c1782c054279b1d3160b25560cf6e9fc23ae1d8a84c3e88b87ce0",
+      "/tmp/vexjoy-discovery-ab/final-render-results.json": "c97bf3da22f1ed0ecb92088d2fa0b604ce4d15a8f5feb39ebc9f59643312950d",
+      "/tmp/vexjoy-discovery-ab/real-render/report.json": "0504ac00177d44a594cfdc9fafe247c7a1a24584e144dda0818caba5ba726586"
+    },
+    "hook_sources": {
+      "baseline": {
+        "path": "/home/feedgen/vexjoy-agent/hooks/cross-repo-agents.py",
+        "sha256": "228082c1a109a9540524574ce30e457ed50e23b362e33fd16f578c5bf64fdcad"
+      },
+      "candidate": {
+        "path": "/tmp/vexjoy-discovery-pr/hooks/cross-repo-agents.py",
+        "sha256": "c6f4327377b16bf89f011c657c2486e733183290a64bfd5a9ea27a5b38660a22"
+      }
+    }
+  },
+  "final_fixture_rendering": {
+    "all_eight_byte_identical": true,
+    "cases": [
+      {
+        "id": "01_local_only",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 466,
+        "candidate_bytes": 466
+      },
+      {
+        "id": "02_same_name_override",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 485,
+        "candidate_bytes": 485
+      },
+      {
+        "id": "03_stale_manifest",
+        "cache_fresh": false,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 493,
+        "candidate_bytes": 493
+      },
+      {
+        "id": "04_exact_duplicates",
+        "cache_fresh": true,
+        "discovered": 2,
+        "retained": 2,
+        "baseline_bytes": 640,
+        "candidate_bytes": 640
+      },
+      {
+        "id": "05_global_disabled_local",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 482,
+        "candidate_bytes": 482
+      },
+      {
+        "id": "06_misleading_metaphor",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 487,
+        "candidate_bytes": 487
+      },
+      {
+        "id": "07_unique_local_rule",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 503,
+        "candidate_bytes": 503
+      },
+      {
+        "id": "08_unknown_domain",
+        "cache_fresh": true,
+        "discovered": 1,
+        "retained": 1,
+        "baseline_bytes": 470,
+        "candidate_bytes": 470
+      }
+    ],
+    "synthetic_duplicate_supersession": {
+      "superseded_prior_candidate_bytes": 183,
+      "baseline_bytes": 640,
+      "final_candidate_bytes": 640,
+      "prior_640_to_183_savings_claim_valid_for_final_candidate": false
+    }
+  },
+  "real_rendering": {
+    "cache_fresh": true,
+    "global_cache_unchanged": true,
+    "measurements": {
+      "current44": {
+        "baseline_cards": 44,
+        "candidate_cards": 43,
+        "baseline_utf8_bytes": 11241,
+        "candidate_utf8_bytes": 11081,
+        "saved_bytes": 160,
+        "saved_percent": 1.4233609109509882
+      },
+      "installedlocal": {
+        "baseline_cards": 43,
+        "candidate_cards": 40,
+        "baseline_utf8_bytes": 10431,
+        "candidate_utf8_bytes": 9827,
+        "saved_bytes": 604,
+        "saved_percent": 5.7904323650656675
+      }
+    }
+  },
+  "implementation_complexity": {
+    "approximate_added_lines": 65,
+    "provenance": "Parent task assessment; not independently recounted in this evidence consolidation."
+  },
+  "paid_execution": {
+    "live_worker_calls": 0,
+    "calibration_attempts": 4,
+    "valid_calibration_calls": 0,
+    "calibration_status": "All four attempts interrupted after launch; partial artifacts retained.",
+    "input_tokens": null,
+    "output_tokens": null,
+    "cached_input_tokens": null,
+    "total_tokens": null,
+    "usage_status": "unknown; no completion usage emitted; do not report zero",
+    "live_behavioral_evidence": false
+  },
+  "limitations": [
+    "UTF-8 byte counts only; tokenizer unavailable and token savings unmeasured.",
+    "No production safety, routing-quality equivalence, total workflow cost, or statistical significance claim.",
+    "Original fixture freeze remained verified; final rendering supersedes earlier candidate rendering.",
+    "Nonexecuted trial preparation followed a failed duplicate-savings assertion; its trial freeze is invalid as evidence of a completed trial."
+  ]
+}
