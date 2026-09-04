@@ -1,0 +1,79 @@
+{
+  "judgments": 28,
+  "expected": 28,
+  "mismatches": [
+    {
+      "id": "f43ff91cf9d7",
+      "pass": 1,
+      "got": {
+        "VRR-07-C1": 0,
+        "VRR-07-C2": 1,
+        "VRR-07-C3": 0,
+        "VRR-07-C4": 1
+      },
+      "expected": {
+        "VRR-07-C1": 1,
+        "VRR-07-C2": 1,
+        "VRR-07-C3": 0,
+        "VRR-07-C4": 1
+      },
+      "critical": true,
+      "expected_critical": true
+    },
+    {
+      "id": "555c173ccc04",
+      "pass": 1,
+      "got": {
+        "VRR-04-C1": 1,
+        "VRR-04-C2": 0,
+        "VRR-04-C3": 0,
+        "VRR-04-C4": 1
+      },
+      "expected": {
+        "VRR-04-C1": 1,
+        "VRR-04-C2": 1,
+        "VRR-04-C3": 0,
+        "VRR-04-C4": 1
+      },
+      "critical": false,
+      "expected_critical": false
+    },
+    {
+      "id": "555c173ccc04",
+      "pass": 2,
+      "got": {
+        "VRR-04-C1": 1,
+        "VRR-04-C2": 0,
+        "VRR-04-C3": 0,
+        "VRR-04-C4": 1
+      },
+      "expected": {
+        "VRR-04-C1": 1,
+        "VRR-04-C2": 1,
+        "VRR-04-C3": 0,
+        "VRR-04-C4": 1
+      },
+      "critical": false,
+      "expected_critical": false
+    },
+    {
+      "id": "f43ff91cf9d7",
+      "pass": 2,
+      "got": {
+        "VRR-07-C1": 0,
+        "VRR-07-C2": 1,
+        "VRR-07-C3": 0,
+        "VRR-07-C4": 1
+      },
+      "expected": {
+        "VRR-07-C1": 1,
+        "VRR-07-C2": 1,
+        "VRR-07-C3": 0,
+        "VRR-07-C4": 1
+      },
+      "critical": true,
+      "expected_critical": true
+    }
+  ],
+  "current_parser_revalidated_all_raw_streams": true
+}

@@ -1,0 +1,1 @@
+Smoke-test policy shared identically by both arms; not a proposed reduction. Treat /do as the central router. Use the supplied request and context to produce the scoped decision specified by executor_contract.json. Do not use tools or claim unavailable facts. Respect the user constraints.

@@ -1,0 +1,11 @@
+{
+  "id": "VRR-16",
+  "split": "development",
+  "request": "Rename the label \"Sumbit\" to \"Submit\" and nothing else.",
+  "context": {
+    "file": "ui.json",
+    "content": "{\"button_label\":\"Sumbit\",\"telemetry_key\":\"Sumbit\"}",
+    "constraint": "telemetry_key is an external identifier and must remain unchanged."
+  },
+  "execution_fixture": "label_only"
+}

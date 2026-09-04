@@ -1,0 +1,7 @@
+{
+  "status": "REJECTED_STRUCTURAL_COUNTEREXAMPLE",
+  "completed_trajectories": 165,
+  "planned_trajectories": 300,
+  "reason": "Name equality does not establish duplicate knowledge: 12 installed bodies differ from canonical and one installed agent is absent from canonical. General corpus did not directly exercise local overrides. No effect estimate or promotion claimed. Stop remaining calls; retain all completed records and interrupted attempts.",
+  "next": "Fresh protocol preserving byte-distinct/local-only/stale/unverified agents, with independent discovery-boundary holdouts."
+}
