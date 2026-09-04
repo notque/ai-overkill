@@ -23,151 +23,38 @@ routing:
     - python-quality-gate
 ---
 
-# Code Linting Skill
+# Code linting
 
-Unified linting workflow for Python (ruff) and JavaScript (Biome). Covers check, format, and auto-fix for both languages. Only handles Python and JavaScript/TypeScript -- complex logic issues and other languages are out of scope.
+Check or fix Python with Ruff and JavaScript/TypeScript with Biome. Use repository commands and configuration before these defaults. Read project instructions, `pyproject.toml`, and `biome.json`; preserve configured rules and line width.
 
-## Reference Loading Table
+## Check and fix
 
-| Signal | Load These Files | Why |
+Use the project virtual environment (`./venv/bin/ruff` or `./env/bin/ruff`) and installed JavaScript tooling. For mixed projects, check both languages unless the task selects one. Adapt `src/` to the actual source directory.
+
+| Task | Python | JavaScript/TypeScript |
 |---|---|---|
-| Python violations, ruff rules, F401/E711/B006/UP errors | `ruff-rules-reference.md` | Routes to the matching deep reference |
-| ruff not found, pyproject.toml config, ruff version differences | `ruff-rules-reference.md` | Routes to the matching deep reference |
-| JavaScript/TypeScript violations, Biome rules, noVar/useConst/noDoubleEquals | `biome-rules-reference.md` | Routes to the matching deep reference |
-| biome not found, biome.json config, migrating from ESLint | `biome-rules-reference.md` | Routes to the matching deep reference |
-| Linting CI failures, format check vs lint check differences | `biome-rules-reference.md` | Routes to the matching deep reference |
+| Check | `ruff check .` | `npx @biomejs/biome check src/` |
+| Format check | `ruff format --check .` | Included in Biome check |
+| Fix lint | `ruff check --fix .` | `npx @biomejs/biome check --write src/` |
+| Format | `ruff format .` | `npx @biomejs/biome format --write src/` |
 
-## Instructions
+If configured, use `make lint` or `make lint-fix`. Check first; apply fixes only within the requested work. Review `git diff`, undo incorrect fixes, then rerun lint and format checks. Do not change rules, install new tooling, or expand cleanup scope merely to get a pass.
 
-### 1. Read Project Configuration
+For remaining issues: F401 means remove or use the import; I001 needs import sorting; E501 needs shorter lines within existing settings. Biome `noVar` uses `let`/`const`, `useConst` marks unchanged bindings, and `noDoubleEquals` uses strict equality where semantics allow.
 
-Before running any linter, read the repository's CLAUDE.md for project-specific linting rules -- those override every default below. Then locate the project's linter config files (`pyproject.toml` for ruff, `biome.json` for Biome). All linter invocations must use these configs as-is; never override line width, rule sets, or other project settings.
+Report commands, exit status, and actionable rule/file:line diagnostics. Keep full logs available; summarize passing checks. Remove only temporary files created for this run, preserving useful failure logs.
 
-### 2. Detect Languages and Run Checks
+## Recovery and optional modes
 
-When a project contains both Python and JavaScript/TypeScript, lint both unless the user explicitly requests a single language. Run the check command first to see what violations exist:
+- **Ruff missing:** check the project virtual environment. Installation options are `pip install ruff` or `pipx run ruff check .`; install only within authorized dependency work.
+- **Biome missing:** check package dependencies before npx execution; do not let a read-only check download tooling unexpectedly.
+- **Config missing:** verify project root before running defaults.
+- **Strict warnings, format-only, or rule exceptions:** use only when requested; do not weaken repository requirements.
 
-```bash
-# Python -- use project venv when available
-ruff check .
-# or: ./venv/bin/ruff check .
+## Reference loading table
 
-# JavaScript/TypeScript
-npx @biomejs/biome check src/
-```
-
-**Always display the complete linter output.** Never summarize results as "no issues found" or describe output secondhand -- show the actual command output so the user can see every error, warning, and style issue together.
-
-### 3. Review Output Before Fixing
-
-Read the full output and understand what violations exist and their severity before applying any fixes. Jumping straight to `--fix` without reviewing risks auto-removing imports that are still needed or making changes that reduce readability.
-
-### 4. Apply Auto-Fixes
-
-Apply `--fix` for safe categories: formatting, import ordering, and style issues that the linter can correct mechanically.
-
-```bash
-# Python
-ruff check --fix .
-ruff format .
-
-# JavaScript/TypeScript
-npx @biomejs/biome check --write src/
-npx @biomejs/biome format --write src/
-```
-
-Only run the linters and fixes that were requested. Do not add custom rules, configuration changes, or additional tooling unless the user explicitly asks.
-
-### 5. Review the Diff
-
-After auto-fix, review the diff to verify changes are correct and safe:
-
-```bash
-git diff
-```
-
-Auto-fixes can occasionally remove imports that are still needed, reformat code in ways that hurt readability, or introduce subtle bugs through variable shadowing changes. Revert any problematic auto-fixes before proceeding.
-
-### 6. Fix Remaining Issues Manually
-
-For violations that cannot be auto-fixed, explain each one and how to resolve it:
-
-**Python common fixes:**
-- Unused import (F401): Remove or use the import
-- Import order (I001): Run `ruff check --fix`
-- Line too long (E501): Break into multiple lines or adjust line-length config
-
-**JavaScript common fixes:**
-- noVar: Replace `var` with `let`/`const`
-- useConst: Use `const` for unchanging values
-- noDoubleEquals: Use `===` instead of `==`
-
-### 7. Verify Before Commit
-
-Run the linter one final time to confirm zero violations before suggesting a commit:
-
-```bash
-ruff check .
-ruff format --check .
-npx @biomejs/biome check src/
-```
-
-Report output factually -- no self-congratulation, just the command results.
-
-### 8. Clean Up
-
-Remove any temporary lint report files or cache files created during execution.
-
-### Combined Commands (if Makefile configured)
-
-```bash
-make lint       # Check both Python and JS
-make lint-fix   # Fix both Python and JS
-```
-
-### Configuration Reference
-
-| Tool | Config | Typical Line Width |
-|------|--------|-------------------|
-| ruff | pyproject.toml | 88-120 |
-| biome | biome.json | 80-120 |
-
-### Optional Modes
-
-- **Strict mode**: Treat warnings as errors (fail on any issue) -- enable when requested
-- **Format only**: Skip linting, only run formatting -- enable when requested
-- **Ignore specific rules**: Disable particular lint rules for edge cases -- enable when requested
-
-## Error Handling
-
-### Error: "ruff not found"
-**Cause**: Virtual environment not activated or ruff not installed
-**Solution**:
-- Use virtual environment path: `./venv/bin/ruff` or `./env/bin/ruff`
-- Or install globally: `pip install ruff`
-- Or use pipx: `pipx run ruff check .`
-
-### Error: "biome not found"
-**Cause**: Biome not installed in project
-**Solution**: Run `npx @biomejs/biome` to use npx-based execution
-
-### Error: "Configuration file not found"
-**Cause**: Running from wrong directory
-**Solution**: cd to project root where pyproject.toml/biome.json exist
-
-## Reference Loading
-
-Load these files when the task involves the corresponding domain:
-
-| Task type | Reference file |
-|-----------|---------------|
-| Python violations, ruff rules, F401/E711/B006/UP errors | `references/ruff-rules-reference.md` |
-| ruff not found, pyproject.toml config, ruff version differences | `references/ruff-rules-reference.md` |
-| JavaScript/TypeScript violations, Biome rules, noVar/useConst/noDoubleEquals | `references/biome-rules-reference.md` |
-| biome not found, biome.json config, migrating from ESLint | `references/biome-rules-reference.md` |
-| Linting CI failures, format check vs lint check differences | `references/ruff-rules-reference.md` + `references/biome-rules-reference.md` |
-
-## References
-
-- [ruff documentation](https://docs.astral.sh/ruff/)
-- [Biome documentation](https://biomejs.dev/)
+| Signal | Reference |
+|---|---|
+| Ruff rules, configuration, versions, or F401/E711/B006/UP errors | `references/ruff-rules-reference.md` |
+| Biome rules, configuration, ESLint migration, or noVar/useConst/noDoubleEquals | `references/biome-rules-reference.md` |
+| Lint versus format CI failure | Relevant tool reference above |
