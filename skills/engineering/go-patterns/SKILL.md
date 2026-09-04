@@ -65,20 +65,10 @@ routing:
 # Go Patterns Skill
 
 Umbrella skill for Go development: Google style, testing, concurrency, error handling,
-failure modes, code review, SAP CC conventions, and quality gates. Every Go task starts
-with the complete Google Go style baseline, then loads task-specific references.
+failure modes, code review, SAP CC conventions, and quality gates. Load the references
+relevant to the task.
 
-## Mandatory Google Style Baseline (Every Go Task)
-
-Before reading, writing, changing, generating, debugging, or reviewing Go code:
-
-1. Read `${CLAUDE_SKILL_DIR}/references/google-style-guide/LOAD_ORDER.md`.
-2. Read every file it lists, in order. Do not omit or sample parts.
-
-Do not skip this baseline for small changes, tight context budgets, reviews, tests, or
-generated code. The ordered files reconstruct all four complete pinned upstream
-documents—overview, guide, decisions, and best practices—without excerpts.
-Apply their guidance to all Go code produced by the agent.
+## Google Style Precedence
 
 Use this precedence when guidance differs:
 
@@ -97,7 +87,7 @@ generated-code constraints, or compatibility requirements require one.
 
 | Signal | Load These Files | Why |
 |---|---|---|
-| Every Go task | `google-style-guide/LOAD_ORDER.md`, then every file it lists | Complete Google style baseline; always load every part of all four upstream documents |
+| Google-specific style decisions | Relevant sections under `google-style-guide/` | Check the pinned conventions needed for the task |
 | Testing | `testing.md` | Writing, fixing, or reviewing Go tests |
 | Concurrency | `concurrency.md` | Goroutines, channels, sync primitives, race conditions |
 | Error handling | `error-handling.md` | Error wrapping, sentinels, custom types, errors.Is/As |
@@ -108,12 +98,7 @@ generated-code constraints, or compatibility requirements require one.
 
 ## Instructions
 
-### Step 1: Load the Google Style Baseline
-
-Read the load-order manifest and every file it names. This gate is complete only after
-every part of all four upstream documents has been read in the current task.
-
-### Step 2: Identify the Go Domain
+### Step 1: Identify the Go Domain
 
 Classify the task into one or more domains, then load the corresponding reference files.
 Only load what is needed -- do not load all references for every task.
@@ -131,14 +116,14 @@ Only load what is needed -- do not load all references for every task.
 Multiple domains may apply. For example, reviewing a PR that includes concurrency code
 should load both `code-review.md` and `concurrency.md`.
 
-### Step 3: Load and Follow the Reference
+### Step 2: Load and Follow the Reference
 
 Read the selected reference file(s) using `${CLAUDE_SKILL_DIR}/references/<name>.md`.
 Each reference contains the full methodology, phases, code examples, and error handling
 for that domain. Follow the instructions in the reference as if they were this skill's
 instructions.
 
-### Step 4: Use Domain-Specific Sub-References
+### Step 3: Use Domain-Specific Sub-References
 
 Some references point to their own sub-reference files for extended patterns:
 
@@ -173,7 +158,7 @@ Some references point to their own sub-reference files for extended patterns:
 - `${CLAUDE_SKILL_DIR}/references/quality-gate/expert-review-patterns.md` -- Manual review patterns
 - `${CLAUDE_SKILL_DIR}/references/quality-gate/examples.md` -- Detailed usage examples
 
-### Step 5: Execute
+### Step 4: Execute
 
 Follow the loaded reference methodology. Each reference has its own phases, gates,
 and completion criteria. Apply them as written.
