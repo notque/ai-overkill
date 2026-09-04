@@ -1,0 +1,16 @@
+{
+  "verified": true,
+  "comparisons": {
+    "meaning": {
+      "status": "REJECT",
+      "recorded_cli_calls": 424,
+      "known_cli_tokens": 7251828
+    },
+    "constraints": {
+      "status": "ELIGIBLE_ON_OUTPUT_CONSTRAINTS_ONLY",
+      "recorded_cli_calls": 92,
+      "known_cli_tokens": 1554696
+    }
+  },
+  "promotion_authorized": false
+}

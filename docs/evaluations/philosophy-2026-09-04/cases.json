@@ -1,0 +1,152 @@
+[
+  {
+    "id": "dev01",
+    "prompt_file": "inputs/prompts/dev01.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev02",
+    "prompt_file": "inputs/prompts/dev02.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev03",
+    "prompt_file": "inputs/prompts/dev03.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev04",
+    "prompt_file": "inputs/prompts/dev04.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev05",
+    "prompt_file": "inputs/prompts/dev05.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev06",
+    "prompt_file": "inputs/prompts/dev06.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev07",
+    "prompt_file": "inputs/prompts/dev07.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev08",
+    "prompt_file": "inputs/prompts/dev08.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev09",
+    "prompt_file": "inputs/prompts/dev09.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev10",
+    "prompt_file": "inputs/prompts/dev10.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev11",
+    "prompt_file": "inputs/prompts/dev11.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev12",
+    "prompt_file": "inputs/prompts/dev12.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev13",
+    "prompt_file": "inputs/prompts/dev13.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev14",
+    "prompt_file": "inputs/prompts/dev14.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev15",
+    "prompt_file": "inputs/prompts/dev15.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev16",
+    "prompt_file": "inputs/prompts/dev16.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev17",
+    "prompt_file": "inputs/prompts/dev17.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev18",
+    "prompt_file": "inputs/prompts/dev18.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev19",
+    "prompt_file": "inputs/prompts/dev19.json",
+    "suite": "dev"
+  },
+  {
+    "id": "dev20",
+    "prompt_file": "inputs/prompts/dev20.json",
+    "suite": "dev"
+  },
+  {
+    "id": "hold01",
+    "prompt_file": "inputs/prompts/hold01.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold02",
+    "prompt_file": "inputs/prompts/hold02.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold03",
+    "prompt_file": "inputs/prompts/hold03.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold04",
+    "prompt_file": "inputs/prompts/hold04.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold05",
+    "prompt_file": "inputs/prompts/hold05.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold06",
+    "prompt_file": "inputs/prompts/hold06.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold07",
+    "prompt_file": "inputs/prompts/hold07.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold08",
+    "prompt_file": "inputs/prompts/hold08.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold09",
+    "prompt_file": "inputs/prompts/hold09.json",
+    "suite": "holdout"
+  },
+  {
+    "id": "hold10",
+    "prompt_file": "inputs/prompts/hold10.json",
+    "suite": "holdout"
+  }
+]

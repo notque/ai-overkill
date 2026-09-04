@@ -1,0 +1,73 @@
+{
+  "status": "REJECT",
+  "decision_basis": "Frozen response-contract floor failed; no waiver or reclassification. Semantic comparison not performed.",
+  "worker_assignments": 400,
+  "raw_valid_workers": 400,
+  "response_contract_valid_workers": 375,
+  "contract_failures": 25,
+  "contract_failure_reason": "Whitespace word count181\u2013189 exceeds shared cap180; all answers otherwise exact answer-only JSON strings.",
+  "development_cases": 30,
+  "fresh_holdout_cases": 10,
+  "repeats_per_arm": 5,
+  "candidate_sha256": "e8c33c22987ba0a3cbaa8cbe24314d3b5162a07c0bb2c7b8263b131868f671e3",
+  "token_target_passes": true,
+  "token_metric": {
+    "corpus_medians": {
+      "baseline": [
+        21856.0,
+        21858.5,
+        21859.0,
+        21863.5,
+        21861.5
+      ],
+      "challenger": [
+        14301.0,
+        14302.0,
+        14299.0,
+        14302.0,
+        14298.5
+      ]
+    },
+    "baseline_median": 21859.0,
+    "challenger_median": 14301.0,
+    "saving": 7558.0,
+    "reduction": 0.3457614712475411,
+    "baseline_spread": 7.5,
+    "variance_threshold": 15.0
+  },
+  "semantic_judge_calls": 0,
+  "semantic_preservation": "unmeasured; no equivalence, loss, or improvement claim",
+  "calibration": {
+    "controls": 6,
+    "passes": 2,
+    "judgments": 12,
+    "exact": true,
+    "calls": 4,
+    "total_tokens": 58137
+  },
+  "worker_total_tokens": 7236407,
+  "all_measured_usage": {
+    "input_tokens": 7217310,
+    "cached_input_tokens": 4568704,
+    "output_tokens": 77234
+  },
+  "all_measured_total_tokens": 7294544,
+  "unknown_usage_attempts": 0,
+  "no_paid_calls_after_worker_completion": true,
+  "fixed_judging_source": "Copied/hash-verified in separate judging-harness; no calls or new calibration launched. Original worker harness unchanged.",
+  "fresh_holdout_content_exposed_to_candidate_author": false,
+  "production_authorized": false,
+  "evidence_hashes": {
+    "preregistration.json": "a695e7f33e889334d2e7d2cb6fb420fe28d52b1d085737d84bbedb93ae6006d2",
+    "protocol.json": "dd31f82eeb35aa46a63d13406d016d6efd76b493f0c94f18928d4c13e4372066",
+    "inputs/contract.txt": "b75f3d92bef2ef2e7a3559298e98dcabcc3eadb57a3c45ea3128ec9bcf1f3de1",
+    "analysis-freeze.json": "8e7cd7cf6f9e55c8705f4db6d59d2575c69a8f18e9e03b899956256034e1d50c",
+    "analyze.py": "d6fee4cb2f7488493279d7b94bcb7f5fb3dd675523c75698d650b49c378d1846",
+    "results/manifest.json": "8d50e319baab39342c5a5a96cd1cd3f3b0a3e5cc6438a47ace5b4edab731f524",
+    "calibration-verdict.json": "8d09d93384996bc2986355ef30451ea995aa9603714dbca537d27f6dbb4c522b",
+    "worker-report.json": "abc1cef69552c86b5baf281ee343ad5a14fa913f162ef3faa54afec28fd586b1",
+    "contract-audit.json": "065f78285cc67a95df051cc86b3c8e1fbaa59b828f1cad7eedf25b24269b2633",
+    "judging-source-amendment.json": "d2bb239bcebf0218de1883e50e5d25640bcbc009ed56bcfb13707bee66934eae"
+  },
+  "next_step": "Independent review of future protocol cap; retain this frozen V2 rejection unchanged."
+}

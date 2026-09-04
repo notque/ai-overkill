@@ -1,0 +1,169 @@
+{
+  "status": "REJECT",
+  "scope": "Loaded philosophy operational interpretation, not live agent compliance",
+  "runs": 300,
+  "failures": 0,
+  "original_disputed_packets": 9,
+  "unresolved_disagreements": 0,
+  "adjudication_sha256": "37da040d59f803def3c2175d056a336744e357e2f00e3307c59a5baf1320d424",
+  "regressions": [
+    "dev01",
+    "dev09",
+    "dev11",
+    "dev20",
+    "hold02",
+    "hold07",
+    "hold09",
+    "hold10"
+  ],
+  "case_utility": {
+    "dev01": {
+      "challenger": 0.7999999999999999,
+      "baseline": 1
+    },
+    "dev02": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev03": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev04": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev05": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev06": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev07": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev08": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev09": {
+      "challenger": 0.9333333333333333,
+      "baseline": 1
+    },
+    "dev10": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev11": {
+      "challenger": 0.3333333333333333,
+      "baseline": 1
+    },
+    "dev12": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev13": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev14": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev15": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev16": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev17": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev18": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "dev19": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev20": {
+      "challenger": 0.9333333333333333,
+      "baseline": 1
+    },
+    "hold01": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "hold02": {
+      "baseline": 1,
+      "challenger": 0.7999999999999999
+    },
+    "hold03": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold04": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "hold05": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold06": {
+      "challenger": 1,
+      "baseline": 1
+    },
+    "hold07": {
+      "baseline": 1,
+      "challenger": 0.26666666666666666
+    },
+    "hold08": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold09": {
+      "challenger": 0.6666666666666666,
+      "baseline": 1
+    },
+    "hold10": {
+      "baseline": 1,
+      "challenger": 0.8666666666666667
+    }
+  },
+  "metrics": {
+    "total_tokens": {
+      "baseline_median": 21866.0,
+      "challenger_median": 14037.0,
+      "paired_saving_median": 7834.5,
+      "reduction": 0.35804445257477363
+    },
+    "input_tokens": {
+      "baseline_median": 21700.0,
+      "challenger_median": 13843.0,
+      "paired_saving_median": 7857.0,
+      "reduction": 0.36207373271889404
+    },
+    "cached_input_tokens": {
+      "baseline_median": 11392.0,
+      "challenger_median": 11392.0,
+      "paired_saving_median": 0.0,
+      "reduction": 0.0
+    },
+    "output_tokens": {
+      "baseline_median": 164.0,
+      "challenger_median": 193.5,
+      "paired_saving_median": -22.5,
+      "reduction": -0.1798780487804878
+    }
+  },
+  "production_authorized": false,
+  "reason": "Per-case mean quality floor failed; lower token use does not offset lost meaning."
+}
