@@ -1,0 +1,212 @@
+{
+  "workers": 400,
+  "cases": 40,
+  "raw_and_contract_valid": false,
+  "failures": [
+    {
+      "uid": "d9dd158a324be78a2d41",
+      "case_id": "v2dev018",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "bebef1fe2d09c9d099ac",
+      "case_id": "v2hold002",
+      "arm": "baseline",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "6c1d9686e952ee56f735",
+      "case_id": "v2hold003",
+      "arm": "baseline",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "2b24170eba1fa4774760",
+      "case_id": "v2hold002",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "d9045fc3bf79ae01668d",
+      "case_id": "v2hold005",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "b12f295dab9b079304e4",
+      "case_id": "v2hold006",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "de6a0e9a1595addc9c24",
+      "case_id": "v2dev022",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "d4cfaa8c4c210910be8d",
+      "case_id": "v2hold002",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "adefeeb36c7e63f8d5ba",
+      "case_id": "v2hold008",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "ce59b0410ead3de9c531",
+      "case_id": "v2hold008",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "08d626d7c7820e9367ad",
+      "case_id": "v2hold005",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "243a47907b355aeb2f1f",
+      "case_id": "v2hold005",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "9dd41583ca08693ea33f",
+      "case_id": "v2hold002",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "64f5d461585ab34c13a9",
+      "case_id": "v2hold005",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "04e3e13203a86ed3d69f",
+      "case_id": "v2hold008",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "d3adb681a606e4109dd4",
+      "case_id": "v2hold002",
+      "arm": "baseline",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "91268bd6f3d2b97a6320",
+      "case_id": "v2hold008",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "b6c041defe8d8422cef9",
+      "case_id": "v2hold008",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "8950a8a1953e05169554",
+      "case_id": "v2hold004",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "fc029b2683029ab8c93c",
+      "case_id": "v2hold005",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "bdce03ccedc36c8fdd82",
+      "case_id": "v2hold002",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "b3d7e58dd356a2c57f8b",
+      "case_id": "v2hold009",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "c3c0e8f59222c155a174",
+      "case_id": "v2dev022",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "d076e3c9be21a9b72a2c",
+      "case_id": "v2hold002",
+      "arm": "baseline",
+      "raw_success": true,
+      "contract_valid": false
+    },
+    {
+      "uid": "89203448ee5ae0485b97",
+      "case_id": "v2hold003",
+      "arm": "challenger",
+      "raw_success": true,
+      "contract_valid": false
+    }
+  ],
+  "token_denominator_complete": true,
+  "corpus_medians": {
+    "baseline": [
+      21856.0,
+      21858.5,
+      21859.0,
+      21863.5,
+      21861.5
+    ],
+    "challenger": [
+      14301.0,
+      14302.0,
+      14299.0,
+      14302.0,
+      14298.5
+    ]
+  },
+  "baseline_median": 21859.0,
+  "challenger_median": 14301.0,
+  "saving": 7558.0,
+  "reduction": 0.3457614712475411,
+  "baseline_spread": 7.5,
+  "variance_threshold": 15.0,
+  "token_target_passes": true,
+  "usage": {
+    "cached_input_tokens": 4522624,
+    "input_tokens": 7161326,
+    "output_tokens": 75081
+  },
+  "total_tokens": 7236407
+}

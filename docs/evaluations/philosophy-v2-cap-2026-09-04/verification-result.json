@@ -1,0 +1,14 @@
+{
+  "verified": true,
+  "raw_valid_workers": 400,
+  "contract_valid_workers": 375,
+  "violations": {
+    "baseline": 4,
+    "challenger": 21
+  },
+  "arm_denominators": 200,
+  "measured_tokens": 7294544,
+  "semantic_judge_calls": 0,
+  "unknown_usage_attempts": 0,
+  "status": "REJECT"
+}

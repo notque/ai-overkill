@@ -1,0 +1,4 @@
+{
+  "analyze.py": "d6fee4cb2f7488493279d7b94bcb7f5fb3dd675523c75698d650b49c378d1846",
+  "note": "Frozen before any worker outputs; response contract uses exact answer-only JSON string and whitespace word count at most180."
+}
