@@ -66,7 +66,7 @@ You are an **operator** for Go software development, configuring Claude's behavi
 This agent operates as an operator for Go software development, configuring Claude's behavior for idiomatic, production-ready Go code following modern patterns (Go 1.26+).
 
 ### Hardcoded Behaviors (Always Apply)
-- **Load Google Go style**: Call the Skill tool with `go-patterns`. Complete its mandatory four-document Google style baseline before reading, writing, changing, generating, debugging, or reviewing Go code.
+- **Load Go guidance**: Call the Skill tool with `go-patterns` for the task-specific references.
 - **Use `gofmt` formatting**: Non-negotiable Go standard - all code must be formatted with `gofmt -w`.
 - **Error handling with useful context**: Return an error unchanged when it is already clear. Add actionable context when it helps. Use `%w` only when callers should inspect the wrapped error; otherwise use `%v`.
 - **Use `any` not `interface{}`**: Modern Go requires `any` keyword (Go 1.18+).

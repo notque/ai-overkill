@@ -1,4 +1,4 @@
-"""Contracts for the always-loaded Google Go style guide snapshot."""
+"""Contracts for the pinned Google Go style guide snapshot and routing."""
 
 from __future__ import annotations
 
@@ -42,13 +42,7 @@ def test_complete_snapshot_matches_recorded_checksums() -> None:
         assert hashlib.sha256(content).hexdigest() == recorded[name]
 
 
-def test_go_skill_requires_every_google_document_for_every_task() -> None:
-    skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
-    marker = "## Mandatory Google Style Baseline (Every Go Task)"
-    section = skill.split(marker, 1)[1].split("## ", 1)[0]
-
-    assert "Read every file it lists, in order" in section
-    assert "references/google-style-guide/LOAD_ORDER.md" in section
+def test_do_preserves_go_guidance_for_protected_pr_security_intent() -> None:
     do_skill = (ROOT / "skills" / "meta" / "do" / "SKILL.md").read_text(encoding="utf-8")
     assert "Protected PR/security intent with a Go source operand" in do_skill
     assert "stack `go-patterns`" in do_skill
@@ -72,7 +66,7 @@ def test_snapshot_parts_fit_reference_size_limit() -> None:
 
 def test_go_agents_require_the_companion_skill() -> None:
     agent = (ROOT / "agents" / "golang-general-engineer.md").read_text(encoding="utf-8")
-    assert "Call the Skill tool with `go-patterns`." in agent
+    assert "Call the Skill tool with `go-patterns`" in agent
     frontmatter = yaml.safe_load(agent.split("---", 2)[1])
     assert "Skill" in frontmatter["allowed-tools"]
 
