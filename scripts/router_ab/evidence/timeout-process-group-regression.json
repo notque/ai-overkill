@@ -1,0 +1,34 @@
+{
+  "scope": "Trusted local fake-CLI process-lifecycle A/B; no model calls or generated code",
+  "baseline_commit": "0d8a98f10146b08a64a7b0855c54e096f6c6c134",
+  "old_judge_sha256": "01da7fd984a84e71c08f4b3a5c173d666b73fe6cc67b2b78c2f9fef964fc6666",
+  "fake_cli_sha256": "631b9c18ebad3d8372bb94c4206d456b05d0cad880e9766c1e730096423c3fd5",
+  "process_control_sha256": "e79e6ba9b949ddcb410ec31cfef509ec037c78b9b31830b63fd0b4833d2eb2a5",
+  "records": [
+    {
+      "mode": "old_direct_child_kill",
+      "timeout_seconds": 0.5,
+      "elapsed_seconds": 0.503993,
+      "child_running_after_return": true,
+      "partial_event_preserved": true,
+      "partial_stderr_preserved": true,
+      "stdout_sha256": "eaba08116b2f109296adb3855f9b8c423361e32db0544a711e770eb03c521efa",
+      "stderr_sha256": "074795aec1d42a6797f7b8693a9619ec51083813a7046349ece8e35032448d0d"
+    },
+    {
+      "mode": "new_owned_process_group",
+      "timeout_seconds": 0.5,
+      "elapsed_seconds": 0.530341,
+      "child_running_after_return": false,
+      "partial_event_preserved": true,
+      "partial_stderr_preserved": true,
+      "stdout_sha256": "eaba08116b2f109296adb3855f9b8c423361e32db0544a711e770eb03c521efa",
+      "stderr_sha256": "074795aec1d42a6797f7b8693a9619ec51083813a7046349ece8e35032448d0d"
+    }
+  ],
+  "result": "old orphan reproduced; new owned group stopped and partial evidence retained",
+  "limitations": [
+    "Does not measure model-provider cancellation latency or recover missing completion usage.",
+    "POSIX process-group lifecycle; descendants that deliberately leave the group are outside the guarantee."
+  ]
+}
