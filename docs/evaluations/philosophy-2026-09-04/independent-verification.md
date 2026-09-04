@@ -11,10 +11,10 @@ Verified the final REJECT aggregation without model calls or changes to experime
 
 This verifies arithmetic, evidence linkage and disputed-only application. It does not independently rejudge the semantic adjudication decisions or establish live-agent compliance.
 
-Reproduction script: `verify.py`. Extract the package archives together, preserving `experiment/`, `workers/`, `judges/` and `verifier/`, then run:
+Reproduction script: `verify.py`. From the repository root, extract the archives as shown in [the evidence README](README.md), preserving its `replay_dir` variable, then run:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 verify.py --experiment experiment --workers workers --judges judges --verifier verifier
+python3 -B docs/evaluations/philosophy-2026-09-04/verify.py --experiment "$replay_dir/experiment" --workers "$replay_dir/workers" --judges "$replay_dir/judges" --verifier "$replay_dir/verifier"
 ```
 
 The experiment directory must include `adjudication-rule.md`, `disputed-blind.json`, `adjudications.json`, `adjudicated-scores.json`, `VERDICT.json` and `judge-map.json`. No paid calls occur. The script fails if recorded aggregates, unchanged scores, usage, coverage or integrity checks differ.

@@ -34,17 +34,17 @@ The top-level protocol, cases, calibration verdict and preliminary token profile
 
 ## Reproduce without model calls
 
-From this directory:
+From the repository root:
 
 ```bash
-sha256sum -c SHA256SUMS
-mkdir replay
+evidence_dir=docs/evaluations/philosophy-2026-09-04
+(cd "$evidence_dir" && sha256sum -c SHA256SUMS)
+replay_dir=$(mktemp -d)
 for archive in frozen-inputs workers calibration judges final-evidence verifier; do
-  tar -xzf "$archive.tar.gz" -C replay
+  tar -xzf "$evidence_dir/$archive.tar.gz" -C "$replay_dir"
 done
-cd replay
-python3 -B verifier/assess.py assess --routing-results workers --map experiment/judge-map.json --judge-dir judges
-python3 -B ../verify.py --experiment experiment --workers workers --judges judges --verifier verifier
+python3 -B "$replay_dir/verifier/assess.py" assess --routing-results "$replay_dir/workers" --map "$replay_dir/experiment/judge-map.json" --judge-dir "$replay_dir/judges"
+python3 -B docs/evaluations/philosophy-2026-09-04/verify.py --experiment "$replay_dir/experiment" --workers "$replay_dir/workers" --judges "$replay_dir/judges" --verifier "$replay_dir/verifier"
 ```
 
 The raw assessor reproduces the original disagreement-bearing assessment. `verify.py` independently checks all 300 assignments and 600 original votes, applies only the nine disputed-check decisions, preserves agreed scores, recalculates every case/arm mean and token metric, and reproduces REJECT. It verifies the precommitted rule and blind-input hashes. This checks evidence linkage and arithmetic; it does not rejudge semantic decisions.
