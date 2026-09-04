@@ -3,6 +3,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location("runner", Path(__file__).with_name("runner.py"))
 runner = importlib.util.module_from_spec(spec)
@@ -98,7 +100,10 @@ class RunnerTests(unittest.TestCase):
                 runner.parse_events(json.dumps({"type": "item.started", "item": {"type": item}}))["tool_events"]
             )
 
-    def test_freeze_persists_digest_keyed_input_bytes(self):
+    @mock.patch.object(
+        runner.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="codex test-version")
+    )
+    def test_freeze_persists_digest_keyed_input_bytes(self, _version_probe):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp)
             data = b"policy contents"
@@ -178,7 +183,10 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(len({r["uid"] for r in rows}), 20)
         self.assertEqual(sum(r["arm"] == "baseline" for r in rows), 10)
 
-    def test_arm_hash_change_rejected(self):
+    @mock.patch.object(
+        runner.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="codex test-version")
+    )
+    def test_arm_hash_change_rejected(self, _version_probe):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp)
             protocol = {"seed": 1, "repeats": 5}
