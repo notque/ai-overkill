@@ -12,6 +12,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from process_control import run_process
+
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -120,7 +122,12 @@ def load(protocol_path):
         raise ValueError("Effort must be low")
     if len({c["id"] for c in cases}) != len(cases):
         raise ValueError("Duplicate case IDs")
-    paths = [protocol_path, cases_path, Path(__file__).resolve()]
+    paths = [
+        protocol_path,
+        cases_path,
+        Path(__file__).resolve(),
+        Path(__file__).with_name("process_control.py").resolve(),
+    ]
     paths += [root / arm["instruction_file"] for arm in protocol["arms"].values()]
     paths += [root / name for name in protocol.get("common_context_files", [])]
     paths += [root / case["prompt_file"] for case in cases]
@@ -273,11 +280,9 @@ def run_one(root, protocol, case, assignment, output, hashes, snapshot=None):
         ]
         timed_out = False
         try:
-            process = subprocess.run(
+            process = run_process(
                 command,
                 input=prompt,
-                text=True,
-                capture_output=True,
                 timeout=min(protocol.get("timeout_seconds", 180), 180),
             )
             stdout, stderr, returncode = process.stdout, process.stderr, process.returncode
