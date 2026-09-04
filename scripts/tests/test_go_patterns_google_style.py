@@ -66,7 +66,7 @@ def test_snapshot_parts_fit_reference_size_limit() -> None:
 
 def test_go_agents_require_the_companion_skill() -> None:
     agent = (ROOT / "agents" / "golang-general-engineer.md").read_text(encoding="utf-8")
-    assert "Call the Skill tool with `go-patterns`" in agent
+    assert "Call the Skill tool with `go-patterns`." in agent
     frontmatter = yaml.safe_load(agent.split("---", 2)[1])
     assert "Skill" in frontmatter["allowed-tools"]
 
