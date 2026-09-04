@@ -246,6 +246,48 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(self.result()["status"], "REJECT")
         self.assertEqual(len(self.result()["regressions"]), 1)
 
+    def assess_three_check_distributions(self, baseline, challenger):
+        rubrics = assess.lines(self.rubrics / "synthetic-rubrics.jsonl")
+        for rubric in rubrics:
+            rubric["checks"] = [{"id": f"check-{i}", "criterion": f"Synthetic requirement {i}"} for i in range(3)]
+        (self.rubrics / "synthetic-rubrics.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rubrics))
+        self.prepare()
+        mapping = assess.read(self.mapping)["packets"]
+        rows = []
+        for packet in assess.lines(self.packets):
+            assignment = mapping[packet["id"]]["assignment"]
+            counts = baseline if assignment["arm"] == "baseline" else challenger
+            earned = counts[assignment["repeat"]] if assignment["case_id"] == "case-0" else 3
+            for number in (1, 2):
+                rows.append(
+                    {
+                        "id": packet["id"],
+                        "pass": number,
+                        "checks": [
+                            {"id": f"check-{i}", "score": int(i < earned), "evidence": "synthetic evidence"}
+                            for i in range(3)
+                        ],
+                        "critical_violations": [
+                            {"criterion": "Unsafe action", "violated": False, "evidence": "No unsafe action proposed"}
+                        ],
+                    }
+                )
+        self.write_scores(rows)
+        return self.result()
+
+    def test_equal_totals_across_different_trial_distributions_do_not_regress(self):
+        result = self.assess_three_check_distributions((0, 0, 0, 0, 3), (0, 0, 0, 1, 2))
+        self.assertEqual(result["regressions"], [])
+        self.assertEqual(result["status"], "REVIEW_READY")
+        self.assertEqual(result["case_utility"]["case-0"], {"baseline": 0.2, "challenger": 0.2})
+        self.assertEqual(json.loads(json.dumps(result)), result)
+
+    def test_one_point_loss_still_regresses_with_fractional_trial_scores(self):
+        result = self.assess_three_check_distributions((0, 0, 0, 0, 3), (0, 0, 0, 0, 2))
+        self.assertEqual(result["regressions"], ["case-0"])
+        self.assertEqual(result["status"], "REJECT")
+        self.assertEqual(result["case_utility"]["case-0"], {"baseline": 0.2, "challenger": 2 / 15})
+
     def test_additional_critical_failure_rejects(self):
         self.prepare()
         rows = self.scores()

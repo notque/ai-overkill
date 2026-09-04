@@ -5,6 +5,7 @@ import argparse
 import json
 import random
 from collections import defaultdict
+from fractions import Fraction
 from pathlib import Path
 from statistics import mean, median
 
@@ -269,7 +270,8 @@ def assess(routing, judge_dir, map_path):
         if signatures[0] != signatures[1]:
             disagreement.append(identifier)
         key = (assignment["case_id"], assignment["arm"])
-        utility[key].append(mean(c["score"] for c in rows[0]["checks"]))
+        checks = rows[0]["checks"]
+        utility[key].append(Fraction(sum(c["score"] for c in checks), len(checks)))
         critical[key] += sum(c["violated"] for c in rows[0]["critical_violations"])
         failures += not result["success"]
         require(result["usage_known"], "Unknown usage invalidates measured denominator")
@@ -328,7 +330,7 @@ def assess(routing, judge_dir, map_path):
             for case in sorted({a["case_id"] for a, _, _ in results})
         },
         "case_utility": {
-            case: {arm: mean(utility[(case, arm)]) for arm in ("baseline", "challenger")}
+            case: {arm: float(mean(utility[(case, arm)])) for arm in ("baseline", "challenger")}
             for case in sorted({a["case_id"] for a, _, _ in results})
         },
     }
