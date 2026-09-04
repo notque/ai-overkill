@@ -15,7 +15,6 @@ The sections below cover the learning system internals, shared library API, and 
 | [`session-context.py`](#session-context) | SessionStart | Load learned patterns |
 | [`session-summary.py`](#session-summary) | Stop | Generate session metrics |
 | [`precompact-archive.py`](#precompact-archive) | PreCompact | Archive learnings |
-| [`posttool-lint-hint.py`](#lint-hints) | PostToolUse | Suggest linting |
 
 ---
 
@@ -408,7 +407,6 @@ hooks/
 ├── session-context.py        # SessionStart: Load patterns
 ├── session-summary.py        # Stop: Generate metrics
 ├── precompact-archive.py     # PreCompact: Archive learnings
-├── posttool-lint-hint.py     # PostToolUse: Lint hints
 ├── lib/
 │   ├── learning_db_v2.py     # Unified learning database library
 │   ├── feedback_tracker.py   # Automatic feedback tracking

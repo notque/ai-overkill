@@ -91,9 +91,6 @@ UNSUPPORTED_REGISTRATIONS = {
     ("PostToolUse", "routing-decision-recorder.py"): (
         "Codex has no PostToolUse Agent or Workflow result containing the routed decision marker."
     ),
-    ("PostToolUse", "agent-grade-on-change.py"): (
-        "Codex copy installs omit evals/harness.py, and this hook emits an ad hoc message object outside the hook schema."
-    ),
     ("StopFailure", "stop-failure-handler.py"): ("Codex 0.144.1 does not publish a StopFailure lifecycle event."),
     ("PostCompact", "postcompact-handler.py"): (
         "Codex PostCompact cannot inject the model-visible plan context that is this hook's core behavior."

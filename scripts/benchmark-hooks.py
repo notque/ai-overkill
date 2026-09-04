@@ -80,7 +80,6 @@ HOOK_EVENT_MAP: dict[str, str] = {
     "pretool-learning-injector": "PostToolUse",
     "task-completed-learner": "PostToolUse",
     "usage-tracker": "PostToolUse",
-    "agent-grade-on-change": "PostToolUse",
     "session-context": "SessionStart",
     "session-summary": "Stop",
     "precompact-archive": "PreCompact",

@@ -52,8 +52,8 @@ Hooks are shell commands registered in `settings.json` that execute in response 
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/posttool-lint-hint.py\"",
-            "description": "Emit lint hints after file edits",
+            "command": "python3 \"$HOME/.claude/hooks/posttool-security-scan.py\"",
+            "description": "Scan edited files for security risks",
             "timeout": 1000
           }
         ]
@@ -369,7 +369,7 @@ Deploy the hook Python file to `~/.claude/hooks/` first, verify it exists with `
 | Hook runs multiple times per session | Missing `"once": true` on SessionStart hook | Add `"once": true` for one-time session initialization hooks |
 | Hook output appears as noise every turn | Hook prints even when no signal | Add early-return guard: only print when there's something to report |
 | Hook registration disappears after restart | Registered in `~/.claude/settings.json` (runtime copy) | Register in `.claude/settings.json` (repo) — see Two-File Architecture above |
-| Hook depends on nonexistent file | Script imports or shells to a file that was removed/never created | Verify all dependencies exist before registering; known case: `agent-grade-on-change.py` depends on `evals/harness.py` which does not exist |
+| Hook depends on nonexistent file | Script imports or shells to a file that was removed/never created | Verify all dependencies exist before registering |
 | Gate uses wrong `gh` API field | `gh pr checks --json conclusion` — `conclusion` is not a valid field | Use `bucket` field instead of `conclusion`; known case: `ci-merge-gate.py` |
 | Duplicate detection across hooks | Multiple hooks scan for the same vulnerability class | `posttool-security-scan.py` and `sql-injection-detector.py` both detect SQL injection; consolidate or scope non-overlapping |
 | Gate uses exit(2) instead of JSON deny | Inconsistent blocking mechanism across gate hooks | Migrate to `{"permissionDecision": "deny", "permissionDecisionReason": "..."}` pattern; known case: `pipeline-phase-gate.py` |
@@ -382,7 +382,7 @@ Deploy the hook Python file to `~/.claude/hooks/` first, verify it exists with `
 | Hook | Event | Issue | Status |
 |------|-------|-------|--------|
 | `ci-merge-gate.py` | PreToolUse (Bash) | Uses `gh pr checks --json conclusion` — `conclusion` is not a valid field name; should use `bucket` | Fix pending |
-| `agent-grade-on-change.py` | PostToolUse (Write\|Edit) | Depends on `evals/harness.py` which does not exist in the repo | Fix pending |
+| Retired agent grading hook | PostToolUse (Write\|Edit) | Depended on a missing evaluation harness | Retired 2026-09-04 |
 
 ### Registered Hook Inventory by Event
 
