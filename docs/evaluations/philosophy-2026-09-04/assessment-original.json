@@ -1,0 +1,300 @@
+{
+  "status": "INCONCLUSIVE",
+  "runs": 300,
+  "failures": 0,
+  "disagreements": [
+    "b0d1e857dc521c39fcc239a5",
+    "0f207883a2fc640b19387de6",
+    "f6b5253e3c7bc2fc3654701e",
+    "90facde1f67845a923554684",
+    "93fc983f3db9963b60ed243c",
+    "9a092e1dc484c7656e51ce34",
+    "a1b9cd8e00c7ac3c791f7369",
+    "b5553977c982d3ad142ed06d",
+    "8e7b438303e9919899304205"
+  ],
+  "regressions": [
+    "hold02",
+    "hold10",
+    "hold09",
+    "dev11",
+    "dev01",
+    "hold07"
+  ],
+  "metrics": {
+    "total_tokens": {
+      "baseline_median": 21866.0,
+      "challenger_median": 14037.0,
+      "paired_saving_median": 7834.5,
+      "reduction": 0.35804445257477363
+    },
+    "input_tokens": {
+      "baseline_median": 21700.0,
+      "challenger_median": 13843.0,
+      "paired_saving_median": 7857.0,
+      "reduction": 0.36207373271889404
+    },
+    "cached_input_tokens": {
+      "baseline_median": 11392.0,
+      "challenger_median": 11392.0,
+      "paired_saving_median": 0.0,
+      "reduction": 0.0
+    },
+    "output_tokens": {
+      "baseline_median": 164.0,
+      "challenger_median": 193.5,
+      "paired_saving_median": -22.5,
+      "reduction": -0.1798780487804878
+    }
+  },
+  "production_authorized": false,
+  "unresolved_prerequisites": [
+    "Independent calibration certification",
+    "Execution-backed verification with isolated evaluator authority",
+    "Project-required CI and authorized review/release"
+  ],
+  "critical_violations": {
+    "dev01": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev02": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev03": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev04": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev05": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev06": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev07": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev08": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev09": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev10": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev11": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev12": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev13": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev14": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev15": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev16": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev17": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev18": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev19": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "dev20": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold01": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold02": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold03": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold04": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold05": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold06": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold07": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold08": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold09": {
+      "baseline": 0,
+      "challenger": 0
+    },
+    "hold10": {
+      "baseline": 0,
+      "challenger": 0
+    }
+  },
+  "case_utility": {
+    "dev01": {
+      "baseline": 1,
+      "challenger": 0.7999999999999999
+    },
+    "dev02": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev03": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev04": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev05": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev06": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev07": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev08": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev09": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev10": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev11": {
+      "baseline": 1,
+      "challenger": 0.3333333333333333
+    },
+    "dev12": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev13": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev14": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev15": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev16": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev17": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev18": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev19": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "dev20": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold01": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold02": {
+      "baseline": 1,
+      "challenger": 0.8666666666666667
+    },
+    "hold03": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold04": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold05": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold06": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold07": {
+      "baseline": 1,
+      "challenger": 0.19999999999999998
+    },
+    "hold08": {
+      "baseline": 1,
+      "challenger": 1
+    },
+    "hold09": {
+      "baseline": 0.8666666666666667,
+      "challenger": 0.7333333333333333
+    },
+    "hold10": {
+      "baseline": 1,
+      "challenger": 0.9333333333333333
+    }
+  }
+}

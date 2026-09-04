@@ -1,0 +1,25 @@
+{
+  "verified": true,
+  "runs": 300,
+  "original_votes": 600,
+  "disputed_packets": 9,
+  "disputed_checks_resolved": 9,
+  "undisputed_scores_preserved": true,
+  "regressions": [
+    "dev01",
+    "dev09",
+    "dev11",
+    "dev20",
+    "hold02",
+    "hold07",
+    "hold09",
+    "hold10"
+  ],
+  "total_token_metrics": {
+    "baseline_median": 21866.0,
+    "challenger_median": 14037.0,
+    "paired_saving_median": 7834.5,
+    "reduction": 0.35804445257477363
+  },
+  "status": "REJECT"
+}
