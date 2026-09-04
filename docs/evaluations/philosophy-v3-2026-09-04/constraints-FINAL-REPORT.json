@@ -1,0 +1,23 @@
+{
+  "status": "ELIGIBLE_ON_OUTPUT_CONSTRAINTS_ONLY",
+  "meaning_experiment_status": "REJECT",
+  "production_authorized": false,
+  "counts": {
+    "calibration": 6,
+    "semantic_judges": 26,
+    "workers": 60
+  },
+  "known_cli_usage": {
+    "input_tokens": 1525478,
+    "cached_input_tokens": 1029120,
+    "output_tokens": 29218
+  },
+  "known_cli_total_tokens": 1554696,
+  "unknown_cli_attempts": [],
+  "native_agent_usage": "Unavailable; not included in known CLI total",
+  "recovery_calls": 0,
+  "adjudications_required": 0,
+  "preregistration_sha256": "afe421b71ad504cb84bc0c2de32662c9c898fa37036d61499f0c147d19ffb439",
+  "verdict_sha256": "0d9cab9ab98b08305b51b880ac09fed873fbf676574cce8ebd8fca544bec606a",
+  "frozen_utc": "2026-09-04T21:35:40.859834+00:00"
+}

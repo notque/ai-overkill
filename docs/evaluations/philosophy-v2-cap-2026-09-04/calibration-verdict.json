@@ -1,0 +1,14 @@
+{
+  "valid": true,
+  "controls": 6,
+  "passes": 2,
+  "judgments": 12,
+  "exact": true,
+  "errors": [],
+  "usage": {
+    "input_tokens": 55984,
+    "cached_input_tokens": 46080,
+    "output_tokens": 2153
+  },
+  "total_tokens": 58137
+}

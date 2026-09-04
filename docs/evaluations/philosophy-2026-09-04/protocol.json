@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "model": "gpt-6-astra",
+  "effort": "low",
+  "seed": 20260905,
+  "repeats": 5,
+  "timeout_seconds": 180,
+  "cases_file": "cases.json",
+  "arms": {
+    "baseline": {
+      "instruction_file": "inputs/baseline.md"
+    },
+    "challenger": {
+      "instruction_file": "inputs/challenger.md"
+    }
+  },
+  "common_context_files": [
+    "inputs/contract.txt"
+  ],
+  "metric": "median input plus output tokens per operational-interpretation case",
+  "target_reduction": 0.2,
+  "floor": "All300valid; calibrated two-pass blind judges; no observed per-case score regression on dev or prospective holdout; preserved essential intent in independent source-to-candidate review; all GitHub Actions green for exact merge head. No claim of improved live agent behavior; document is on-demand context.",
+  "scope": "Condensation of existing docs/PHILOSOPHY.md; tests interpretation/comprehension and necessary concept preservation, not autonomous tool compliance.",
+  "stop": "Reject any material lost principle or observed score regression; inconclusive if judge disagreements unresolved or token delta within baseline repeated spread.",
+  "hypothesis": "Remove duplicated rules, historical model tables and repeated process prose; retain /do, distinctive knowledge, deterministic tools, autonomy within authorization, real checks and evidence. Reduces loaded context with no loss on independent operational interpretation cases."
+}

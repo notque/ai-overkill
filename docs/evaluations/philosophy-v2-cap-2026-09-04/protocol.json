@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "model": "gpt-6-astra",
+  "effort": "low",
+  "seed": 49072026,
+  "repeats": 5,
+  "timeout_seconds": 180,
+  "cases_file": "cases.json",
+  "arms": {
+    "baseline": {
+      "instruction_file": "inputs/baseline.md"
+    },
+    "challenger": {
+      "instruction_file": "inputs/challenger.md"
+    }
+  },
+  "common_context_files": [
+    "inputs/contract.txt"
+  ],
+  "case_count": 40,
+  "worker_count": 400,
+  "development_count": 30,
+  "fresh_holdout_count": 10,
+  "metric": "For each repeat, corpus median of input_tokens+output_tokens across40cases; primary arm metric median of its five corpusmedians. Cached input is included, not counted twice.",
+  "target_reduction": 0.2,
+  "variance_tolerance": "saving must strictly exceed2times range(max-min) of five baseline corpusmedians",
+  "floor": "All400workers valid under raw verifier and response contract; calibration6controls exact in2passes; no per-case mean utility regression across5repeats; no new critical loss; unresolved judge disagreement=>inconclusive.40cases explicit denominator.",
+  "adjudication": "Copied V1 rule: independent blind corpus author resolves only disputed checks, using full frozen rubric and both votes/evidence; lock before revealing arms; preserve both original votes; unresolved=>inconclusive.",
+  "scope": "Operational interpretation of supplied philosophy; no live autonomous behavior or production equivalence claim. Old30cases are development after V1 outcome exposure.",
+  "failures": "Retain invalid attempts and all known/unknown spend. No silent retries or replacement; invalid worker blocks acceptance.",
+  "harness_source_commit": "e72bc9907eda7384153795df6349cc31b52fe2f5",
+  "source_policy_git": "78d1ccf3:docs/PHILOSOPHY.md",
+  "candidate_sha256": "e8c33c22987ba0a3cbaa8cbe24314d3b5162a07c0bb2c7b8263b131868f671e3"
+}

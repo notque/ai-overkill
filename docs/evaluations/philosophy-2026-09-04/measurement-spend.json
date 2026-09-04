@@ -1,0 +1,55 @@
+{
+  "status": "COMPLETE_CAPTURED_MEASUREMENT",
+  "counting": "Input + output tokens; cached input is a subset of input, not an additional charge. Token totals are not dollar costs.",
+  "stages": {
+    "workers": {
+      "status": "complete",
+      "model_calls": 300,
+      "usage": {
+        "input_tokens": 5331698,
+        "cached_input_tokens": 3256320,
+        "output_tokens": 53423
+      }
+    },
+    "calibration_judges": {
+      "status": "complete",
+      "model_turns": 4,
+      "usage": {
+        "input_tokens": 54984,
+        "cached_input_tokens": 7296,
+        "output_tokens": 2030
+      }
+    },
+    "blind_judges": {
+      "status": "complete",
+      "model_turns": 120,
+      "event_streams": 120,
+      "runtime_error_events": 0,
+      "usage": {
+        "input_tokens": 1778922,
+        "cached_input_tokens": 1192704,
+        "output_tokens": 87542
+      }
+    },
+    "independent_adjudication": {
+      "status": "complete",
+      "disputed_packets": 9,
+      "usage": null,
+      "reason": "Native-agent adjudication has no token-usage record in this experiment artifact set."
+    }
+  },
+  "completed_stages_usage": {
+    "input_tokens": 7165604,
+    "cached_input_tokens": 4456320,
+    "output_tokens": 142995
+  },
+  "full_measurement_usage": null,
+  "exclusions": "Native-agent adjudication, authoring, orchestration, review and interrupted discovery calls are unmetered in these CLI records; absent usage is not a zero-cost claim.",
+  "captured_measurement_usage": {
+    "input_tokens": 7165604,
+    "cached_input_tokens": 4456320,
+    "output_tokens": 142995
+  },
+  "captured_input_plus_output_tokens": 7308599,
+  "full_measurement_usage_note": "An all-inclusive total is unavailable because independent native-agent adjudication usage was not recorded. All captured worker, calibration-judge and blind-judge CLI event usage is included."
+}

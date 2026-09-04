@@ -1,0 +1,23 @@
+{
+  "status": "REJECT",
+  "reason": "Development semantic floor failed; fresh holdout prohibited by frozen stage gate.",
+  "fresh_workers_started": 0,
+  "fresh_holdout_evaluated": false,
+  "counts": {
+    "calibration": 4,
+    "development_judges": 120,
+    "development_workers": 300
+  },
+  "known_cli_usage": {
+    "input_tokens": 7131396,
+    "cached_input_tokens": 4777344,
+    "output_tokens": 120432
+  },
+  "known_cli_total_tokens": 7251828,
+  "unknown_cli_attempts": [],
+  "native_agent_usage": "Unavailable; not included in known CLI total",
+  "recovery_calls": 0,
+  "preregistration_sha256": "94fc43e3cbfcb0e8a1ea30bb0433bdf99a3363130199cc2629ca33ed08aa60c3",
+  "verdict_sha256": "3a6c2572cf862c6ef6fcc25ff9d45be89adc9856dcb3d4ce21b841ebde4e7e2a",
+  "frozen_utc": "2026-09-04T21:33:29.484756+00:00"
+}

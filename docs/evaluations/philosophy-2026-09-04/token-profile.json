@@ -1,0 +1,34 @@
+{
+  "baseline": {
+    "runs": 150,
+    "median_total_tokens": 21866.5,
+    "corpus_medians": [
+      21866.5,
+      21867.0,
+      21865.5,
+      21870.5,
+      21862.0
+    ],
+    "spread": 8.5,
+    "input_tokens_sum": 3255122,
+    "cached_input_tokens_sum": 1640832,
+    "output_tokens_sum": 24982
+  },
+  "challenger": {
+    "runs": 150,
+    "median_total_tokens": 14035.5,
+    "corpus_medians": [
+      14039.5,
+      14035.5,
+      14035.5,
+      14042.5,
+      14033.5
+    ],
+    "spread": 9.0,
+    "input_tokens_sum": 2076576,
+    "cached_input_tokens_sum": 1615488,
+    "output_tokens_sum": 28441
+  },
+  "reduction": 0.3581277296320856,
+  "scope": "Operational interpretation prompt cost only; quality judging still pending."
+}
