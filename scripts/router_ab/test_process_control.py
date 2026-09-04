@@ -51,7 +51,23 @@ def running(pid):
     status = Path(f"/proc/{pid}/stat")
     # An orphan zombie holds no executable work; PID 1 reaping is outside the
     # runner's authority. Normal TERM cleanup reaps the child in the wrapper.
-    return not status.exists() or status.read_text().split(") ", 1)[1][0] != "Z"
+    if not Path("/proc").exists():
+        return True
+    try:
+        return status.read_text().split(") ", 1)[1][0] != "Z"
+    except FileNotFoundError:
+        return False
+
+
+def test_running_accepts_exit_between_pid_probe_and_status_read(monkeypatch):
+    monkeypatch.setattr(os, "kill", lambda *_: None)
+    monkeypatch.setattr(Path, "exists", lambda _: True)
+
+    def exited(_):
+        raise FileNotFoundError("process exited")
+
+    monkeypatch.setattr(Path, "read_text", exited)
+    assert not running(12345)
 
 
 def wait_stopped(pid):
