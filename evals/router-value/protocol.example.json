@@ -1,0 +1,19 @@
+{
+  "model": "gpt-6-astra",
+  "effort": "low",
+  "seed": 731921,
+  "repeats": 5,
+  "timeout_seconds": 180,
+  "cases_file": "cases.example.json",
+  "arms": {
+    "baseline": {
+      "instruction_file": "example/unchanged-policy.txt"
+    },
+    "challenger": {
+      "instruction_file": "example/unchanged-policy.txt"
+    }
+  },
+  "common_context_files": [
+    "executor_contract.json"
+  ]
+}

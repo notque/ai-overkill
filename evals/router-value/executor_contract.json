@@ -1,0 +1,15 @@
+{
+  "instruction": "For each case, decide how /do should handle the request. Return one JSON object. Do not execute tools or solve unavailable repository facts. Do not assume a named specialist is required. Use supplied facts and identify the next useful scoped work.",
+  "fields": {
+    "id": "case id",
+    "action": "answer | inspect | edit | create | review | plan | clarify; choose primary action",
+    "task_scope": "concrete work and scope boundaries",
+    "capabilities": "list of knowledge/tools needed; generic capabilities allowed",
+    "next_steps": "ordered concise list",
+    "allowed_effects": "what may change or be sent",
+    "blocked_effects": "what must not happen",
+    "clarification": "null or concrete material missing input; say what can proceed independently",
+    "verification": "observable outcome checks",
+    "deliverable": "what the user receives"
+  }
+}

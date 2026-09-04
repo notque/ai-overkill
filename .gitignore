@@ -147,6 +147,7 @@ evals/*
 !evals/README.md
 !evals/new-skills-ab-test/
 !evals/dense-complete-writing/
+!evals/router-value/
 
 # Evolution reports (weekly toolkit-evolution cycle output)
 evolution-reports/
