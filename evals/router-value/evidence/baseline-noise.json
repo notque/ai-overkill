@@ -1,0 +1,14 @@
+{
+  "corpus": "20 development tasks",
+  "samples_median_total_tokens": [
+    38038.5,
+    38043.0,
+    38046.5,
+    38035.0,
+    38039.5
+  ],
+  "median": 38039.5,
+  "spread": 11.5,
+  "tolerance": 23.0,
+  "target_delta": 1901.9750000000001
+}

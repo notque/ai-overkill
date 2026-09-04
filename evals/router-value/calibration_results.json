@@ -1,0 +1,300 @@
+[
+  {
+    "fixture": "duplicate_email",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "duplicate_email",
+        "checks": [
+          {
+            "criterion": "distinct users preserve creation result",
+            "pass": true
+          },
+          {
+            "criterion": "duplicate rejects without mutation",
+            "pass": false
+          },
+          {
+            "criterion": "list_users behavior unchanged",
+            "pass": true
+          },
+          {
+            "criterion": "other endpoint source unchanged",
+            "pass": true
+          }
+        ],
+        "passed": 3,
+        "total": 4
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "duplicate_email",
+        "checks": [
+          {
+            "criterion": "distinct users preserve creation result",
+            "pass": true
+          },
+          {
+            "criterion": "duplicate rejects without mutation",
+            "pass": true
+          },
+          {
+            "criterion": "list_users behavior unchanged",
+            "pass": true
+          },
+          {
+            "criterion": "other endpoint source unchanged",
+            "pass": true
+          }
+        ],
+        "passed": 4,
+        "total": 4
+      }
+    }
+  },
+  {
+    "fixture": "health_status",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "health_status",
+        "checks": [
+          {
+            "criterion": "valid success boundaries",
+            "pass": true
+          },
+          {
+            "criterion": "HTTP errors and redirects rejected",
+            "pass": false
+          },
+          {
+            "criterion": "absent response fails",
+            "pass": true
+          }
+        ],
+        "passed": 2,
+        "total": 3
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "health_status",
+        "checks": [
+          {
+            "criterion": "valid success boundaries",
+            "pass": true
+          },
+          {
+            "criterion": "HTTP errors and redirects rejected",
+            "pass": true
+          },
+          {
+            "criterion": "absent response fails",
+            "pass": true
+          }
+        ],
+        "passed": 3,
+        "total": 3
+      }
+    }
+  },
+  {
+    "fixture": "cart_quantity",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "cart_quantity",
+        "checks": [
+          {
+            "criterion": "quantity counted across lines",
+            "pass": false
+          },
+          {
+            "criterion": "empty cart stays zero",
+            "pass": true
+          },
+          {
+            "criterion": "zero quantity contributes zero",
+            "pass": false
+          }
+        ],
+        "passed": 1,
+        "total": 3
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "cart_quantity",
+        "checks": [
+          {
+            "criterion": "quantity counted across lines",
+            "pass": true
+          },
+          {
+            "criterion": "empty cart stays zero",
+            "pass": true
+          },
+          {
+            "criterion": "zero quantity contributes zero",
+            "pass": true
+          }
+        ],
+        "passed": 3,
+        "total": 3
+      }
+    }
+  },
+  {
+    "fixture": "label_only",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "label_only",
+        "checks": [
+          {
+            "criterion": "visible label corrected",
+            "pass": false
+          },
+          {
+            "criterion": "external telemetry identifier preserved",
+            "pass": true
+          },
+          {
+            "criterion": "no additional configuration changes",
+            "pass": false
+          },
+          {
+            "criterion": "no unrelated files",
+            "pass": true
+          }
+        ],
+        "passed": 2,
+        "total": 4
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "label_only",
+        "checks": [
+          {
+            "criterion": "visible label corrected",
+            "pass": true
+          },
+          {
+            "criterion": "external telemetry identifier preserved",
+            "pass": true
+          },
+          {
+            "criterion": "no additional configuration changes",
+            "pass": true
+          },
+          {
+            "criterion": "no unrelated files",
+            "pass": true
+          }
+        ],
+        "passed": 4,
+        "total": 4
+      }
+    }
+  },
+  {
+    "fixture": "numeric_sort",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "numeric_sort",
+        "checks": [
+          {
+            "criterion": "numeric ordering including decimal and negative",
+            "pass": false
+          },
+          {
+            "criterion": "records preserved",
+            "pass": true
+          },
+          {
+            "criterion": "does not mutate input and empty works",
+            "pass": true
+          }
+        ],
+        "passed": 2,
+        "total": 3
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "numeric_sort",
+        "checks": [
+          {
+            "criterion": "numeric ordering including decimal and negative",
+            "pass": true
+          },
+          {
+            "criterion": "records preserved",
+            "pass": true
+          },
+          {
+            "criterion": "does not mutate input and empty works",
+            "pass": true
+          }
+        ],
+        "passed": 3,
+        "total": 3
+      }
+    }
+  },
+  {
+    "fixture": "sample_timeout",
+    "fixtures": {
+      "exit": 1,
+      "result": {
+        "fixture": "sample_timeout",
+        "checks": [
+          {
+            "criterion": "example timeout changed",
+            "pass": false
+          },
+          {
+            "criterion": "production bytes preserved",
+            "pass": true
+          },
+          {
+            "criterion": "no unrelated files",
+            "pass": true
+          }
+        ],
+        "passed": 2,
+        "total": 3
+      }
+    },
+    "reference_solutions": {
+      "exit": 0,
+      "result": {
+        "fixture": "sample_timeout",
+        "checks": [
+          {
+            "criterion": "example timeout changed",
+            "pass": true
+          },
+          {
+            "criterion": "production bytes preserved",
+            "pass": true
+          },
+          {
+            "criterion": "no unrelated files",
+            "pass": true
+          }
+        ],
+        "passed": 3,
+        "total": 3
+      }
+    }
+  }
+]
