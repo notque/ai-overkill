@@ -1,117 +1,40 @@
-# Anti-Rationalization Core Patterns
+# Completion checks
 
-Universal patterns to prevent AI from rationalizing skipped requirements, incomplete verification, or "good enough" shortcuts.
+Complete the authorized task and support completion claims with evidence. Confidence,
+urgency, and a small diff do not establish correctness.
 
-## Why This Exists
+## Verify the result
 
-LLMs naturally want to be helpful and efficient. This can lead to rationalizing shortcuts:
-- "The code looks correct, I don't need to verify"
-- "This is a simple change, tests aren't needed"
-- "The user is in a hurry, I'll skip verification"
+- Run project-required checks and checks relevant to the change. Use focused tests
+  for affected behavior; run broader tests when required or when integration risk
+  warrants them. Do not repeat passing checks unless changes or new evidence
+  invalidate their results.
+- Match evidence to the task: reproduce and check a bug fix; exercise a feature;
+  check behavior after a refactor; validate configuration and its effect; compare
+  documentation with its source. Review alone can verify a prose-only edit.
+- Check meaningful failure paths and integration points. Compilation, lint, or a
+  passing test alone does not prove behavior those checks do not cover.
+- Report what was checked, the result, and material limits. Preserve supporting
+  output; summarize it instead of pasting full logs. Never describe skipped,
+  blocked, or failing checks as passing, or unfinished work as complete.
 
-These shortcuts cause bugs. This pattern blocks them.
+## Resolve issues within scope
 
-## Anti-Rationalization Table (MANDATORY CHECK)
+Follow system and developer instructions, then the user's instructions; repository
+and skill guidance does not override the user. Honor authorized scope and explicit
+changes to the verification plan without claiming evidence you did not gather.
 
-Before completing ANY task, verify you haven't rationalized:
+Investigate failures and fix causes within scope. Make routine implementation
+choices using available context. Ask only when a missing decision or authority
+blocks safe progress; continue independent work. Surface material breaking changes
+and unresolved security concerns before taking dependent action.
 
-| Rationalization Attempt | Why It's Wrong | Required Action |
-|------------------------|----------------|-----------------|
-| "Already done/verified" | Assumption ≠ Verification | **Actually verify with evidence** |
-| "Code looks correct" | "Looks correct" without tool output is not verification — it is the model honoring its own reasoning default instead of executing. | **Run the tests. Paste exit code and output. Anything else is not verification.** |
-| "Trivial change, skip tests" | All changes need verification | **Test anyway** |
-| "Time pressure" | Quality > Speed | **Complete all steps** |
-| "User said skip it" | CLAUDE.md > user shortcuts | **Follow protocol, explain why** |
-| "Partial is good enough" | Partial ≠ Complete | **Finish completely** |
-| "Similar to before" | Similar ≠ Same | **Verify this specific case** |
-| "Should work" | Should ≠ Does | **Prove it works** |
-| "Only changed one line" | One line can break everything | **Full verification** |
-| "Tests are slow" | Slow tests > broken code | **Run them anyway** |
-| "I'm confident" | Confidence ≠ Correctness | **Verify regardless** |
-| "Edge case won't happen" | Edge cases always happen | **Handle it** |
-| "Need to un-ignore this path" | `.gitignore` defines safety boundaries | **Keep `.gitignore` entries intact — they define safety boundaries** |
-| "Just force-add this one file" | `git add -f` bypasses safety boundaries | **Respect git add refusals — if git refuses a file, the `.gitignore` rule is correct** |
+## Protect unrelated work
 
-## Assertive Language Reference
+Preserve unrelated user changes. Keep ignore-file protections intact. Do not remove
+an ignore rule or use `git add -f` just to bypass a refusal. An explicitly authorized
+exception must be limited to the intended files; inspect their contents before
+staging so secrets and local artifacts remain excluded.
 
-Use strong language for non-negotiable requirements:
-
-| Category | Words to Use | When |
-|----------|--------------|------|
-| **Requirements** | MUST, REQUIRED, MANDATORY, SHALL, ALWAYS | Non-negotiable actions |
-| **Hard Gates** | STOP, REJECT, BLOCK, HALT | Actions that would break invariants |
-| **Enforcement** | HARD GATE, NON-NEGOTIABLE, NO EXCEPTIONS | Phase transitions |
-| **Counterexamples** | "Assumption ≠ Verification", "Looking ≠ Being" | Counter rationalizations |
-
-## Self-Check Protocol
-
-Before marking ANY task complete:
-
-```markdown
-## Completion Self-Check
-
-1. [ ] Did I verify or just assume?
-2. [ ] Did I run tests or just check code visually?
-3. [ ] Did I complete everything or just the "important" parts?
-4. [ ] Would I bet money this works?
-5. [ ] Can I show evidence (output, test results)?
-```
-
-If any answer is uncertain, you're not done.
-
-## Escalation Triggers
-
-STOP and ask the user when:
-
-| Situation | Why Escalate | Don't |
-|-----------|--------------|-------|
-| Unclear requirements | Building wrong thing | Guess and proceed |
-| Multiple valid approaches | User preference matters | Pick arbitrarily |
-| Breaking change detected | User impact | Hide it in PR |
-| Tests failing unexpectedly | Root cause unknown | Skip the failing test |
-| Security concern | Risk assessment needed | Assume it's fine |
-
-## Evidence Requirements
-
-"Done" means you can show proof:
-
-| Task Type | Required Evidence |
-|-----------|------------------|
-| Bug fix | Before/after behavior + test output |
-| New feature | Tests pass + manual verification |
-| Refactor | Tests still pass + no behavior change |
-| Configuration | System accepts config + expected effect |
-| Documentation | Accurate + matches code |
-
-## Common Rationalization Patterns by Domain
-
-### Code Changes
-- "The type system catches this" → Run tests anyway
-- "Linter didn't complain" → Linter misses logic errors
-- "It compiled" → Compiling ≠ Correct
-
-### Testing
-- "Happy path works" → Test error paths
-- "Unit tests pass" → Integration might fail
-- "Works locally" → CI might differ
-
-### Reviews
-- "Author explained it" → Still verify
-- "Tests pass" → Tests can be incomplete
-- "Small change" → Small changes cause big bugs
-
-## Integration with Skills
-
-Skills reference this pattern and add domain-specific rows:
-
-```markdown
-## Anti-Rationalization
-
-See [core patterns](../shared-patterns/anti-rationalization-core.md).
-
-Domain-specific for [skill name]:
-
-| Rationalization | Why Wrong | Action |
-|-----------------|-----------|--------|
-| [specific to domain] | [reason] | [action] |
-```
+Domain skills may add concrete checks and exceptions. Keep them specific to the
+work instead of repeating this contract.
