@@ -1,0 +1,86 @@
+{
+  "baseline_commit": "0d8a98f10146b08a64a7b0855c54e096f6c6c134",
+  "baseline_assessor_sha256": "d35ad8fbf45d1a7e4ac087f3f5cbb117491f26bf2270d2312324cf8c768d829f",
+  "candidate_assessor_sha256": "0315a71ad78045c57cacd2b2aae165aa2a4b2ef4a9da63eab028fd9d1b4a1a9a",
+  "method": "Identical synthetic raw worker/judge artifacts through full assessor; 30 cases, 5 repeats, 2 arms. Only case-0 varies, with 3 checks. No model calls.",
+  "cases": {
+    "equal_total": {
+      "baseline_earned_counts": [
+        0,
+        0,
+        0,
+        0,
+        3
+      ],
+      "challenger_earned_counts": [
+        0,
+        0,
+        0,
+        1,
+        2
+      ],
+      "before": {
+        "status": "REJECT",
+        "regressions": [
+          "case-0"
+        ],
+        "case_utility": {
+          "baseline": 0.2,
+          "challenger": 0.19999999999999998
+        },
+        "runs": 300,
+        "failures": 0
+      },
+      "after": {
+        "status": "REVIEW_READY",
+        "regressions": [],
+        "case_utility": {
+          "baseline": 0.2,
+          "challenger": 0.2
+        },
+        "runs": 300,
+        "failures": 0
+      }
+    },
+    "one_point_loss": {
+      "baseline_earned_counts": [
+        0,
+        0,
+        0,
+        0,
+        3
+      ],
+      "challenger_earned_counts": [
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      "before": {
+        "status": "REJECT",
+        "regressions": [
+          "case-0"
+        ],
+        "case_utility": {
+          "baseline": 0.2,
+          "challenger": 0.13333333333333333
+        },
+        "runs": 300,
+        "failures": 0
+      },
+      "after": {
+        "status": "REJECT",
+        "regressions": [
+          "case-0"
+        ],
+        "case_utility": {
+          "baseline": 0.2,
+          "challenger": 0.13333333333333333
+        },
+        "runs": 300,
+        "failures": 0
+      }
+    }
+  }
+}
