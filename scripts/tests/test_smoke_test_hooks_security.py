@@ -87,7 +87,7 @@ def test_safe_mode_strips_target_pytest_execution_context(tmp_path: Path) -> Non
         f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('owned')\n",
         encoding="utf-8",
     )
-    trusted_hook = trusted_hooks / "posttool-auto-test.py"
+    trusted_hook = trusted_hooks / "trusted-test-runner.py"
     trusted_hook.write_text(
         "import json, os, subprocess, sys\n"
         "from pathlib import Path\n"

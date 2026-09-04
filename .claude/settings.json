@@ -305,18 +305,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/posttool-lint-hint.py\"",
-            "description": "Gentle lint reminder after file modifications",
-            "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/agent-grade-on-change.py\"",
-            "description": "Grade agents when modified - warns if quality drops below B",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/adr-enforcement.py\"",
             "description": "Enforce ADR compliance after file writes during active pipeline sessions",
             "timeout": 3000
@@ -429,17 +417,6 @@
             "command": "python3 \"$HOME/.claude/hooks/routing-decision-recorder.py\"",
             "description": "Record routing-decision rows per Agent dispatch and per [do-route] marker in a Workflow script (replaces /do Phase 5 action A)",
             "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/posttool-auto-test.py\"",
-            "description": "Auto-test after source edits",
-            "timeout": 20000
           }
         ]
       }

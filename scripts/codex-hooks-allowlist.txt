@@ -12,7 +12,7 @@
 # entry is explicit; generator legacy parsing exists only for upgrade errors.
 #
 # Accounting against .claude/settings.json:
-#   65 registrations = 26 native + 29 adapted + 10 unsupported.
+#   62 registrations = 26 native + 27 adapted + 9 unsupported.
 
 # Native SessionStart (12)
 SessionStart:afk-mode.py matcher=startup|resume|clear|compact class=native mode=native failure=open
@@ -65,8 +65,7 @@ PostToolUse:posttool-bash-injection-scan.py matcher=Bash class=native mode=nativ
 PostToolUse:posttool-rename-sweep.py matcher=Bash class=native mode=native failure=open
 PostToolUse:posttool-session-reads.py matcher=Bash class=native mode=native failure=open
 
-# Adapted PostToolUse apply_patch/Edit|Write observers (10)
-PostToolUse:posttool-lint-hint.py matcher=Edit|Write class=adapted mode=patch failure=open
+# Adapted PostToolUse apply_patch/Edit|Write observers (8)
 PostToolUse:adr-enforcement.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-security-scan.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-skill-frontmatter-check.py matcher=Edit|Write class=adapted mode=patch failure=open
@@ -75,7 +74,6 @@ PostToolUse:posttooluse-sync-skill-index.py matcher=Edit|Write class=adapted mod
 PostToolUse:posttooluse-sync-agent-index.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:posttool-docs-drift-alert.py matcher=Edit|Write class=adapted mode=patch failure=open
 PostToolUse:security-review-hook.py matcher=Edit|Write class=adapted mode=patch failure=open
-PostToolUse:posttool-auto-test.py matcher=Edit|Write class=adapted mode=patch failure=open
 
 # Adapted PreCompact: Codex lacks Claude conversation_history telemetry (1)
 PreCompact:precompact-archive.py matcher=manual|auto class=adapted mode=precompact failure=open

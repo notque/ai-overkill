@@ -98,7 +98,6 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
     add("PostToolUse", "context:[adr-lifecycle]", "adr-lifecycle-on-merge.py")
     add("PostToolUse", "context:[bash-injection-scan]", "posttool-bash-injection-scan.py")
     add("PostToolUse", "context:[rename-sweep]", "posttool-rename-sweep.py")
-    add("PostToolUse", "context:[lint-hint]", "posttool-lint-hint.py")
     add("PostToolUse", "context:[adr-enforcement] COMPLIANCE CHECK", "adr-enforcement.py")
     add("PostToolUse", "context:[SECURITY-HINT]", "posttool-security-scan.py")
     add("PostToolUse", "context:[skill-frontmatter]", "posttool-skill-frontmatter-check.py")
@@ -107,7 +106,6 @@ def _semantic_contracts() -> dict[tuple[str, str], str]:
     add("PostToolUse", "context:[sync-agent-index]", "posttooluse-sync-agent-index.py")
     add("PostToolUse", "context:[docs-drift] WARNING", "posttool-docs-drift-alert.py")
     add("PostToolUse", "context:[security-review]", "security-review-hook.py")
-    add("PostToolUse", "context:Auto-test results", "posttool-auto-test.py")
     add("PostToolUse", "state:session-reads", "posttool-session-reads.py")
     add("PreCompact", "context:ACTIVE PIPELINE SESSION", "precompact-archive.py")
     add("SubagentStop", "state:routing-requeue", "routing-outcome-recorder.py")
@@ -376,9 +374,7 @@ def _prepare_case(
     elif registration["event"] == "PostToolUse" and registration["mode"] == "patch":
         patch_path = "runtime.py"
         content = "print('runtime')\n"
-        if filename == "posttool-lint-hint.py":
-            evidence["lint_state_before"] = set(Path("/tmp").glob("claude_lint_hints_seen_*.txt"))
-        elif filename == "adr-enforcement.py":
+        if filename == "adr-enforcement.py":
             patch_path = "hooks/runtime.py"
             target = cwd / patch_path
             target.parent.mkdir()
@@ -425,16 +421,6 @@ def _prepare_case(
             agents.mkdir()
             (agents / "runtime-agent.md").write_text("# Runtime Agent\n", encoding="utf-8")
             (agents / "INDEX.json").write_text('{"agents": {}}\n', encoding="utf-8")
-        elif filename == "posttool-auto-test.py":
-            patch_path = "runtime.go"
-            (cwd / patch_path).write_text("package runtime\n", encoding="utf-8")
-            fake_go = Path(env["PATH"].split(os.pathsep, 1)[0]) / "go"
-            fake_go.write_text("#!/bin/sh\nprintf 'runtime go tests passed\\n'\n", encoding="utf-8")
-            fake_go.chmod(0o755)
-            for state_name in ("auto-test-last-run", "auto-test-last-run.lock"):
-                state_path = Path("/tmp") / state_name
-                evidence[f"{state_name}_before"] = state_path.read_bytes() if state_path.exists() else None
-                state_path.unlink(missing_ok=True)
         payload["tool_input"] = {"command": _single_write_patch(patch_path, content)}
     elif filename == "stop-drift-guard.py":
         hooks_dir = cwd / "hooks"
@@ -600,35 +586,19 @@ def _assert_meaningful(
         assert Path(evidence["generated_index"]).is_file()
 
 
-def _cleanup_global_state(session_id: str, evidence: dict[str, object] | None = None) -> None:
+def _cleanup_global_state(session_id: str) -> None:
     shutil.rmtree(Path("/tmp/.claude-backups") / session_id, ignore_errors=True)
     for path in (
         Path(f"/tmp/claude-compact-count-{session_id}.state"),
         Path(f"/tmp/claude-ref-gate-{session_id}.json"),
     ):
         path.unlink(missing_ok=True)
-    evidence = evidence or {}
-    if "lint_state_before" in evidence:
-        before = evidence["lint_state_before"]
-        assert isinstance(before, set)
-        for path in set(Path("/tmp").glob("claude_lint_hints_seen_*.txt")) - before:
-            path.unlink(missing_ok=True)
-    for state_name in ("auto-test-last-run", "auto-test-last-run.lock"):
-        key = f"{state_name}_before"
-        if key not in evidence:
-            continue
-        path = Path("/tmp") / state_name
-        previous = evidence[key]
-        if isinstance(previous, bytes):
-            path.write_bytes(previous)
-        else:
-            path.unlink(missing_ok=True)
 
 
 def test_runtime_inventory_contains_all_supported_registrations() -> None:
-    assert len(REGISTRATIONS) == 55, "runtime matrix must execute every supported registration"
+    assert len(REGISTRATIONS) == 53, "runtime matrix must execute every supported registration"
     registrations = {(item["event"], item["filename"]) for item in REGISTRATIONS}
-    assert len(registrations) == 55
+    assert len(registrations) == 53
     assert set(SEMANTIC_CONTRACTS) == registrations, "every registration needs one explicit semantic contract"
 
 
@@ -644,4 +614,4 @@ def test_real_registration_runs_through_generated_adapter_command(registration: 
         output = _decode_and_check(registration, result, elapsed)
         _assert_meaningful(registration, result, output, env, session_id, payload, evidence)
     finally:
-        _cleanup_global_state(session_id, evidence)
+        _cleanup_global_state(session_id)

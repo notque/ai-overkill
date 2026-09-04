@@ -92,9 +92,7 @@ Task completes: TaskCompleted
 | Hook | Matcher | Description |
 |------|---------|-------------|
 | `adr-enforcement` | Write, Edit | Runs ADR compliance check after pipeline component files are written |
-| `agent-grade-on-change` | Edit, Write | Automatically grades agent files when they are created or modified |
 | `posttool-bash-injection-scan` | Bash | Scans files written by Bash commands for LLM-level prompt injection patterns |
-| `posttool-lint-hint` | Write, Edit | Suggests available linters after file writes (silent when no linter applies) |
 | `posttool-rename-sweep` | Bash | After `git mv`, scans for stale references to the old filename and warns |
 | `posttool-security-scan` | Write, Edit | Scans edited code for hardcoded credentials, injection risks, and path traversal |
 | `posttool-session-reads` | Read | Tracks files read during the session to `.claude/session-reads.txt` for subagent warmstart |
