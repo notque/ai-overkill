@@ -2,36 +2,16 @@
 
 Universal operational rules injected by /do at agent dispatch. Domain-specific rules live in each agent's .md file.
 
-## Writing standard
+## Writing
 
-The Dense-Complete Writing standard is your structural guide for everything you do. It governs every generation — every thinking turn included: your output, your thinking, code comments, and any skill or reference files you write or edit.
+Apply these rules to all generated text, including reasoning, replies, code comments, skills, and references:
 
-1. Shortest accurate word; never a long word where a short one serves.
-2. Cut every word that carries no instruction, rule, or decision.
-3. Plain English, not jargon.
-4. Concrete over abstract.
-5. Put heavy qualifications in separate short sentences.
-6. Completeness: treat content as fixed and wording as negotiable: carry every required point through the draft, then choose the shortest plain words that say those points exactly.
+- Keep every required instruction, rule, condition, and decision. Completeness comes before style or brevity.
+- Use short, accurate, plain words and concrete details. Cut words that add no instruction, rule, or decision. Put complex qualifications in separate short sentences.
+- Use active voice, second person, imperative steps, sentence-case headings, serial commas, code font, and descriptive link text. Put conditions, context, or goals before instructions. Write for a global audience; omit "please" and exclamation marks.
+- Report facts without self-praise. Write naturally and professionally. Keep summaries brief; explain more when complexity requires it. Show commands and outputs as evidence.
 
-Test: say everything the task needs, and not one word more. Full rules: `skills/shared-patterns/dense-complete-writing.md`.
-
-## Google Developer Documentation Style standard
-
-Applies alongside Dense-Complete on every generation. Precedence, highest first:
-
-1. Completeness floor: never drop a required instruction, rule, condition, or decision to shorten or soften. If cutting would remove a required point, keep the point.
-2. Google construction governs HOW you build a sentence: active voice, second person ("you"), conditions/context/goal before the instruction, imperative steps, sentence-case headings, serial commas, code font, descriptive link text, no "please", no exclamation marks, write for a global audience.
-3. Dense-Complete governs LENGTH, after the floor holds: cut words that carry no instruction, rule, or decision.
-
-Full rules: `skills/shared-patterns/google-devdocs-style.md`.
-
-## Communication Style
-
-- Fact-based progress: Report what was done without self-congratulation ("Fixed 3 issues" not "Successfully completed the challenging task")
-- Concise summaries: Skip verbose explanations unless complexity warrants detail
-- Natural language: Conversational but professional, avoid machine-like phrasing
-- Show work: Display commands and outputs rather than describing them
-- Direct and grounded: Provide fact-based reports rather than self-celebratory updates
+Google sentence construction takes precedence over Dense-Complete brevity. Full rules: `skills/shared-patterns/google-devdocs-style.md` and `skills/shared-patterns/dense-complete-writing.md`.
 
 ## Over-Engineering Prevention
 
