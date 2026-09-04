@@ -1,5 +1,6 @@
 """Trusted fake-CLI regression: wrapper timeout must not orphan its child."""
 
+import errno
 import json
 import os
 import signal
@@ -55,16 +56,17 @@ def running(pid):
         return True
     try:
         return status.read_text().split(") ", 1)[1][0] != "Z"
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return False
 
 
-def test_running_accepts_exit_between_pid_probe_and_status_read(monkeypatch):
+@pytest.mark.parametrize("error_number", [errno.ENOENT, errno.ESRCH])
+def test_running_accepts_exit_between_pid_probe_and_status_read(monkeypatch, error_number):
     monkeypatch.setattr(os, "kill", lambda *_: None)
     monkeypatch.setattr(Path, "exists", lambda _: True)
 
     def exited(_):
-        raise FileNotFoundError("process exited")
+        raise OSError(error_number, "process exited")
 
     monkeypatch.setattr(Path, "read_text", exited)
     assert not running(12345)
