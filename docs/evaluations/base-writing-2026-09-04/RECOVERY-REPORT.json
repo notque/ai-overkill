@@ -1,0 +1,454 @@
+{
+  "verdict": "REJECT",
+  "scope": "Output interpretation and writing with full base instructions; not autonomous execution compliance.",
+  "policy_source": "/tmp/vexjoy-base-rules-trial/protocol.json",
+  "generic_assessor_status_ignored": "INCONCLUSIVE",
+  "generic_policy_not_applicable": "This frozen trial uses18cases/180runs and1% plus measured-noise threshold; generic5%/300 gate intentionally not controlling. Raw vote disagreements, if any, require separately hash-locked independent adjudication, never averaging.",
+  "judge_campaign": "judges-assembled (latest71valid + one approved timeout recovery)",
+  "initial_judge_campaign": "judges (infrastructure-failed; archived, no vote reuse)",
+  "transport_recovery": {
+    "amendment": "Post-launch transport-only recovery, not an untouched preregistered campaign.",
+    "receipt_sha256": "4a528b3333361825979ac8778670eb29eb5c48f447f4555fdaba8af84e3d3ae6",
+    "accepted_latest_batches": 71,
+    "single_recovery_attempts": 1,
+    "prior_votes_excluded": true
+  },
+  "adjudication": {
+    "initial_disputed_packets": 5,
+    "adjudication_sha256": "5b27bcfa1639adffbe4ee54cf3d4f1c5404f81e16232efccaf7b6d9794397256",
+    "resolved_packets": 5,
+    "unresolved": [],
+    "case_utility": {
+      "dev01": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev02": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev03": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev04": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev05": {
+        "baseline": 0.8,
+        "challenger": 1.0
+      },
+      "dev06": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev07": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev08": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev09": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev10": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev11": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "dev12": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "holdout01": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "holdout02": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "holdout03": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      },
+      "holdout04": {
+        "baseline": 1.0,
+        "challenger": 0.9333333333333333
+      },
+      "holdout05": {
+        "baseline": 0.8,
+        "challenger": 0.6666666666666666
+      },
+      "holdout06": {
+        "baseline": 1.0,
+        "challenger": 1.0
+      }
+    },
+    "critical_violations": {
+      "dev01": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev02": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev03": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev04": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev05": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev06": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev07": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev08": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev09": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev10": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev11": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev12": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout01": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout02": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout03": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout04": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout05": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout06": {
+        "baseline": 0,
+        "challenger": 0
+      }
+    },
+    "regressions": [
+      "holdout04",
+      "holdout05"
+    ]
+  },
+  "quality_pass": false,
+  "efficiency_pass": true,
+  "worker_contract_audit": {
+    "expected": 180,
+    "observed": 180,
+    "raw_invalid": 0,
+    "shape_failures": 0,
+    "word_limit_failures": 0,
+    "max_words": 126,
+    "counting_method": "Whitespace-separated words in the decoded answer string; JSON envelope excluded.",
+    "contract_sha256": "a533545ba55831147c77740ea4a1906415a5b0cae8149802a517014b6e073add"
+  },
+  "contract_violations": [],
+  "baseline_repeat_corpus_medians": [
+    13633.0,
+    13631.0,
+    13632.5,
+    13635.0,
+    13629.5
+  ],
+  "baseline_noise_range": 5.5,
+  "required_absolute_saving_strictly_greater_than": 11.0,
+  "observed_global_median_saving": 209.0,
+  "calibration": {
+    "passed": true,
+    "judgments": 12,
+    "mismatches": [],
+    "rejected_first_calibration": "Semantic source labels in packet IDs; cost retained."
+  },
+  "metrics": {
+    "status": "INCONCLUSIVE",
+    "runs": 180,
+    "failures": 0,
+    "disagreements": [
+      "2297d7c0bfc0047d885867d0",
+      "12dbd96530a8375442692b6d",
+      "2a993b596ccb44dce2d170a9",
+      "c0e8984c9a0e73f98392257d",
+      "6a4c4bc534c137c621025c85"
+    ],
+    "regressions": [
+      "holdout05"
+    ],
+    "metrics": {
+      "total_tokens": {
+        "baseline_median": 13631.5,
+        "challenger_median": 13422.5,
+        "paired_saving_median": 210.0,
+        "reduction": 0.015332135128195723
+      },
+      "input_tokens": {
+        "baseline_median": 13562.0,
+        "challenger_median": 13344.5,
+        "paired_saving_median": 217.0,
+        "reduction": 0.01603745760212358
+      },
+      "cached_input_tokens": {
+        "baseline_median": 11392.0,
+        "challenger_median": 11392.0,
+        "paired_saving_median": 0.0,
+        "reduction": 0.0
+      },
+      "output_tokens": {
+        "baseline_median": 77.5,
+        "challenger_median": 87.0,
+        "paired_saving_median": -8.5,
+        "reduction": -0.12258064516129032
+      }
+    },
+    "production_authorized": false,
+    "unresolved_prerequisites": [
+      "Independent calibration certification",
+      "Execution-backed verification with isolated evaluator authority",
+      "Project-required CI and authorized review/release",
+      "Full 300-assignment routing comparison"
+    ],
+    "critical_violations": {
+      "dev01": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev02": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev03": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev04": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev05": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev06": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev07": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev08": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev09": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev10": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev11": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "dev12": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout01": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout02": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout03": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout04": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout05": {
+        "baseline": 0,
+        "challenger": 0
+      },
+      "holdout06": {
+        "baseline": 0,
+        "challenger": 0
+      }
+    },
+    "case_utility": {
+      "dev01": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev02": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev03": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev04": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev05": {
+        "baseline": 0.8666666666666667,
+        "challenger": 1
+      },
+      "dev06": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev07": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev08": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev09": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev10": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev11": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "dev12": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "holdout01": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "holdout02": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "holdout03": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "holdout04": {
+        "baseline": 1,
+        "challenger": 1
+      },
+      "holdout05": {
+        "baseline": 0.7999999999999999,
+        "challenger": 0.6666666666666666
+      },
+      "holdout06": {
+        "baseline": 1,
+        "challenger": 1
+      }
+    }
+  },
+  "experiment_cost": {
+    "groups": {
+      "generation": {
+        "completed_artifacts": 180,
+        "input_tokens": 2422074,
+        "cached_input_tokens": 1985152,
+        "output_tokens": 16082
+      },
+      "ineligible_calibration": {
+        "completed_artifacts": 4,
+        "input_tokens": 54894,
+        "cached_input_tokens": 34560,
+        "output_tokens": 2465
+      },
+      "blind_calibration": {
+        "completed_artifacts": 4,
+        "input_tokens": 55034,
+        "cached_input_tokens": 46080,
+        "output_tokens": 2583
+      },
+      "initial_live_judges": {
+        "completed_artifacts": 72,
+        "input_tokens": 1013201,
+        "cached_input_tokens": 760320,
+        "output_tokens": 68660
+      },
+      "fresh_live_judges": {
+        "completed_artifacts": 72,
+        "input_tokens": 1027495,
+        "cached_input_tokens": 783360,
+        "output_tokens": 69762
+      },
+      "single_transport_recovery": {
+        "completed_artifacts": 1,
+        "input_tokens": 14397,
+        "cached_input_tokens": 11520,
+        "output_tokens": 1015
+      }
+    },
+    "input_tokens": 4587095,
+    "cached_input_tokens": 3620992,
+    "output_tokens": 160567,
+    "total_input_plus_output": 4747662,
+    "unknown_usage_artifacts": [
+      "/tmp/vexjoy-base-rules-trial/judges/pass-2-cd08c50010e60280/result.json",
+      "/tmp/vexjoy-base-rules-trial/judges/pass-2-e6127bb8aced2a3c/result.json",
+      "/tmp/vexjoy-base-rules-trial/judges-rerun/pass-2-d239319cc0e49883/result.json"
+    ],
+    "scope": "Measured model generation and judge calls; coordinating-agent overhead unavailable and not asserted zero."
+  },
+  "limitations": [
+    "Tests output interpretation/writing only; no autonomous execution or compliance inference.",
+    "Fixed case corpus, same-model independent judge passes; narrow source edit.",
+    "Requires parent review and all project CI; no automatic publication."
+  ]
+}

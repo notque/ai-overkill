@@ -1,0 +1,53 @@
+{
+  "arms": {
+    "baseline": {
+      "instruction_file": "inputs/baseline.md"
+    },
+    "challenger": {
+      "instruction_file": "inputs/challenger.md"
+    }
+  },
+  "cases_file": "cases.json",
+  "common_context_files": [
+    "inputs/contract.txt"
+  ],
+  "corpus_sha256s": {
+    "README.md": "0a046a93dad02bb1a4356df57853a849808012e57895a96944fece42cb2f76fc",
+    "SHA256SUMS": "3cadb7c1c25bb061412c648d429fcca635939822e462df34a6ea00d5ae9c4609",
+    "build.py": "12ca2dfc8f437e2dd00ad9bc90a0a6a72d09b600d2eac98f830597e80b2f979b",
+    "calibration.expected.jsonl": "14ce877ba6c5d96b301d1c1eabd74b481817d0542876cda7a921a66a96d08ac7",
+    "calibration.outputs.jsonl": "1774eba7e9451832df4429fff47205abce29f96976264244bd46d90ef0c2f4bc",
+    "dev.prompts.jsonl": "99c0dc1cab5fccc99cbfa59d2cd4a369d68e23725894db4bb88aa30b5a80194a",
+    "dev.rubrics.jsonl": "97cc05573f1a2ef6fa71f8ded3bd30ce54875ddfdee4e10bebc9404d96d49cdf",
+    "holdout.prompts.jsonl": "6ed513265a112226daec686b2887fbd48ab60b8ff16c7733e485ded87c4829ee",
+    "holdout.rubrics.jsonl": "ac5e98bc91fa38ab2dec97b7cf2ee3af6a70768b9afcca3b286dc575de6fb80b",
+    "source.sha256": "63042244862b6a32abaf13f1e6e75cd85a450274596a5979c555a2320e0f5f77"
+  },
+  "decision_policy": {
+    "calibration": "All predefined semantic scores and critical labels exactly match in both passes; no disagreement or missing batch.",
+    "cost": "Report all generation and judging input/cache/output usage including calibration; unknown usage stays unknown, never zero.",
+    "critical": "Per case count of critical violations over five runs; challenger must be <= baseline for every case.",
+    "expected_cases": 18,
+    "expected_runs": 180,
+    "failures": "Any missing/invalid response, usage, provenance, judge batch, calibration mismatch, or unresolved judge disagreement prevents a passing verdict.",
+    "judge_passes": 2,
+    "noise": "Compute baseline corpus median total tokens separately for each of five repeat indices; noise range=max-min of these five medians.",
+    "publication": "No automatic promotion or publishing; parent reviews complete evidence and all project CI.",
+    "savings": "Baseline global median minus challenger global median >=1% of baseline AND strictly >2*baseline noise range.",
+    "tokens": "Input plus output tokens, cached input is subset not added again; compare global medians across90 samples per arm.",
+    "utility": "Per case mean of binary rubric-check scores over five runs; challenger must be >= baseline for every case."
+  },
+  "effort": "low",
+  "harness_sha256s": {
+    "assess.py": "d35ad8fbf45d1a7e4ac087f3f5cbb117491f26bf2270d2312324cf8c768d829f",
+    "judge.py": "01da7fd984a84e71c08f4b3a5c173d666b73fe6cc67b2b78c2f9fef964fc6666",
+    "runner.py": "f2fa499b11d4f641c6603762c8870520b48f2abc0c09f1d97f9ba39d6a5dedbc"
+  },
+  "model": "gpt-6-astra",
+  "repeats": 5,
+  "scope": "Output interpretation and writing with full base instructions; not autonomous execution compliance.",
+  "seed": 2026090417,
+  "target_reduction": 0.01,
+  "timeout_seconds": 180,
+  "version": 1
+}
