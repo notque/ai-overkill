@@ -11,13 +11,15 @@ The toolkit should make capable agents easier to use while lowering total token 
 
 ## Understand and carry out the request
 
-Use `/do` as the central capability router. Read intent in context, including plain, informal and non-native language. Consult the canonical capability catalog to find relevant agents, skills, scripts and project knowledge. Match the needed capability and constraints, rather than isolated trigger words. The user should not need to name internal components.
+Use `/do` as the central capability router. Read intent in context, including plain, informal and non-native language. Consult the canonical capability catalog to find relevant agents, skills, scripts and project knowledge. Match the needed capability and constraints, rather than isolated trigger words. The user should not need to name internal components. If an equivalent request works better only after expert rephrasing or naming internal components, investigate the router rather than teaching users its internals.
 
 Keep the user's requested outcome, limits and prior decisions throughout the task. Inspect available evidence before asking questions. Ask when missing information materially changes correctness, scope or an authorized action; continue independent useful work while waiting. Resolve routine implementation choices yourself. Complete authorized work through verification and delivery, without mistaking plans or intermediate artifacts for completion.
 
 ## Add expertise where it changes the work
 
 Preserve project conventions, version constraints, incident-derived failure modes, editorial examples, integration contracts and concrete diagnostic procedures. General expertise declarations do not substitute for this information. Keep one authoritative home for each rule and link to it. Package related knowledge and tools with explicit dependencies so changes remain testable and removable.
+
+Before adopting an inferred general rule, require support in multiple distinct contexts, usefulness in predicting new decisions, and a trait that distinguishes the subject from generic field advice. Counts establish recurrence, not the other two properties; those need judgment and evidence. A single incident can justify a local fix without establishing a general rule. Stage definition changes for human review rather than letting a learning pipeline overwrite them.
 
 Load references when the task needs them. Supply enough context to act correctly, including exceptions and reasons; shorter prompts are not valuable if they remove essential detail. Put structured, recurring state in queryable files or stores, interpretive knowledge in references, and only the current working view in session context.
 
@@ -31,9 +33,9 @@ Use models for interpretation, diagnosis, design and synthesis. A structured pro
 
 ## Match structure to failure and recovery
 
-Use phases, saved artifacts and explicit prerequisites when intermediate results have value, work needs resuming, or a failure must be isolated. Keep small tasks small. Parallel gathering benefits from programmatic completeness checks when required coverage or counts are defined; an extra table or phase is useful only when it answers a real decision.
+Use phases, saved artifacts and explicit prerequisites when intermediate results have value, work needs resuming, or a failure must be isolated. Keep small tasks small. For phased work, `/do` coordinates the capabilities and workflow, assigning repeatable operations to programs and contextual exceptions to models; independent portions can run in parallel. Parallel gathering benefits from programmatic completeness checks when required coverage or counts are defined; an extra table or phase is useful only when it answers a real decision. When required artifacts are missing or evidence conflicts, surface the gap, repair prerequisites and resolve contradictions before synthesis; do not infer missing results.
 
-Enforce explicit action boundaries and established correctness requirements with reliable checks where possible. Keep heuristic advice advisory until its benefit and false positives justify blocking. Give blocking checks a clear scope, owner and recovery path. Test enforcement, including failure paths, rather than assuming a hook is effective because it exists.
+Enforce explicit action boundaries and established correctness requirements with reliable checks where possible. Start uncertain heuristic checks as observable advisory safeguards. Under current governance, blocking promotion requires demonstrated value, a dedicated ADR, operator sign-off and an escalation path. Record a concrete promotion-review date and the exact strict command so advisory status is revisited; the date alone does not authorize blocking. Give blocking checks a clear scope, owner and recovery path. Test enforcement, including failure paths, rather than assuming a hook is effective because it exists.
 
 ## Respect authority and verify outcomes
 
@@ -45,9 +47,9 @@ Distinguish a proposed change, an applied change, a merged change and a live dep
 
 ## Improve the toolkit with evidence
 
-Evaluate content usefulness as well as parseability, references and executable checks. Test new instructions on representative tasks with independently defined outcomes, known failure controls and a held-out set. Freeze inputs and decision criteria before measurement. Count quality, failures, interruptions and end-to-end tokens, including measurement and enforcement overhead. Every extra entrypoint, hook, artifact or gate must justify its maintenance burden. Repeated runs and calibrated judges support an experiment; neither guarantees broad validity.
+Evaluate content usefulness as well as parseability, references and executable checks. Test new instructions on representative tasks with independently defined outcomes, known failure controls and a held-out set. Freeze inputs and decision criteria before measurement. Count quality, failures, interruptions and end-to-end tokens, including measurement and enforcement overhead. Every extra entrypoint, hook, artifact or gate must justify its maintenance burden. Repeated runs and calibrated judges support an experiment; neither guarantees broad validity. Historical model scores do not establish a current production pass rate. Likewise, the existence of hooks does not prove true scheduling, mid-flight arbitration or enforced budgets. When these become requirements, verify harness support and revisit the coordination architecture where that support is absent.
 
-Treat implementation policies as revisable. Retain useful negative results with their evidence and scope. A rare capability may remain valuable; low usage identifies a review candidate, not proof of uselessness. Merge overlapping entrypoints, preserve distinctive knowledge, and remove default injections or automation that do not justify their cost. Changes to shared behavior should be reviewable, tested and introduced through the authorized release process.
+Treat implementation policies as revisable. Record negative results with their scope, decision and a concrete evidence location—a report, trace or artifact—so another agent can inspect what happened. A rare capability may remain valuable; low usage identifies a review candidate, not proof of uselessness. Merge overlapping entrypoints, preserve distinctive knowledge, and remove default injections or automation that do not justify their cost. Changes to shared behavior should be reviewable, tested and introduced through the authorized release process.
 
 Write clear, concise explanations that retain every material condition and decision. Prefer concrete actions and evidence over slogans. Keep detailed history, implementation commands and changing model policies in maintained references rather than repeating them in the core philosophy.
 
