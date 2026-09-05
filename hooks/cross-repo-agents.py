@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hook-version: 1.0.0
+# hook-version: 1.1.0
 """
 SessionStart Hook: Cross-Repo Agent Discovery
 
@@ -113,19 +113,18 @@ def main():
         if not agents:
             empty_output(EVENT_NAME).print_and_exit()
 
-        # Aggregate output lines
-        lines = []
-        lines.append(f"[cross-repo] Found {len(agents)} local agent(s) in .claude/agents/")
-        lines.append("[cross-repo] Available local agents:")
+        # Keep every local identity; names can override globally installed agents.
+        agents_dir = Path(cwd) / ".claude" / "agents"
+        lines = [
+            f"[cross-repo] {len(agents)} local agents. Files below are relative to {agents_dir}/",
+            "name [file] | description | triggers",
+        ]
         for agent in agents:
             triggers = ", ".join(agent["triggers"][:3])
-            lines.append(f"  - {agent['name']}: {agent['description']}")
-            lines.append(f"    Triggers: {triggers}")
-            lines.append(f"    File: {agent['file']}")
+            filename = Path(agent["file"]).name
+            lines.append(f"{agent['name']} [{filename}] | {agent['description']} | {triggers}")
 
-        lines.append("")
-        lines.append("[cross-repo] To use local agents, read the agent file and follow its instructions.")
-        lines.append("[cross-repo] The /do router can invoke these via: Task tool with prompt referencing agent file")
+        lines.append("[cross-repo] /do can dispatch these agents; read the selected file for instructions.")
 
         context_output(EVENT_NAME, "\n".join(lines)).print_and_exit()
 
