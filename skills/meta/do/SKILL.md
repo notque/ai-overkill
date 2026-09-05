@@ -348,8 +348,8 @@ Medium+ must provide `model: "inherit"`, a supported explicit model, or a policy
 
 | Verbs | Mode |
 |---|---|
-| list/count/extract/inventory/search/check/find/grep | Scripts when deterministic; otherwise harness-native low-risk readers → harness-native high-risk synth |
-| review/audit/assess/analyze/debug/investigate/evaluate | Single harness-native high-risk agent |
+| list/count/extract/inventory/search/check/find/grep | Scripts when deterministic; otherwise readers → synthesis, inheriting the session model |
+| review/audit/assess/analyze/debug/investigate/evaluate | Single agent, inheriting the session model |
 
 Simple/Medium: direct. Feature-branch; mods commit. `isolation:"worktree"`→`flags.worktree`. Non-org: 3 reviews→fix→PR. Org: confirm git.
 
