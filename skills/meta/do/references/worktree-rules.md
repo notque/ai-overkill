@@ -6,8 +6,7 @@ Mandatory rules for any agent dispatched with `isolation: "worktree"`.
 
 ## Rule 1: Verify Your Working Directory
 
-On start, run `pwd`. Your path MUST contain `.claude/worktrees/`.
-If your CWD is the main repo path, **STOP** and report the error.
+Run `bash scripts/worktree-preflight.sh <intended-branch-name>`. Verify Git identifies this checkout as a linked worktree on the assigned feature branch. The directory may be under `.claude/worktrees/`, `/tmp`, or another assigned location. Stop if this is the main checkout or a different task’s branch.
 
 ## Rule 2: Create Feature Branch First
 
@@ -15,27 +14,9 @@ If your CWD is the main repo path, **STOP** and report the error.
 git checkout -b <branch-name>
 ```
 
-Never commit on the default `worktree-agent-*` branch. Create your feature branch FIRST.
+Use an existing assigned feature branch when it is already checked out here. Otherwise create a unique branch before editing. Do not delete a collided branch or update another active worker's branch. Coordinate with its owner or choose another name.
 
-If `git checkout -b <branch-name>` fails with "a branch named X already exists":
-
-```bash
-# Option A: the branch has no commits beyond main — safe to reset and reuse
-git branch -D <branch-name>
-git checkout -b <branch-name>
-
-# Option B: the branch is checked out in another active worktree — use a unique name
-git checkout -b <branch-name>-2   # or append timestamp: $(date +%s)
-```
-
-If `git checkout -b <branch-name>` fails with "X is already used by worktree at Y":
-
-```bash
-# Branch is live in another worktree — use a unique suffix
-git checkout -b <branch-name>-$(date +%s)
-```
-
-To update a branch held by another worktree (e.g. an existing PR branch): work detached from `origin/<branch>` and push with `git push origin HEAD:<branch>`. `gh pr merge`'s post-merge local-checkout errors are harmless.
+After a merge command reports a local checkout error, verify the PR state on GitHub before reporting a merge or retrying it.
 
 ## Rule 3: Use Worktree-Relative Paths
 

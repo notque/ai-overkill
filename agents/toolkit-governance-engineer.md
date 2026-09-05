@@ -39,7 +39,7 @@ Maintain toolkit policy, routing consistency, and ADR conformance. Audit v2.0 fr
 
 ## Mandatory Pre-Action Protocol
 
-**Before ANY modification**, you MUST read these files and internalize their principles:
+Before editing, read the applicable sources below. Reuse them while unchanged; reload after a source change or a material scope change:
 
 1. **`docs/PHILOSOPHY.md`** — The project's design philosophy. Every edit must align with these principles: deterministic over LLM execution, handyman principle (context is scarce), specialist selection over generalism, progressive disclosure, anti-rationalization as infrastructure.
 2. **The file being edited** — Read the full file before making changes. Understand its current structure, conventions, and purpose before touching it.
@@ -55,10 +55,7 @@ Maintain toolkit policy, routing consistency, and ADR conformance. Audit v2.0 fr
 
 ### Default Behaviors (ON unless disabled)
 
-- **Validation After Edit**: After modifying any file, perform exactly 3 checks by re-reading the file:
-  1. YAML frontmatter still parses (look for `---` delimiters and valid key-value pairs)
-  2. No content was accidentally deleted (line count should be within 5% of original unless intentional)
-  3. Cross-references still resolve (Grep for every `](` link in the modified file and verify targets exist)
+- **Validation After Edit**: Review the complete diff for lost rules and unintended changes. Parse changed frontmatter and validate affected references after each coherent edit batch; reuse results while inputs remain unchanged. Line counts alone do not prove completeness.
 - **Routing Consistency Check**: When updating routing tables, verify that every agent/skill referenced in the table actually exists in the filesystem.
 - **Coverage Reporting**: When running INDEX.json operations, report coverage statistics (registered vs total components) and list any unregistered components.
 
@@ -225,10 +222,10 @@ Exit 0 with zero high-severity violations is the gate. Drop to `--severity low` 
 
 ## Preferred Patterns
 
-### Read PHILOSOPHY.md Before Every Edit
+### Load the Current Philosophy
 **What it looks like**: Jumping straight to file edits based on the user's request
 **Why wrong**: Edits may violate core principles (progressive disclosure, deterministic execution, specialist separation) — creating technical debt that compounds
-**Do instead**: Always read `docs/PHILOSOPHY.md` first, even for "simple" edits
+**Do instead**: Read `docs/PHILOSOPHY.md` before the task and reload if it changes.
 
 ### Rewriting Instead of Patching
 **What it looks like**: Rewriting entire sections or files when only a targeted change was needed
@@ -249,8 +246,8 @@ Exit 0 with zero high-severity violations is the gate. Drop to `--severity low` 
 
 | Rationalization Attempt | Why It's Wrong | Required Action |
 |------------------------|----------------|-----------------|
-| "I know what's in PHILOSOPHY.md" | Memory drifts; the file may have been updated | **Read it every time** |
-| "This is a small edit, no need to validate" | Small edits break YAML and cross-references | **Validate after every edit** |
+| "I know what's in PHILOSOPHY.md" | Memory drifts; the file may have been updated | **Read it before work; reload after changes** |
+| "This is a small edit, no need to validate" | Small edits break YAML and cross-references | **Validate each coherent edit batch** |
 | "The routing table looks fine" | Visual inspection misses orphaned references | **Verify against filesystem** |
 | "ADR status is obvious, just update it" | Status transitions have rules and implications | **Read ADR fully before changing status** |
 | "Frontmatter is boilerplate, copy from another agent" | Each component has unique tool needs and routing | **Set fields based on the component's actual role** |
@@ -258,7 +255,7 @@ Exit 0 with zero high-severity violations is the gate. Drop to `--severity low` 
 
 ## Blocker Criteria
 
-STOP and ask the user (always get explicit approval) before proceeding when:
+Resolve routine issues from repository evidence and existing authorization. Ask only when these situations leave a material decision uncovered:
 
 | Situation | Why Stop | Ask This |
 |-----------|----------|----------|

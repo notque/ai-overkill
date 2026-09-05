@@ -5,7 +5,7 @@
 # failures is detected. Run this at the start of a worktree agent task.
 #
 # Checks:
-#   1. Current CWD is inside .claude/worktrees/ (Rule 1 validation)
+#   1. Current checkout is a Git linked worktree (Rule 1 validation)
 #   2. No stale .git/worktrees entries for directories that no longer exist
 #   3. Target branch (if provided) is not already checked out in another worktree
 #
@@ -20,16 +20,15 @@ ISSUES=0
 
 echo "[worktree-preflight] checking environment..."
 
-# Check 1: CWD contains .claude/worktrees/ (worktree isolation is active).
-CWD="$(pwd)"
-if [[ "$CWD" != *"/.claude/worktrees/"* ]]; then
-    echo "ERROR: CWD is not inside a worktree."
-    echo "  CWD: $CWD"
-    echo "  Expected path containing: /.claude/worktrees/"
-    echo "  Stop. Report to the dispatcher that the agent started in the wrong directory."
+# Check 1: Git, rather than a directory name, establishes isolation.
+CWD="$(pwd -P)"
+GIT_DIR="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+if [[ -z "$GIT_DIR" || "$GIT_DIR" == "$COMMON_DIR" ]]; then
+    echo "ERROR: CWD is not a linked worktree: $CWD"
     ISSUES=$((ISSUES + 1))
 else
-    echo "OK: CWD is inside a worktree: $CWD"
+    echo "OK: Linked worktree: $CWD"
 fi
 
 # Check 2: Prune and report stale worktree admin entries.
@@ -43,22 +42,16 @@ fi
 
 # Check 3: Target branch availability.
 if [[ -n "$TARGET_BRANCH" ]]; then
-    CHECKED_OUT="$(git for-each-ref --format="%(refname:short) %(worktreepath)" refs/heads/ | grep "^$TARGET_BRANCH " | awk '{print $2}')" || true
-    if [[ -n "$CHECKED_OUT" ]]; then
-        echo "ERROR: Branch '$TARGET_BRANCH' is already checked out at: $CHECKED_OUT"
-        echo "  Use a unique branch name. Append a timestamp or short UUID to the feature name."
+    CURRENT_BRANCH="$(git branch --show-current)"
+    if [[ "$CURRENT_BRANCH" == "$TARGET_BRANCH" ]]; then
+        echo "OK: Assigned branch is checked out here: $TARGET_BRANCH"
+    elif [[ -n "$(git for-each-ref --format='%(worktreepath)' "refs/heads/$TARGET_BRANCH")" ]]; then
+        echo "ERROR: Branch '$TARGET_BRANCH' is checked out in another worktree."
         ISSUES=$((ISSUES + 1))
+    elif git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+        echo "WARN: Branch '$TARGET_BRANCH' exists. Confirm ownership before using it, or choose a fresh name."
     else
-        # Check if branch exists locally (was created before, may be deleteable).
-        if git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
-            echo "WARN: Branch '$TARGET_BRANCH' exists locally but is not checked out."
-            echo "  Options:"
-            echo "    a) Use it: git checkout $TARGET_BRANCH"
-            echo "    b) Use a fresh name: git checkout -b ${TARGET_BRANCH}-2"
-            echo "    c) Delete and recreate: git branch -D $TARGET_BRANCH && git checkout -b $TARGET_BRANCH"
-        else
-            echo "OK: Branch '$TARGET_BRANCH' is available for checkout."
-        fi
+        echo "OK: Branch '$TARGET_BRANCH' is available for checkout."
     fi
 fi
 
