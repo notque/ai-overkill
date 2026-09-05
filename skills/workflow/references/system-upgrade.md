@@ -282,19 +282,19 @@ Cause: Dispatched agent didn't finish all changes in its group.
 Solution: Re-dispatch with more specific instructions. Check agent output for errors. Continue to Phase 5 only after the required work is complete.
 
 ### Error: "Regression detected in Phase 5"
-Cause: A component scored lower after modification.
-Solution: Show the diff of changes to the user. Offer to revert the specific component and wait for the user's choice.
+Cause: Validation found a regression.
+Solution: Follow Phase 5: fix within scope, rerun affected checks, and ask only about an unapproved tradeoff.
 
 ### Error: "Sync script not found"
 Cause: `hooks/sync-to-user-claude.py` missing or broken.
-Solution: Manually copy modified files to `~/.claude/` equivalent directories. Report the broken sync script for future fixing.
+Solution: Report the failed sync and repair the configured installer within scope. Preserve custom files and verify the accepted revision was installed before claiming deployment.
 
 ---
 
 ## References
 
 - [agent-upgrade](./agent-upgrade.md) - Bottom-up single-agent upgrade pipeline (complements this top-down system pipeline)
-- [agent-evaluation](../../skills/meta/agent-evaluation/SKILL.md) - Objective scoring skill used in Phase 5 validation
-- [pr-pipeline](./pr-pipeline.md) - PR creation pipeline used in Phase 6 deploy
-- [upgrade-diff.py](../../scripts/upgrade-diff.py) - Incremental diff script for scoping audits
-- [learning-db.py](../../scripts/learning-db.py) - Read-only CLI for routing telemetry (`route-health`, `route-stats`)
+- [agent-evaluation](../../meta/agent-evaluation/SKILL.md) - Objective scoring skill used in Phase 5 validation
+- [pr-workflow](../../process/pr-workflow/SKILL.md) - PR creation pipeline used in Phase 6 deploy
+- [upgrade-diff.py](../../../scripts/upgrade-diff.py) - Incremental diff script for scoping audits
+- [learning-db.py](../../../scripts/learning-db.py) - Read-only CLI for routing telemetry (`route-health`, `route-stats`)
