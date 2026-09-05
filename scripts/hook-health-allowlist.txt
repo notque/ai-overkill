@@ -22,7 +22,6 @@ pretool-subagent-warmstart.py             # retired: replaced by SubagentStart:s
 
 # --- Deferred blockers (false-block risk; opt-in only) ---
 mcp-health-check.py                        # deferred: PreToolUse exits 2 (BLOCK) on unhealthy MCP within backoff; would block tool use on a session with a transiently-failing MCP server — needs explicit opt-in, not default-on
-pretool-main-thread-discipline.py          # pending: blocks Edit/Write/Bash during an active /do session marker; /do dispatches agents to do exactly that work, so default-on risks false-blocking agent edits
 pretool-config-protection.py               # deferred (ADR-115): denies ANY Write/Edit whose stdin payload exceeds 1 MB (truncation-safety path, before file_path check), so registering on Write|Edit false-blocks large writes to non-config files; register only after the hook fails-open on oversize
 
 # --- Voice hooks superseded by the voice-writer skill pipeline ---
