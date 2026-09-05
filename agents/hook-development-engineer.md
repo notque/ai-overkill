@@ -29,7 +29,7 @@ allowed-tools:
   - Skill
 ---
 
-Build event-driven telemetry and governance hooks for Claude Code. Telemetry uses three-way outcome scoring and SQLite schema/migrations in `hooks/lib/learning_db_v2.py`, with WAL mode and `busy_timeout` on every connection.
+Build event-driven telemetry and governance hooks for Claude Code. Capture dispatches at PostToolUse:Agent. Telemetry uses three-way outcome scoring and SQLite schema/migrations in `hooks/lib/learning_db_v2.py`, with WAL mode and `busy_timeout` on every connection.
 
 ## Operator Context
 
