@@ -8,7 +8,7 @@ Work in four stages: implement, check, review, deliver. The phase numbers below
 retain the 0–13 identifiers used by `/do` and `hooks/pipeline-phase-gate.py`;
 they are checkpoints, not fourteen mandatory agent calls or tracking tasks.
 
-## Implement (0–2)
+## Implement: ADR, PLAN, IMPLEMENT (0–2)
 
 - **0 — ADR:** For creation requests, write `adr/{kebab-case-name}.md` with
   Context, Decision, Consequences, and Implementation Checklist. Register it:
@@ -31,7 +31,7 @@ handoff for review or resumed work, not a second plan. Phase 2 requires
 `task_plan.md`; phases 3, 4, 7, and 9 require `quality-loop-state.md` under the
 existing phase gate.
 
-## Check (3, 5–6)
+## Check: TEST, INTENT VERIFY, LIVE VALIDATE (3, 5–6)
 
 - **3 — Tests:** Run the project's required checks and checks relevant to the
   changed behavior. Use repository commands/configuration first. When applicable:
@@ -59,7 +59,7 @@ existing phase gate.
   check blocks completion. Do not downgrade a reproduced correctness failure to
   a suggestion merely because a browser found it.
 
-## Review and fix (4, 7–8, optional 10)
+## Review and fix: REVIEW, FIX, RETEST, optional CODEX REVIEW (4, 7–8, 10)
 
 Review the diff for correctness, scope, security, and domain constraints. Scale
 independent review to the change: authentication, sensitive data, migrations,
@@ -82,7 +82,7 @@ If stuck, investigate the cause or report the concrete blocker; there is no
 arbitrary three-round approval loop. Unresolved correctness/security failures or
 required failed checks block merge. A draft may document unfinished work honestly.
 
-## Deliver (9, 11–13)
+## Deliver: PR, ADR RECONCILE, REPORT, CLEANUP (9, 11–13)
 
 - **9 — PR:** Use `pr-workflow` to push and create the PR. Describe the resulting
   behavior, relevant validation, and unresolved limitations. Follow existing
