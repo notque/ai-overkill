@@ -48,6 +48,14 @@ Use project commands first. Defaults when no project command exists:
 | TypeScript | `npm test` | `npx tsc --noEmit` | `npm run lint` |
 | Rust | `cargo test` | `cargo build` | `cargo clippy` |
 
+## Reuse check evidence
+
+Reuse a passing result when it covers the current task and checked files, dependencies, configuration, and relevant environment. Keep its command, scope, revision or file state, result, and log path when available. A phase change or new worker alone does not require a rerun.
+
+After edits, rerun affected checks. Rerun when evidence is missing, the checked state cannot be established, shared dependencies or environment changed, or failures leave uncertainty. Refresh mutable external state such as CI and deployment status before acting on it. Required CI and release checks still apply to the commit or artifact being delivered; an earlier local pass does not replace them.
+
+For inherited results, cite their source and check their applicability. Do not claim you ran them. Review roster and review reuse belong to `skills/process/pr-workflow/references/pr-risk-policy.md`; this skill owns check evidence and completion claims.
+
 ## Recovery
 
 - **No tests:** perform suitable manual checks and state the coverage gap. Add a regression test when the task warrants one; do not imply manual inspection proves behavior.
