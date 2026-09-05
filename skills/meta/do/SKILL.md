@@ -287,7 +287,7 @@ anti-rationalization-core always + verification-checklist (code/debug) + anti-ra
 1. Keep `request_verbatim` unchanged. State this worker's `intent`, `constraints` (including authority), `files`, ownership, and `acceptance`.
 2. Include decisions, prior results, and gaps when they affect this assignment. Summarize findings and link durable evidence; quote exact text only when its wording matters. Do not copy the whole investigation into every handoff.
 3. Verify named paths. Add excerpts only when they explain a decision or let the worker act; the builder validates paths even when gathering is off.
-4. Use `context_mode: "summary"` for current git status, diff stat, and recent commits. Use `files` when initial excerpts help, or `none` when the worker already has valid context. The legacy default is `files`; `--no-gather` also suppresses gathered output. These options never omit the supplied Task Spec or required injections.
+4. Use `context_mode: "summary"` for current git status, diff stat, and recent commits. Use `files` when initial excerpts help, or `none` when the worker already has valid context. The legacy default is `files`. Mode `none` retains a notice that no fresh state was gathered, so the handoff envelope stays complete. Legacy `--no-gather` removes that envelope too; use `none` for Medium+ handoffs. Context modes never omit the supplied Task Spec or required injections.
 
 Reuse reads only while their source and task context remain unchanged; a fresh worker needs access to the relevant content or references. For worker transitions, use `session-handoff`. Verification evidence follows `verification-before-completion`; repeat checks when their inputs or relevant environment change, not just because a new phase starts.
 

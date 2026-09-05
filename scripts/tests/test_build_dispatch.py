@@ -1241,6 +1241,8 @@ def test_none_context_does_not_gather_or_drop_task_spec(tmp_path):
     with patch.object(bd, "_run_git", side_effect=AssertionError("unexpected gather")):
         prompt = bd.build_preamble(decision, repo_root=tmp_path)
     assert bd._GATHER_HEADING not in prompt
+    assert "## Repo state" in prompt
+    assert "No fresh repository state is asserted" in prompt
     assert "Complete authorized task" in prompt
     assert bd.INJ_BASE_INSTRUCTIONS in prompt
 

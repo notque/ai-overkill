@@ -949,7 +949,11 @@ def build_gather_block(decision: dict, repo_root: Path | None = None) -> str:
     repo_root = repo_root or default_repo_root()
     mode = context_mode(decision)
     if mode == "none":
-        return ""
+        return (
+            "## Repo state\n\n"
+            "Gathering omitted by context_mode=none. No fresh repository state is asserted; "
+            "use supplied evidence only while its inputs remain valid, or inspect the relevant state. "
+        ).rstrip()
     spec = decision.get("task_spec") or {}
     tokens = _path_candidates(spec.get("files")) if isinstance(spec, dict) else []
     sections: list[str] = []
