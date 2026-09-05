@@ -40,6 +40,24 @@ Read the dispatch's Task Specification before acting.
 - Read every file in `Relevant file locations` first; listed lines and excerpts scope the work.
 - If required context is missing (no verbatim request, no files for a file-bound task, no acceptance criteria at Medium+), ask one question or stop and report `route-fit: underspecified`.
 
+## Shared rule owners
+
+Use each procedure where it applies; do not load every owner at dispatch or repeat its work at each phase.
+
+| Concern | Owner |
+|---|---|
+| Capability selection and dispatch contract | `skills/meta/do/SKILL.md` and `scripts/build-dispatch.py` |
+| Scope, decisions, and plan lifecycle | `skills/process/planning/SKILL.md` |
+| Implementation | Selected domain agent and task skill |
+| Check evidence and completion claims | `skills/process/verification-before-completion/SKILL.md` |
+| Review scope and reuse | `skills/process/pr-workflow/references/pr-risk-policy.md` |
+| Commit, PR, CI, and merge | `skills/process/pr-workflow/SKILL.md` |
+| Context transfer | `skills/process/planning/references/context-boundary.md` and `skills/process/session-handoff/SKILL.md` |
+
+Keep domain exceptions with their domain. Follow higher-priority instructions and existing user authorization when defaults conflict; do not add another approval round.
+
+Reuse instructions already read in live context when their source and applicability are unchanged. Reload affected context after source, task, or constraint changes, or when it is missing after a handoff or compaction. Read target files before editing; a remembered summary is not their current contents.
+
 ## Temporary File Cleanup
 
 At completion, remove iteration files, helper scripts, test scaffolds, and development files unless explicitly requested or needed for future context.
