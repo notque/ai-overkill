@@ -108,33 +108,9 @@ INJ_REFERENCE_LOADING = (
 
 INJ_COMPLETENESS = "Deliver the finished product. Ship the complete thing."
 
-INJ_DENSE_COMPLETE = (
-    "Write to the Dense-Complete Writing standard — your structural guide for everything you do. "
-    "It governs your output, code comments, any skill or reference files you write, "
-    "AND every one of your thinking turns: "
-    "(1) shortest accurate word; "
-    "(2) cut every word that carries no instruction, rule, or decision; "
-    "(3) plain English, not jargon; "
-    "(4) concrete over abstract; "
-    "(5) heavy qualifications in separate short sentences; "
-    "(6) Completeness: treat content as fixed and wording as negotiable: "
-    "carry every required point through the draft, then choose the shortest plain words "
-    "that say those points exactly. "
-    "Say everything the task needs and not one word more. Report what changed, not how. "
-    "Full rules: `skills/shared-patterns/dense-complete-writing.md`."
-)
+INJ_DENSE_COMPLETE = "Follow the Dense-Complete Writing rules in `agents/base-instructions.md`."
 
-INJ_GOOGLE_DEVDOCS = (
-    "Also write to the Google Developer Documentation Style standard, alongside Dense-Complete. "
-    "Precedence, highest first: "
-    "(1) completeness floor — never drop a required instruction, rule, condition, or decision to "
-    "shorten or soften; if cutting would remove a required point, keep the point; "
-    '(2) Google construction — active voice, second person ("you"), conditions/context/goal before '
-    "the instruction, imperative steps, sentence-case headings, serial commas, code font, "
-    'descriptive link text, no "please", no exclamation marks, write for a global audience; '
-    "(3) Dense-Complete length, after the floor holds. "
-    "Full rules: `skills/shared-patterns/google-devdocs-style.md`."
-)
+INJ_GOOGLE_DEVDOCS = "Follow its Google Developer Documentation Style rules and precedence."
 
 INJ_BASE_INSTRUCTIONS = "Before starting work, also load `agents/base-instructions.md` for universal operational rules."
 
