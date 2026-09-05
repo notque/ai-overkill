@@ -56,8 +56,8 @@ Banner and STATE.md templates used across phases.
 
 Upgrade prompt when estimated edits exceed 15:
 ```
-This task estimates 15+ edits. Consider using /do for full planning
-and agent routing. Proceed with /quick anyway? [Y/n]
+This task estimates more than 15 edits. Consider /do if the work
+needs multiple components, architecture changes, or parallel execution.
 ```
 
 ---
@@ -120,3 +120,5 @@ If escalated from `--trivial`, use tier `trivial->quick`.
 
 ===================================================================
 ```
+
+For `--no-commit`, replace commit hashes with `skipped (--no-commit)` in summaries and STATE.md. Continue already-authorized delivery steps instead of presenting them as new permission requests.
