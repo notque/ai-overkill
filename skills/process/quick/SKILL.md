@@ -75,7 +75,7 @@ All flags default off. Combine discussion, research, and verification as needed.
 
 Read repository `CLAUDE.md` unless already loaded and current. Parse flags; the remaining text is the task. Follow existing authorization and repository constraints throughout.
 
-Before editing, check the branch. Never let `--trivial` or `--no-branch` bypass branch safety. For trivial work on main/master, create `quick/<brief-description>`; for standard work, create `quick/<task-id>-<brief-kebab-description>` unless `--no-branch` is allowed. Preserve unrelated changes.
+Check the branch during setup. Never let `--trivial` or `--no-branch` bypass branch safety. For trivial work on main/master, create `quick/<brief-description>`; for standard work, create `quick/<task-id>-<brief-kebab-description>` after assigning the ID in step 2 and before editing, unless `--no-branch` is allowed. Preserve unrelated changes.
 
 ## Trivial mode
 
