@@ -909,9 +909,17 @@ def _link_py_files(src_dir: Path, dst_dir: Path) -> tuple[int, int, int]:
     Mirrors install.sh's per-file convention (``ln -s src dst/name``; skip when
     the target exists or is a link). Returns ``(linked, current, kept)``:
     ``current`` counts links that already resolve to the repo file, ``kept``
-    counts foreign entries left in place. Never deletes, never recurses.
+    counts foreign entries left in place. Removes only missing same-name
+    source links created by this mirror. Never recurses or cleans linked dirs.
     """
     linked = current = kept = 0
+    # Match the literal target used below, not just any path inside the repo.
+    # Leave copies, renamed links, external links, and linked directories alone.
+    if dst_dir.resolve() == dst_dir.absolute():
+        for target in dst_dir.glob("*.py"):
+            source = src_dir / target.name
+            if target.is_symlink() and target.readlink() == source and not source.exists() and not source.is_symlink():
+                target.unlink()
     for item in sorted(src_dir.glob("*.py")):
         if not item.is_file():
             continue
@@ -943,6 +951,8 @@ def _sync_codex_hook_links(repo_hooks: Path, codex_hooks: Path) -> tuple[int, in
         return None
     if _is_ephemeral_path(repo_hooks):
         print(f"[sync] BLOCKED: refusing to link Codex hooks to {repo_hooks} (ephemeral path)", file=sys.stderr)
+        return None
+    if codex_hooks.is_symlink():
         return None
     linked, current, kept = _link_py_files(repo_hooks, codex_hooks)
     repo_lib = repo_hooks / "lib"
