@@ -25,209 +25,103 @@ routing:
 
 # Subagent-Driven Development Skill
 
+Execute a plan with fresh implementers. Planning owns the plan format; this skill owns task dispatch and integration. Check requirements before code quality. Use the review lane in `skills/process/pr-workflow/SKILL.md` to choose direct or independent review; do not add another roster to a completed review.
+
 ## Instructions
 
 ### Phase 1: SETUP
 
-**Goal**: Extract all tasks and establish project context before any implementation begins.
-
 **Step 1: Read plan and extract tasks**
 
-Read the plan file ONCE. Extract every task with full text:
-
-```markdown
-## Tasks Extracted from Plan
-
-**Task 1: [Title]**
-Full text: [Complete task description from plan]
-Files: [List of files to create/modify]
-Verification: [How to verify this task]
-
-**Task 2: [Title]**
-...
-```
-
-**Why**: Providing complete task text inline prevents subagents from burning tokens reading files and pollutes their context if they need to refer back to the plan. This isolation is critical for clean review cycles.
+Read the plan once. For each task, retain its full text, files, dependencies, and verification commands. Pass these inline rather than sending workers back to the plan.
 
 **Step 2: Create TodoWrite**
 
-Create TodoWrite with ALL tasks:
-```
-1. [pending] Task 1: [Title]
-2. [pending] Task 2: [Title]
-3. [pending] Task 3: [Title]
-```
-
-**Why**: TodoWrite gives the operator visibility and prevents task slip.
+Track all tasks as pending, in progress, or complete with TodoWrite or the harness's task tracker. Reuse the existing plan; do not create a second status artifact.
 
 **Step 3: Gather scene-setting context**
 
-Before dispatching any implementer, capture:
-- Current branch status (`git status`)
-- Capture BASE_SHA: `git rev-parse HEAD` -- required for final integration review
-- Relevant existing code patterns (naming conventions, error handling style)
-- Project conventions from CLAUDE.md
-- Dependencies and setup requirements
-
-This context gets passed to EVERY subagent to prevent repeated discovery and question loops.
-
-**Why**: Early context capture answers 80% of subagent questions before they ask, unblocks implementation immediately, and must be collected once (not rediscovered per task). BASE_SHA must be captured BEFORE the first implementer runs because subsequent edits will move HEAD forward.
+Capture `git status`, project conventions from CLAUDE.md, relevant code patterns, dependencies, and setup requirements. Capture `BASE_SHA` with `git rev-parse HEAD` before the first implementer: it anchors the final integration diff. Include the context each worker needs in its dispatch.
 
 **Step 4: Determine parallel vs sequential dispatch (scope-overlap check)**
-
-Each extracted task already carries its `Files:` list. Feed those file scopes into the deterministic overlap checker before defaulting to sequential. Tasks whose scopes do not overlap can run in parallel; only overlapping tasks must serialize.
 
 ```bash
 python3 scripts/check-scope-overlap.py \
   --tasks '[{"id":"task-1","scope":["path/a.py"]},{"id":"task-2","scope":["path/b.py"]}]' \
-  --human   # use --check for exit 0 (no conflicts) / exit 1 (conflicts) in scripted gates
+  --human   # --check: exit 0 for no conflicts, 1 for conflicts
 ```
 
-Each task object takes `id` (string) and `scope` (list of file/dir paths); add `"readonly": true` for tasks that only read a path. Directory entries match any file beneath them. The output reports conflicting pairs plus parallel groups and a dispatch recommendation. Use those groups to decide Phase 2 dispatch: parallelize within a group, serialize across overlapping tasks.
+Each task has an `id` and `scope` path list. Directories include descendants; `"readonly": true` marks read-only tasks. Use the reported parallel groups, then account for dependencies: serialize overlapping writes and tasks that consume earlier results. Independent groups may run in parallel.
 
-**Gate**: All tasks extracted with full text. BASE_SHA captured. Scene-setting context gathered. Scope-overlap check run; parallel groups identified. Proceed only when gate passes.
+**Gate**: Full tasks, BASE_SHA, context, dependencies, and checked file scopes are ready.
 
 ### Phase 2: EXECUTE (Per-Task Loop)
 
-**Goal**: Implement each task with a fresh subagent, then verify through two-stage review.
-
 **Step 1: Mark task in_progress**
 
-Update TodoWrite status for the current task.
+Update the task tracker.
 
 **Step 2: Dispatch implementer subagent**
 
-Use the Task tool with the prompt template from `./implementer-prompt.md`. Include:
-- Full task text (Replace with "see plan" -- subagents must have complete context)
-- Scene-setting context
-- Clear deliverables
-- Permission to ask questions
+Use `./implementer-prompt.md` with full task text, relevant context, deliverables, and checks. Resolve material questions from available evidence; ask the user only when their decision is needed.
 
-Allocate one implementation worktree for the task and reuse it for every correction. Dispatch ADR and code-quality reviewers as read-only agents against the committed candidate; those reviews use `git diff` or `git show` and allocate no worktree. Before implementation checkout creation, run the capacity guard from `worktree-agent`; at the hard threshold, reclaim accepted clean checkouts before dispatch.
+Allocate one implementation worktree per task and reuse it for corrections. Before creating it, run the capacity guard from `worktree-agent`; at the hard threshold, reclaim accepted clean checkouts. Reviewers read the committed candidate with `git diff` or `git show` and need no worktree.
 
-**Verification and STOP contract**: When the plan follows the executor-ready format (see `skills/process/planning/references/executor-ready-plan-template.md`), append the "Executor-Ready Plans" section of `./implementer-prompt.md` to the dispatch prompt — the contract binds only if the implementer receives it. The implementer runs the ancestry drift check before starting, executes each step's verify command before proceeding, and triggers a STOP on any of the template's five STOP conditions (drift, double verification failure, out-of-scope touch, ambiguous or missing instruction, test regression).
+For executor-ready plans, append the template's **Executor-Ready Plans** contract. Keep the plan-creation SHA distinct from execution `BASE_SHA`. The implementer checks ancestry and context drift, runs each step's verify command, and stops for drift, two verification failures, scope violations, ambiguous or missing instructions, or test regression. The complete contract lives in `skills/process/planning/references/executor-ready-plan-template.md`; do not weaken it during dispatch.
 
-**Implementation constraints** (enforced inline):
-- Implementer must understand task fully before coding begins. If they ask questions: answer clearly and completely, provide additional context, re-dispatch with answers. Give them time to fully understand the task.
-- Dispatch follows the Phase 1 scope-overlap decision: parallelize tasks within a non-overlapping group; serialize tasks whose file scopes overlap, because overlapping file edits cause conflicts that are expensive to resolve. When the overlap check reports any conflict, run those tasks sequentially.
-- Implementer MUST follow these steps in order:
-  1. Understand the task fully
-  2. Ask questions if unclear (BEFORE implementing)
-  3. Implement following TDD where appropriate
-  4. Run tests
-  5. Self-review code
-  6. Commit changes
-
-**Why scope-aware dispatch**: When task scopes overlap, parallel edits to the same files break file-locking semantics and require complex merge handling — those tasks serialize so each output feeds the next. When scopes are disjoint (verified by the scope-overlap check), parallel dispatch is safe and faster. The check makes the choice deterministic instead of defaulting to sequential for every plan.
+Implementers understand the task, implement with TDD where appropriate, run relevant and required checks, self-review, and commit. Use `verification-before-completion` for verification rules. A still-valid passing check does not need repeating merely because the task reaches another phase.
 
 **Step 3: Dispatch ADR compliance reviewer subagent**
 
-Use the prompt template from `./adr-reviewer-prompt.md`. The ADR compliance reviewer checks:
-- Does implementation match the ADR EXACTLY?
-- Is anything MISSING from requirements?
-- Is anything EXTRA that was not requested?
+Check the implementation against requirements and any applicable ADR: missing work, unwanted additions, and mismatches. For an independent review, use `./adr-reviewer-prompt.md`. For a direct review lane, the coordinator performs this check. Reuse review of the same candidate and scope.
 
-**Two-stage review constraint** (enforced inline): run ADR compliance review first, then code quality review. ADR compliance gates code quality because code that doesn't match requirements is wrong, regardless of how well-written. Reviewing code quality on functionally wrong code wastes the quality reviewer's effort.
-
-If ADR compliance reviewer finds issues: dispatch new implementer subagent with fix instructions. ADR compliance reviewer reviews again. Repeat until ADR compliance passes.
-
-**Max retries: 3** -- After 3 failed ADR compliance reviews, STOP and escalate:
-> "ADR compliance failing after 3 attempts. Issues: [list]. Need human decision."
-
-**Why escalation after 3 retries**: 3 retries = ~15-20 min of subagent time. If unresolved by then, the problem is structural (ADR is ambiguous, requirements conflict, or subagent fundamentally misunderstood something). Continuing loops wastes tokens. Human needs to decide: clarify ADR, adjust requirements, or accept the implementation as-is.
+Fix requirement failures before code-quality review. Reuse the task worktree and provide precise corrections. After three failed reviews at this stage, stop the loop, report the findings and attempted fixes, and request the decision needed to resolve the conflict.
 
 **Step 4: Dispatch code quality reviewer subagent**
 
-Use the prompt template from `./code-quality-reviewer-prompt.md`. The code quality reviewer checks:
-- Code is well-structured
-- Tests are meaningful
-- Error handling is appropriate
-- No obvious bugs
-
-**Quality review sequencing** (enforced inline): Only dispatch quality reviewer AFTER ADR compliance passes. Code quality review focuses on how well requirements are met, not whether wrong things were built.
-
-If quality reviewer finds issues: implementer fixes Critical and Important issues (Minor issues are optional). Quality reviewer reviews again.
-
-**Max retries: 3** -- After 3 failed quality reviews, STOP and escalate:
-> "Quality review failing after 3 attempts. Issues: [list]. Need human decision."
-
-**Why different retry limits for both stages**: Both stages can get stuck. Both deserve a fair number of attempts (3 each = up to 60 min total per task). Both hitting the limit means something is wrong with the process or the task definition itself.
+After requirements pass, check structure, meaningful tests, error handling, and bugs. For an independent review, use `./code-quality-reviewer-prompt.md`; otherwise review directly. Fix Critical and Important findings; Minor findings are optional. Recheck affected findings and behavior after fixes. After three failed reviews at this stage, stop and report the unresolved decision as in Step 3.
 
 **Step 5: Mark task complete**
 
-Only when BOTH reviews pass:
-```
+Record both results:
+
+```text
 Task [N]: [Title] -- COMPLETE
   ADR compliance: PASS
   Code quality: PASS
 ```
 
-Return to Step 1 for the next task.
+When no ADR applies, label the first result `Requirements: PASS` instead. Do not report an independent review if the check was direct. Continue with the next ready task.
 
-After integration accepts the task, confirm the worktree is clean and inactive, then remove it with `git worktree remove -- <path>`. Preserve the branch until the normal merged-branch cleanup proves it is disposable.
+After integration accepts the task, verify its worktree is clean and inactive, then run `git worktree remove -- <path>`. Preserve the branch until normal merged-branch cleanup proves it disposable.
 
-**Gate**: Both ADR compliance and code quality reviews pass. Task marked complete in TodoWrite. Proceed only when gate passes.
+**Gate**: Requirements and code quality pass; task status records completion.
 
 ### Phase 3: FINALIZE
 
-**Goal**: Verify the full implementation works together and complete the workflow.
-
 **Step 1: Final integration review**
 
-Dispatch a reviewer subagent for the entire changeset (diff from BASE_SHA to HEAD):
-- All tests pass together
-- No integration issues between tasks
-- No conflicting patterns or redundant code
-
-**Why final integration review after all tasks**: Per-task reviews ensure each task is correct in isolation. Final integration review catches cross-task problems: Task 1 and Task 3 both define the same utility, tests pass individually but conflict when run together, or Task 2 introduced a breaking change that Task 4 didn't account for. This catch-all review is why BASE_SHA was captured upfront.
+Review the combined `BASE_SHA..HEAD` diff for cross-task conflicts, duplicate utilities, incompatible patterns, and broken integration. Use independent review when the selected lane requires it or unresolved risk warrants it. Reuse completed review that covers this combined candidate. Run required integration checks and tests affected by combining the tasks.
 
 **Step 2: Complete development workflow**
 
-Use the appropriate completion path:
-- `/pr-workflow` to create PR
-- Manual merge
-- Keep branch for further work
+Follow the authorized completion path: `pr-workflow` for a PR, authorized merge, or keeping the branch. Do not ask again for an action already authorized.
 
-**Gate**: Final review passes. All tests pass. Integration verified. Proceed only when gate passes.
-
----
+**Gate**: Combined changes work together, required checks pass, and the requested delivery is complete.
 
 ## Error Handling
 
-### Error: "Subagent Asks Questions Mid-Implementation"
-Cause: Insufficient context in the dispatch prompt
-Solution:
-1. Answer all questions clearly and completely
-2. Add the missing context to the scene-setting for future tasks
-3. Re-dispatch implementer with answers included
-
-**Prevention**: The answer-questions-first constraint prevents this by design. If a subagent still asks questions after full context, they're asking for clarification on the ADR itself, which is valuable signal that requirements are ambiguous.
-
-### Error: "Review Loop Exceeds 3 Retries"
-Cause: ADR ambiguity, fundamental misunderstanding, or unreasonable review criteria
-Solution:
-1. STOP the loop immediately
-2. Summarize all issues and attempted fixes for the user
-3. Ask user to clarify ADR or adjust requirements
-4. Resume only after user provides direction
-
-**Why hard limit**: Review loops that fail to converge are expensive and signal a deeper problem. Continuing them burns tokens without progress. Human judgment is needed to decide whether to clarify, change, or accept.
-
-### Error: "Subagent File Conflicts"
-Cause: Multiple subagents modifying overlapping files — the scope-overlap check missed an overlap because a task's declared `scope` list was incomplete.
-Solution:
-1. Resolve conflicts manually
-2. Re-run the affected review stage
-3. Re-run `check-scope-overlap.py` with the corrected (complete) scope lists, then serialize the now-overlapping tasks
-
-**Why this happens**: Parallel dispatch is only safe for disjoint scopes. A conflict means the declared scopes understated the real file footprint. Complete the scope lists and let the overlap check re-group the tasks.
-
----
+| Problem | Action |
+|---|---|
+| Worker lacks context | Supply the missing evidence or decision; include it in later dispatches where relevant. Resume the worker, or redispatch with complete context. |
+| Review fails three times | Stop that loop, report findings and attempted fixes, and resolve the requirements or review criteria before retrying. |
+| Workers conflict | Correct the declared scopes, rerun `check-scope-overlap.py`, resolve conflicts, serialize overlapping tasks, and rerun affected checks and review. |
+| Executor-ready STOP | Preserve completed work, report the trigger and needed decision, and follow the executor contract rather than improvising. |
+| Worker or session transfer | Use planning's `references/context-boundary.md`; use `session-handoff` for inline state and live processes, and planning pause/resume for plan artifacts. |
 
 ## References
 
-### Prompt Templates
-- `implementer-prompt.md`: Dispatch template for implementation subagents
-- `skills/process/planning/references/executor-ready-plan-template.md`: Self-contained plan format with drift checks, per-step verification, and STOP conditions
-- `adr-reviewer-prompt.md`: Dispatch template for ADR compliance review
-- `code-quality-reviewer-prompt.md`: Dispatch template for code quality review
+- `implementer-prompt.md`: implementation dispatch and executor-ready contract.
+- `skills/process/planning/references/executor-ready-plan-template.md`: plan schema, drift checks, verification, and STOP conditions.
+- `adr-reviewer-prompt.md`: requirements review.
+- `code-quality-reviewer-prompt.md`: code-quality review.

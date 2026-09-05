@@ -32,9 +32,9 @@ Tests command: {TEST_COMMAND}
 
 ## Instructions
 
-1. **Understand First** - Read the task completely. If ANYTHING is unclear, ask questions BEFORE implementing. It's better to ask than to guess wrong.
+1. **Understand First** - Read the task completely. Resolve routine choices from the request and repository. Ask before implementing when a missing decision materially affects the task. Executor-ready STOP conditions still apply.
 
-2. **Follow TDD** - Write failing test first, then implement, then verify tests pass.
+2. **Verify behavior** - Use TDD where appropriate. Run relevant and project-required checks using `verification-before-completion`; preserve explicit per-step verification contracts.
 
 3. **Stay Focused** - Only implement what the task specifies. No "while I'm here" improvements.
 
@@ -52,7 +52,7 @@ If you have questions about:
 - What conventions to follow
 - Anything else
 
-ASK THEM NOW. I will answer before you proceed.
+Use the supplied context first. Ask for missing decisions that affect correctness or scope; continue independent work while waiting.
 
 ## Output
 
@@ -62,7 +62,7 @@ When done, report:
 - Self-review findings (if any issues you fixed)
 - Commit message used
 
-Begin by confirming you understand the task, or asking questions.
+Begin the task when its requirements are clear; ask only for a needed decision.
 ```
 
 ## Placeholder Definitions
@@ -121,39 +121,8 @@ The migration should be reversible.
 - Run `python manage.py check` - should exit 0
 - Run `python manage.py migrate --dry-run` - should show this migration
 
-## Instructions
+Follow the template instructions above. Report the implementation, checks, self-review findings, and commit.
 
-1. **Understand First** - Read the task completely. If ANYTHING is unclear, ask questions BEFORE implementing. It's better to ask than to guess wrong.
-
-2. **Follow TDD** - Write failing test first, then implement, then verify tests pass.
-
-3. **Stay Focused** - Only implement what the task specifies. No "while I'm here" improvements.
-
-4. **Test Your Work** - Run tests before committing. All tests should pass.
-
-5. **Self-Review** - Before committing, review your own code for obvious issues.
-
-6. **Commit** - Commit your changes with a clear message.
-
-## Questions?
-
-If you have questions about:
-- The requirements
-- How to approach something
-- What conventions to follow
-- Anything else
-
-ASK THEM NOW. I will answer before you proceed.
-
-## Output
-
-When done, report:
-- What you implemented
-- Tests status (all pass?)
-- Self-review findings (if any issues you fixed)
-- Commit message used
-
-Begin by confirming you understand the task, or asking questions.
 ```
 
 ## Executor-Ready Plans
