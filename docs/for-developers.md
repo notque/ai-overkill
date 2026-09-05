@@ -7,21 +7,17 @@ read_when:
 
 # For Developers
 
-You cloned the repo. You want to understand the dispatch model, add a component, or ship a change. This is the map.
-
-The payoff for extending: anything you add gets wired into the router. Users never learn your component's name; they describe work and your agent, skill, or hook fires automatically.
+This guide covers dispatch, component creation, and shipping changes. Register new components with the router so users can request their work in plain English.
 
 ## Architecture in 60 Seconds
 
-The system has one path. Every request passes through four layers.
+The main dispatch path is:
 
 ```
 User request → Router (/do) → Agent (*.md) → Skill (SKILL.md) → Script (*.py)
 ```
 
-The router classifies intent. It selects an agent and pairs it with a skill when the task type demands methodology. Agents carry domain knowledge. Skills carry workflow structure. Scripts do mechanical work where you want deterministic behavior, not judgment calls. Hooks fire at lifecycle events to inject context, record telemetry, and enforce gates.
-
-This is the entire execution model. There is nothing else.
+The router selects an agent for domain knowledge and a skill for the procedure. Scripts handle repeatable work. Hooks inject context, record telemetry, and enforce checks at lifecycle events.
 
 ## Directory Structure
 
@@ -124,14 +120,14 @@ Example prompts:
 
 ## Key Architecture Points
 
-The constraint that governs all component design: each type has exactly one job.
+Each component type has a distinct role:
 
 - **Agents** (`agents/*.md`) know *what* to do. Domain expertise, patterns, failure modes.
 - **Skills** (`skills/*/*/SKILL.md`) know *how* to structure work. Phases, gates, methodology.
 - **Hooks** (`hooks/*.py`) respond to *events*. JSON in, JSON out, 50ms budget.
 - **Scripts** (`scripts/*.py`) perform *deterministic* operations. Indexing, validation, linting.
 
-If a process is mechanical and measurable, it belongs in a script. If it requires contextual judgment, it belongs in an agent or skill. The boundary is not negotiable.
+Use scripts for mechanical work and agents or skills for contextual judgment.
 
 The `/do` router connects everything. After creating any component, test routing:
 
@@ -145,15 +141,15 @@ The full cycle, in order:
 
 1. **Branch** from main (`feature/`, `fix/`, `refactor/` prefix)
 2. **Implement** changes
-3. **Wave review** via parallel reviewer agents
-4. **Fix** findings (up to 3 review-fix iterations)
+3. **Review** using the risk-selected lane in `pr-workflow`
+4. **Fix** confirmed findings and rerun affected checks
 5. **Record** any dead end in `docs/what-didnt-work.md` with its evidence location
 6. **Edit** the agent or skill file yourself when a finding should change behavior
 7. **Commit** in conventional format
 8. **Push** to remote with tracking
 9. **PR** creation via `gh pr create`
 10. **CI** must pass
-11. **Merge** after CI and human review
+11. **Merge** after CI, required review, and authorization
 
 The `pr-workflow` skill automates steps 3 through 10.
 

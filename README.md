@@ -4,14 +4,12 @@
 
 Essays and writing behind this toolkit live at [vexjoy.com](https://vexjoy.com).
 
-AI agents skip steps.
+VexJoy Agent connects plain-English requests to specialist agents, skills, and workflows. `/do` selects the knowledge and tools needed for your task. Hooks enforce specific checks, and scripts handle repeatable work.
 
-"Looks correct" replaces running tests. "Trivial change" replaces verification. The agent confidently ships broken code because nothing structurally prevented it from skipping the work.
-
-Harnesses have a second problem: given only a skill list, they do not route eagerly enough, or correctly enough. Good skills sit unused. So this toolkit connects the skills, agents, and workflows we want directly into the harness, automatically. You don't have to understand what is here. Say what you want in plain English and you get all the value we have put into it: the right specialist with the right methodology, behind gates that demand exit codes, not assertions.
+The aim is to give capable models useful domain knowledge without making you learn the toolkit's catalog.
 
 <!-- Counts here must match the Four Layers table (~line 143). Verify both: python3 scripts/validate-doc-counts.py -->
-44 domain agents, 122 workflow skills, 74 hooks, 136 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
+43 domain agents, 122 workflow skills, 74 hooks, 136 scripts. Agents carry knowledge, skills enforce methodology, hooks block incomplete work, scripts handle determinism.
 
 Works across Claude Code (`/do`), Codex (`$do`), Factory (`/do`), Reasonix (`/do`).
 
@@ -31,7 +29,7 @@ $ claude
   ✓ Delivered: PR #847, fix connection pool timeout in health check
 ```
 
-The router reads intent, picks a Go agent paired with a debugging skill, and runs the full lifecycle. You typed one sentence. The system did the rest.
+The router pairs a Go agent with a debugging skill, then follows the task through verification and delivery.
 
 ## The Pipeline
 
@@ -45,7 +43,7 @@ The router reads intent, picks a Go agent paired with a debugging skill, and run
 
 ## Anti-Rationalization
 
-This is the single thing that separates it from "agent with a system prompt."
+Checks require evidence rather than confidence.
 
 | Agent Says | What Happens |
 |---|---|
@@ -55,17 +53,15 @@ This is the single thing that separates it from "agent with a system prompt."
 | "User is in a hurry" | Protocol overrides time pressure. |
 | "I'm confident" | Gate demands exit code, not assertion. |
 
-Hooks fire automatically. Gates block completion. Skills encode counter-arguments at every skip-worthy step. The agent verifies or it doesn't finish.
-
-For what I do, the difference is enormous. If you're doing simple single-file edits, maybe less so.
+Hooks run at configured events. Skills state what to verify; blocking hooks enforce the checks they cover. Coverage depends on the runtime and tool path.
 
 ## Knowledge Work Is First-Class
 
-The same routing serves knowledge work. The content engine researches, drafts in a calibrated voice, validates against 397 AI patterns, and repurposes finished pieces for each platform. `/html` turns any request into a single self-contained HTML file: report, slide deck, prototype, data viz, diagram. Non-engineers who try the toolkit consistently name the HTML artifacts as the thing they love. No code, no setup beyond the installer.
+The content engine researches, drafts in a calibrated voice, checks 397 writing patterns, and adapts finished pieces for each platform. `/html` produces a self-contained report, slide deck, prototype, chart, or diagram. It needs no coding or setup beyond installation.
 
 ## It Proves Its Own Changes
 
-Changes to the toolkit itself ship with evidence. New skills get blind A/B tests against a no-skill baseline before merge. Routing and writing-standard decisions carry measured verdicts; [PHILOSOPHY.md](docs/PHILOSOPHY.md) cites the numbers. Experiments that lost go into the negative-results registry, [what-didnt-work.md](docs/what-didnt-work.md); the registry now covers routing reversals, unvalidated A/B citations, and disabled lint rules alongside the original program refutations.
+Toolkit changes use direct review and relevant checks. Model comparisons can settle specific uncertainties; they are not required for every edit. [PHILOSOPHY.md](docs/PHILOSOPHY.md) explains the validation policy. [what-didnt-work.md](docs/what-didnt-work.md) records failed experiments, routing reversals, unvalidated A/B citations, disabled lint rules, and program refutations.
 
 The automated nightly evolution loop (`/evolve`, writes to `evolution-reports/`) ran regularly through mid-May 2026. It is currently dormant; recent evidence has come from manual PRs instead.
 
@@ -77,7 +73,7 @@ cd ~/vexjoy-agent
 ./install.sh
 ```
 
-Links into `~/.claude/` and mirrors into `~/.codex/`, `~/.factory/`, `~/.reasonix/` — each mirror only when that runtime is detected (its command on PATH or its home dir already exists). The installer asks symlink (live updates via `git pull`) or copy (stable snapshot).
+Installs into `~/.claude/` and mirrors into `~/.codex/`, `~/.factory/`, and `~/.reasonix/` when the runtime command is on PATH or its home directory exists. Choose symlinks for live updates through `git pull`, or copies for a stable snapshot.
 
 Want only part of the toolkit? Run `./install.sh --configure` to pick which skills, agents, and hooks install, or copy `.local.example/profile.yaml` to `.local/profile.yaml` and edit. No profile file = full install, unchanged behavior. Credit: [@thomasvan](https://github.com/thomasvan). Details: [.local.example/README.md](.local.example/README.md).
 
@@ -93,7 +89,7 @@ Want only part of the toolkit? Run `./install.sh --configure` to pick which skil
 <details>
 <summary><b>Codex CLI Parity</b></summary>
 
-Mirrors agents, skills, and supported hooks into `~/.codex/`. The original six-hook allowlist was correct for Codex v0.114, when tool hooks only intercepted Bash. Current support requires Codex v0.144.1+ and classifies the 74 Claude hook registrations as **26 native, 35 adapter-backed, and 13 unsupported** (61 supported). These are registration counts, not unique hook files. The installer also preserves explicit per-subagent model routing for GPT-5.6 Sol by setting the MultiAgent V2 compatibility keys documented in [openai/codex#31814](https://github.com/openai/codex/issues/31814).
+Mirrors agents, skills, and supported hooks into `~/.codex/`. The original six-hook allowlist was correct for Codex v0.114, when tool hooks only intercepted Bash. Current support requires Codex v0.144.1+ and classifies the 62 Claude hook registrations as **26 native, 27 adapter-backed, and 9 unsupported** (53 supported). These are registration counts, not unique hook files. The installer also preserves explicit per-subagent model routing for GPT-5.6 Sol by setting the MultiAgent V2 compatibility keys documented in [openai/codex#31814](https://github.com/openai/codex/issues/31814).
 
 Codex now exposes `apply_patch` to tool hooks. VexJoy's adapter converts each patch operation into the Write/Edit payload expected by existing guards, but it cannot intercept writes performed through `unified_exec`, unmatched MCP tools, WebSearch, or other unsupported tool paths. PreCompact and Stop adapters also receive less telemetry than Claude Code: Codex does not provide Claude's `conversation_history` or `session_data`. This is expanded compatibility, not full Claude parity.
 

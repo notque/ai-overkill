@@ -6,17 +6,17 @@ read_when:
 
 # Architecture Deep-Dive
 
-You know Claude Code. You've written agents, maybe built a skill or two. This document covers how this specific toolkit wires everything together: the routing that connects plain-English requests to the right agent and skill, the hook lifecycle that enforces gates for free, the telemetry database that records where every request went and what came back. The point of all this wiring is that a harness with a bare skill list under-routes; this one routes eagerly and correctly. Skip what you know. Dig into what you don't.
+This guide explains routing, hooks, and telemetry: how a request reaches an agent and skill, which checks run, and how the result is recorded.
 
 ## The Router
 
-Every `/do` request runs through the `/do` skill itself (`skills/meta/do/SKILL.md`). Phase 1 classifies complexity. Phase 2 runs `scripts/pre-route.py` as a deterministic safety net (guards plus a high-confidence force-route fast path), then `scripts/routing-manifest.py` to generate the routing manifest; the orchestrator reads the manifest and selects the agent + skill combination in-session.
+`skills/meta/do/SKILL.md` defines routing. Phase 1 classifies complexity. In Phase 2, the orchestrator reads the cached or generated manifest from `scripts/routing-manifest.py` and selects an agent and skill by intent. It then runs `scripts/pre-route.py` as a guardrail. A high-confidence PR or security force-route can override the semantic skill choice.
 
 A `skill-evaluator` hook exists but is disabled. Its routing cheat sheet became redundant once the `/do` skill got its own routing tables.
 
 ### Complexity Classification
 
-The evaluator (in `skill-evaluator.py`'s `classify_complexity` function, also mirrored in the `/do` skill's Phase 1) classifies every prompt into four tiers:
+The disabled `skill-evaluator.py` used these historical heuristics. Active `/do` classification is defined in the skill, not by these word-count thresholds:
 
 | Tier | Heuristic | What Gets Injected |
 |------|-----------|-------------------|
@@ -31,7 +31,7 @@ The `auto-plan-detector` hook was removed. Plan detection lives in the `/do` ski
 
 ### Agent Selection
 
-Agents are matched by keyword triggers from `routing.triggers` in their frontmatter:
+The router matches intent to agent descriptions. Frontmatter triggers are hints:
 
 ```yaml
 routing:
@@ -46,15 +46,15 @@ routing:
     - concurrency
 ```
 
-The `skill-evaluator` maintains a hardcoded `AGENT_ROUTING` dict that maps agent names to one-line descriptions, grouped by domain. Language/Framework Experts, Infrastructure, Data & Docs, UI/Performance, Meta/Creation, Coordination, consolidated Reviewers. In practice this dict is unused since the hook is disabled. Routing now runs through `scripts/index-router.py` and the `/do` skill's routing tables. Claude reads the routing decision, matches the request, dispatches via `Task` tool with `subagent_type`.
+The disabled evaluator's `AGENT_ROUTING` dictionary is unused. The active router selects from the manifest in-session and uses `scripts/build-dispatch.py` to prepare the agent dispatch.
 
 ### Force-Route Triggers
 
-Some skills must be invoked when their triggers appear. These are mandatory, not suggestions. CLAUDE.md declares them:
+FORCE entries bind when their domain matches the request's meaning. Go-related examples include:
 
 - Go test, `_test.go`, table-driven, goroutine, channel, `sync.Mutex`, error handling, `fmt.Errorf`, sapcc, make check -> `go-patterns`
 
-Force-routes override the evaluator's recommendation. If someone says "add a goroutine pool" and the evaluator would have suggested `workflow`, the force-route to `go-patterns` wins.
+For a goroutine-pool task, pair the Go agent with `go-patterns`. If PR or security intent owns the primary skill, retain it and stack `go-patterns`. Read the `/do` skill for the full precedence rules.
 
 ## Agent Architecture
 
@@ -84,7 +84,7 @@ routing:
 ---
 ```
 
-Key fields. `name` identifies it in routing. `hooks` lets agents register their own PostToolUse handlers. The Go agent reminds you to run `gofmt` after editing `.go` files. `routing.triggers` feeds the evaluator. `routing.retro-topics` names the knowledge topics this agent covers; `scripts/feature-state.py` reads them to match agents to a feature. `memory: project` scopes remembered context to the current project.
+Key fields. `name` identifies it in routing. `hooks` lets agents register their own PostToolUse handlers. The Go agent reminds you to run `gofmt` after editing `.go` files. `routing.triggers` supplies routing hints. `routing.retro-topics` names the knowledge topics this agent covers; `scripts/feature-state.py` reads them to match agents to a feature. `memory: project` scopes remembered context to the current project.
 
 ### The Operator Context Pattern
 
@@ -94,7 +94,7 @@ Every agent body follows the same three-tier structure:
 2. **Default Behaviors** on unless explicitly disabled. "Use conventional commits." "Run tests after changes."
 3. **Optional Behaviors** off unless enabled. "Multi-language examples." "Interactive playground."
 
-The pattern gives Claude a clear decision framework. Hardcoded behaviors cannot be argued with. Defaults can be overridden by the user. Optionals need explicit activation. It prevents the rationalization problem where Claude talks itself into skipping steps.
+Defaults allow user overrides; optional behaviors need explicit activation. Repository and user instructions determine which requirements apply.
 
 ### Reviewer Agents
 
@@ -128,7 +128,7 @@ routing:
 
 ### Progressive Disclosure
 
-Skills can have a `references/` directory with supporting files. The main SKILL.md stays focused. Instructions, phases, gates. Heavy reference material (step menus, spec formats, voice profiles) lives in `references/` and gets loaded on demand. This keeps the primary file parseable without bloating context.
+Keep instructions in SKILL.md. Put step menus, spec formats, and voice profiles in `references/`, loaded only when needed.
 
 ### Gate Enforcement
 
@@ -139,7 +139,7 @@ Every skill phase ends with a gate. A condition that must be true before proceed
 - Phase 3 (ENHANCE): "Enhancements applied"
 - Phase 4 (EXECUTE): "Agent invoked, results delivered"
 
-Gates prevent the LLM from racing ahead. Without them, Claude will happily "complete" a phase by assuming the script worked without checking exit codes.
+Check the exit condition before advancing to the next phase.
 
 ## Hook System
 
@@ -189,7 +189,7 @@ Every hook receives JSON on stdin, emits JSON on stdout. The contract:
 
 **Exit codes**: `0` = pass (always for non-blocking hooks). `2` = block the tool (PreToolUse only). Several PreToolUse hooks use exit 2: `pretool-unified-gate` blocks gitignore bypass, raw git push/merge, dangerous commands, and sensitive file writes; `pretool-branch-safety` blocks git commits on main/master; `ci-merge-gate` blocks merges when CI checks are red. AI attribution is handled via `settings.json` `attribution` config (empty strings suppress all AI watermarks).
 
-All hooks target sub-50ms execution. `once: true` in settings means the hook fires only on the first event of that type per session. Every hook wraps its main logic in try/except and exits 0 in `finally`. A crashed hook must never block Claude.
+Hooks target sub-50ms execution. `once: true` limits a hook to the first matching event per session. Error handling is hook-specific; blocking hooks must preserve their denial exit codes.
 
 ### Key Hooks
 
@@ -199,7 +199,7 @@ All hooks target sub-50ms execution. `once: true` in settings means the hook fir
 
 **session-context** (SessionStart): Reads the pre-built dream payload from `~/.claude/state/dream-injection-{project-hash}.md` and injects it, plus a one-line notice when the nightly cycle ran in the last 24 hours. A pure file read: no database queries, silent when no fresh payload exists.
 
-**pretool-unified-gate** (PreToolUse): Consolidates five blocking checks into one hook. Gitignore-bypass detection, raw git submission blocking (push, PR create/merge), dangerous command guard, creation gate (new agent/skill blocked unless an ADR named for the component is registered via `scripts/adr-query.py register` — the handshake worktree agents perform; `CREATION_GATE_BYPASS` is deprecated and audit-logged), sensitive file guard (.env, credentials, SSH keys). Exits 2 to block when violations are detected. AI attribution blocking was removed from hooks and is now handled declaratively via `settings.json` `attribution` config.
+**pretool-unified-gate** (PreToolUse): Consolidates five blocking checks into one hook. Gitignore-bypass detection, raw git submission blocking (push, PR create/merge), dangerous command guard, creation gate (new agent/skill blocked unless an ADR named for the component is registered via `scripts/adr-query.py register`, the handshake worktree agents perform; `CREATION_GATE_BYPASS` is deprecated and audit-logged), sensitive file guard (.env, credentials, SSH keys). Exits 2 to block when violations are detected. AI attribution blocking was removed from hooks and is now handled declaratively via `settings.json` `attribution` config.
 
 ## Telemetry Database
 
@@ -323,7 +323,7 @@ Every subagent in a pipeline session knows about the governing ADR, because the 
 
 ### ADR Enforcement
 
-The `adr-enforcement` hook (PostToolUse) verifies that written files comply with the active ADR after every Write/Edit. Advisory, not blocking. But it is in your face about compliance failures.
+The `adr-enforcement` hook reports active-ADR compliance after Write/Edit. Its findings are advisory.
 
 ## MCP Integration
 
@@ -336,13 +336,13 @@ Four MCP servers are configured:
 | **Playwright** | Browser automation | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill_form` |
 | **Chrome DevTools** | Chrome debugging | Network inspection, console access |
 
-The catch: MCP tools are **deferred** in subagent contexts. When a pipeline dispatches a subagent via `Task`, that subagent cannot call `mcp__gopls__go_diagnostics` directly. It has to use `ToolSearch` first to fetch the schema:
+MCP tools are **deferred** in subagent contexts. A subagent dispatched through `Task` must fetch the schema with `ToolSearch` before calling a tool such as `mcp__gopls__go_diagnostics`:
 
 ```
 ToolSearch("gopls")
 ```
 
-Only after ToolSearch returns the full schema definition can the subagent invoke the tool. Easy to miss. Causes silent failures when subagents try MCP tools without the fetch step.
+Invoke the tool after ToolSearch returns its full schema. Skipping this step can cause silent failures.
 
 ## Quality Gates
 
@@ -372,14 +372,14 @@ Banned words include the usual suspects: "delve", "leverage", "streamline", "fos
 
 ## Anti-Rationalization
 
-The toolkit's immune system against LLM self-deception. Claude does not lie on purpose. It constructs plausible-sounding reasons to skip steps. "The code looks correct" (looking is not being correct). "Simple change" (simple changes cause complex bugs). "Should work" (should is not does).
+Require evidence for completion claims. Confidence, a small diff, or familiar code does not establish that checks passed.
 
 Three layers:
 
-**CLAUDE.md table**: A hardcoded lookup of common rationalizations mapped to required actions. "Already done" -> "Actually verify." "I'm confident" -> "Verify regardless." These are in the global CLAUDE.md that every session reads.
+**Shared instructions**: `skills/shared-patterns/anti-rationalization-core.md` requires evidence for completion claims and is injected at dispatch.
 
 **Re-injection via hooks**: SessionStart hooks reload the operator context and the distilled rule set every session, and `precompact-archive` re-anchors the active ADR before context compression. As conversations get long, early instructions fade from attention. Re-injection at those boundaries brings them back.
 
-**Skill-level embedding**: Every agent and skill embeds anti-rationalization in its operator context. The `verification-before-completion` skill includes an anti-rationalization enforcement reference for maximum-rigor tasks. Gate enforcement in skills is itself an anti-rationalization mechanism. You cannot skip Phase 3 by claiming Phase 2 "probably" passed.
+**Skill checks**: Skills define their completion evidence. `verification-before-completion` includes an anti-rationalization enforcement reference for maximum-rigor tasks. Check each required phase before advancing.
 
-The pattern works because it does not trust the LLM to police itself. Structural enforcement (gates, hooks, exit codes) instead of behavioral instructions alone.
+Hooks and exit codes provide checks beyond written instructions.

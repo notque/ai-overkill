@@ -6,7 +6,7 @@ read_when:
 
 # Start Here
 
-Install once, then say what you want in plain English. The router connects your request to the right agent, skill, and quality gates automatically. You never browse the catalog; the value is wired in. This page gets you from zero to your first `/do` in about five minutes.
+Install the toolkit, then describe your task with `/do`. The router selects the agent, skill, and checks. Setup takes about five minutes.
 
 ## What You Need
 
@@ -18,7 +18,7 @@ claude --version
 
 If that prints a version number, you're good. If not, install Claude Code first and come back.
 
-Optional: Codex CLI, Factory, or Reasonix. The toolkit mirrors skills (and agents where the harness supports them) into their directories (`~/.codex/`, `~/.factory/`, `~/.reasonix/`), so all the CLIs dispatch the same domain expertise. Reasonix has no agent surface, so it gets skills + scripts + hooks only. Claude Code remains the only runtime with the full hook surface. Gemini CLI support was removed (deprecated upstream, transitioned to Antigravity CLI); Antigravity support pending CLI maturity — see README § "Gemini CLI / Antigravity CLI Support (removed)".
+Optional: Codex CLI, Factory, or Reasonix. The toolkit mirrors skills (and agents where the harness supports them) into their directories (`~/.codex/`, `~/.factory/`, `~/.reasonix/`), so all the CLIs dispatch the same domain expertise. Reasonix has no agent surface, so it gets skills + scripts + hooks only. Claude Code remains the only runtime with the full hook surface. Gemini CLI support was removed (deprecated upstream, transitioned to Antigravity CLI); Antigravity support awaits CLI maturity. See README § "Gemini CLI / Antigravity CLI Support (removed)".
 
 Verify optional tools: `codex --version` / `factory --version` / `reasonix --version`.
 
@@ -39,13 +39,13 @@ cd vexjoy-agent
 ./install.sh
 ```
 
-The installer asks one question: symlink or copy. Symlink means updates via `git pull`. Copy means a stable snapshot. Either works.
+Choose symlinks for live updates through `git pull`, or copies for a stable snapshot.
 
 What it does: installs agents, skills, hooks, commands, and scripts into `~/.claude/` (symlinked or copied per your choice). Mirrors skills and agents into `~/.codex/`, agents into `~/.factory/droids/` (Factory calls agents "droids"), and skills + scripts + hooks into `~/.reasonix/` (no agent surface there). It configures each harness's supported hooks.
 
 ### Codex hook coverage
 
-Codex integration requires v0.144.1+. The original six-hook allowlist was correct for v0.114, when Codex tool hooks intercepted only Bash. Current Codex support classifies the 74 Claude hook registrations as 26 native, 35 adapter-backed, and 13 unsupported (61 supported); the counts are registrations, not unique files.
+Codex integration requires v0.144.1+. The original six-hook allowlist was correct for v0.114, when Codex tool hooks intercepted only Bash. Current Codex support classifies the 62 Claude hook registrations as 26 native, 27 adapter-backed, and 9 unsupported (53 supported); the counts are registrations, not unique files.
 
 The adapter translates Codex `apply_patch` operations into Write/Edit events for existing VexJoy guards. It cannot cover writes through `unified_exec`, unmatched MCP tools, WebSearch, or other unsupported paths. Codex also omits Claude's `conversation_history` at PreCompact and `session_data` at Stop, so those adapted hooks run with degraded telemetry. This is not full Claude parity.
 
@@ -74,7 +74,7 @@ Then:
 /do what can you do?
 ```
 
-The router reads your request, picks the right agent and skill, runs it. This one shows you the full routing system.
+This request shows the routing system and available capabilities.
 
 ```
 /do give me an overview of this codebase
@@ -92,7 +92,7 @@ Multi-phase pipeline: research, outline, draft, voice validation. Output lands i
 /html report on [anything you just worked on]
 ```
 
-One self-contained HTML file: report, slide deck, prototype, data viz. Opens in any browser, shares as a single file. The output non-engineers love most.
+Creates a self-contained HTML report, slide deck, prototype, or chart that opens in a browser and shares as one file.
 
 ```
 /do debug why [problem]
@@ -113,8 +113,6 @@ Five kinds of things in `~/.claude/`. You never invoke them by name; the router 
 These load automatically when you start Claude Code in any directory.
 
 ## Where Next
-
-Depends on what you're here for.
 
 **[For Knowledge Workers](for-knowledge-workers.md)** : Writing, research, data analysis, moderation, HTML artifacts. No code required.
 
