@@ -197,3 +197,24 @@ class TestDebugLogging:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_catalog_preserves_local_paths_and_duplicate_names(tmp_path, capsys, monkeypatch):
+    """A shared directory must still identify differently named override files."""
+    import json
+
+    agents_dir = tmp_path / ".claude" / "agents"
+    agents_dir.mkdir(parents=True)
+    for filename in ("custom.md", "override.md"):
+        (agents_dir / filename).write_text(
+            "---\nname: same-name\ndescription: Local domain knowledge\nrouting:\n  triggers:\n    - local task\n---\n"
+        )
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as result:
+        cross_repo_agents.main()
+    assert result.value.code == 0
+    payload = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert payload.count(str(agents_dir)) == 1
+    for filename in ("custom.md", "override.md"):
+        assert f"same-name [{filename}] | Local domain knowledge | local task" in payload
+    assert "read the selected file" in payload
