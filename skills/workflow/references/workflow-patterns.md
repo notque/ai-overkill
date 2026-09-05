@@ -27,10 +27,10 @@ Each maps to existing HAVE machinery. Load the linked file for mechanics.
 |---|---|---|
 | Classify-and-act | Route by type up front; or classify-at-end (judge output, re-route) | `/do` Phase 1 CLASSIFY + Phase 4 evaluation; `skills/meta/do/references/lazy-completion-detector.md` for classify-at-end |
 | Fan-out-and-synthesize | Independent agents in parallel, barrier, one synthesizer | `fan-out-workflow.js`; dispatch multiple Agent tools in one message (prose floor) |
-| Adversarial verification | Executor builds, fresh skeptic refutes the result | quality-loop PHASE 5 (intent-verify) + PHASE 7 (fresh-agent fix) |
+| Adversarial verification | Executor builds, fresh skeptic refutes the result | quality-loop PHASE 5 (intent-verify) + PHASE 7 (focused fixes) |
 | Generate-and-filter | Over-generate candidates, a gate keeps survivors | voice-writer HOOK-GATE / VARIETY-GATE; `right-size-review.py` tiering |
 | Tournament | N agents attempt the SAME task; pairwise judges pick a winner per round | `tournament-workflow.md` |
-| Loop-until-done | Repeat until a hard completion test passes | quality-loop PHASE 8 RETEST (max 3) + verification-before-completion as the completion bar; `/loop` for interval re-run |
+| Loop-until-done | Repeat until a hard completion test passes | quality-loop PHASE 8 RETEST (after relevant fixes) + verification-before-completion as the completion bar; `/loop` for interval re-run |
 
 ## The 3 Failure Modes Workflows Fight
 
@@ -39,7 +39,7 @@ These are agentic-execution failures (a single agent declaring victory wrong). T
 | Failure mode | Symptom | Control + when to escalate |
 |---|---|---|
 | Agentic laziness | Stops at partial progress ("fixed 20 of 50"), declares done | `skills/meta/do/references/lazy-completion-detector.md` — scope-vs-objective check at evaluation; escalate to re-dispatch the remainder |
-| Self-preferential bias | Agent reviews its own work, rates it good | quality-loop PHASE 7 fresh-agent (already covered); escalate when the builder is also the judge |
+| Self-preferential bias | Agent reviews its own work, rates it good | quality-loop focused independent review when risk or a blind spot warrants it |
 | Goal drift | Output answers a nearby question, not the asked one | quality-loop PHASE 5 intent-verify (already covered); escalate when the diff diverges from request |
 
 ## Repeatable Workflows: completion bar + /loop
