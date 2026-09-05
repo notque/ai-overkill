@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -552,6 +553,53 @@ def _merged_runtime_index(tracked: Path, local: Path) -> dict | None:
                 skills.setdefault(name, data)
     merged["skills"] = skills
     return merged
+
+
+def _refresh_local_skill_index(repo_root: Path) -> bool:
+    """Add discovered skills to the private overlay without changing public metadata."""
+    generator = Path(__file__).resolve().parent.parent / "scripts" / "generate-skill-index.py"
+    skills = repo_root / "skills"
+    with tempfile.TemporaryDirectory(prefix="vexjoy-skill-index-") as temporary:
+        output = Path(temporary) / "INDEX.local.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(generator),
+                "--repo-root",
+                str(repo_root),
+                "--include-private",
+                "--strict",
+                "--output",
+                str(output),
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "HOME": str(Path.home())},
+            timeout=30,
+        )
+        if result.returncode not in (0, 3):
+            raise RuntimeError(f"Skill discovery failed: {result.stderr.strip() or result.stdout.strip()}")
+        # Existing local entries retain their metadata. Discovery fills missing
+        # names; the public index still wins when runtime indexes are published.
+        merged = _merged_runtime_index(skills / "INDEX.local.json", output)
+        if merged is None:
+            return False
+        roots = (repo_root, Path.home() / ".claude", Path.home() / ".codex")
+        merged["skills"] = {
+            name: entry
+            for name, entry in merged["skills"].items()
+            if isinstance(entry, dict)
+            and isinstance(entry.get("file"), str)
+            and any((root / entry["file"]).is_file() for root in roots)
+        }
+        local = skills / "INDEX.local.json"
+        try:
+            if json.loads(local.read_text(encoding="utf-8")) == merged:
+                return False
+        except (OSError, json.JSONDecodeError):
+            pass
+        _atomic_json_write(local, merged)
+        return True
 
 
 def _sync_runtime_skill_index(src: Path, dst: Path) -> bool:
@@ -1504,6 +1552,15 @@ def _main_inner(repo_root: Path, user_claude: Path) -> None:
                     errors.append(f"private-{deploy_name}: {e}")
         if private_count > 0:
             synced.append(f"private-skills({private_count})")
+
+    # Deployment can add private skills after the public index was generated.
+    # Refresh the local overlay before either harness publishes its inventory.
+    try:
+        if _refresh_local_skill_index(repo_root):
+            synced.append("skill-index(updated)")
+        _sync_runtime_skill_index(repo_root / "skills", user_claude / "skills")
+    except Exception as e:
+        errors.append(f"skill-index: {e}")
 
     # Sync skills and agents to ~/.codex/ for OpenAI Codex CLI.
     # Codex natively supports skills; agents are mirrored as reference
