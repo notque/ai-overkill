@@ -28,7 +28,7 @@ routing:
 
 ## Overview
 
-This skill upgrades a single target agent or skill through a scored, gated pipeline.
+This skill upgrades one agent or skill through a phased pipeline. Use direct review and relevant repository checks by default. Run the scoring steps and score fields below only when the user requests evaluation or a specific uncertainty warrants it; otherwise record checks and findings in their place. Required tests still apply.
 It is a **bottom-up** quality mechanism — triggered when a specific component needs
 improvement — complementing the **top-down** `system-upgrade` pipeline that handles
 multi-component changes driven by external events.
@@ -57,7 +57,7 @@ ls skills/ | grep [name]
 ```
 
 **Step 2**: Call the Skill tool with `agent-evaluation`. Evaluate the target file to get the baseline score (0–100) and grade (A/B/C/F).
-This is critical because without a baseline, there is no way to verify improvement. "Looks better" is not a quality claim.
+For ordinary maintenance, record the existing behavior, relevant requirements, and checks instead of a model score.
 
 **Step 3**: Read the telemetry and the registry for this agent:
 ```bash
@@ -87,7 +87,7 @@ Known gaps detected:
 Retro candidates: [N found | none]
 ```
 
-**Gate**: Baseline score recorded. Proceed to Phase 2.
+**Gate**: Baseline behavior and checks recorded; score included when evaluation applies. Proceed to Phase 2.
 
 ---
 
@@ -160,7 +160,7 @@ Peer Inconsistencies:
 
 ### Phase 3: PLAN
 
-**Goal**: Prioritize improvements and get user approval before any changes.
+**Goal**: Present prioritized improvements and confirm they fit the authorized scope.
 
 **Step 1**: Rank all gaps from Phase 2 by tier:
 
@@ -197,12 +197,9 @@ Estimated quality delta: +12 to +18 points
 Proceed with implementation? (or specify which items to include/exclude)
 ```
 
-**Step 3**: Wait for user approval before Phase 4. The gate exists because the user may have strong opinions about which improvements are appropriate, and the approval step keeps mass edits aligned with that decision.
-- "yes", "proceed", "go ahead", "do it" → proceed with all items
-- User specifies subset (e.g., "skip 5 and 6") → update plan, proceed with approved subset
-- "no" or "stop" → stop and summarize what was decided
+**Step 3**: Continue when the user already authorized these improvements. Ask only about uncovered changes or material scope changes. Honor plan-only and interactive requests; a stop request ends implementation.
 
-**Gate**: User approval received. Proceed to Phase 4.
+**Gate**: Plan presented and implementation scope authorized. Proceed to Phase 4.
 
 ---
 
@@ -287,7 +284,7 @@ Items applied:
 
 If the delta is positive, the upgrade is complete. If the delta is zero or negative and the user has not already acknowledged it, surface the regression report before closing.
 
-**Gate**: After score recorded and delta computed. If positive, upgrade complete. If negative, user has acknowledged the regression before closing.
+**Gate**: Required checks pass and blocking findings are resolved. If evaluation was requested, report its result and resolve any material regression before closing.
 
 ---
 

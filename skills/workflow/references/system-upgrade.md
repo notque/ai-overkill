@@ -31,7 +31,7 @@ routing:
 
 This skill orchestrates systematic upgrades to the agent/skill/hook/script ecosystem when external changes warrant adaptation. It is a **top-down** upgrade mechanism—triggered by Claude Code releases, user goal changes, or routing telemetry that shows components failing—complementing the **bottom-up** `agent-upgrade` pipeline that fixes one component at a time.
 
-The pipeline enforces a mandatory approval gate: Phase 3 output (ranked upgrade list) MUST be presented to the user and approved before Phase 4 begins. Never silently execute upgrades.
+Present the ranked plan in Phase 3. Continue when the user has already authorized that scope; ask only for uncovered actions or material scope changes. A plan-only request stops at the plan.
 
 ---
 
@@ -131,7 +131,7 @@ grep -l "goroutine\|concurrency" agents/*.md skills/*/SKILL.md
 
 ### Phase 3: PLAN
 
-**Goal**: Produce a ranked upgrade plan and get user approval before any changes. (The approval gate is mandatory; this prevents mass edits without visibility and ensures the user controls what changes are made to their system.)
+**Goal**: Present a ranked plan and check it against the user’s authorized scope.
 
 **Step 1**: Sort the Audit Report by priority:
 
@@ -169,12 +169,9 @@ Parallel dispatch: 3 groups (hooks, agents, skills)
 Proceed with implementation? (or modify the plan)
 ```
 
-**Step 3**: Wait for user approval before moving to Phase 4.
-- If user says "yes", "proceed", "go ahead", "do it" → proceed to Phase 4
-- If user modifies the plan → update and re-present
-- If user says "no" or "stop" → stop and summarize what was decided
+**Step 3**: Apply existing authorization. If the user requested implementation of these changes, proceed without another confirmation. Present uncovered changes separately and ask before doing them. Honor plan-only, interactive, and stop requests; continue independent authorized work while waiting.
 
-**Gate**: User approved the plan. Branch created.
+**Gate**: Plan presented and implementation scope authorized. Use an assigned feature branch or create one before editing.
 
 ```bash
 git checkout -b chore/system-upgrade-$(date +%Y-%m-%d)
@@ -214,60 +211,39 @@ For each dispatched agent, provide:
 
 ### Phase 5: VALIDATE
 
-**Goal**: Score changed components before/after to quantify upgrade quality. Produce a before/after evaluation delta, not just "looks good."
+**Goal**: Verify the changed behavior and preserve useful knowledge.
 
-**Step 1**: For each modified agent or skill, run evaluation:
+**Step 1**: Review the diff for lost domain rules, broken references, and changed contracts. Run the relevant existing tests and required repository checks. Reuse passing results for unchanged inputs.
 
-Call the Skill tool with `agent-evaluation`. Evaluate the modified files against a baseline when available; otherwise, produce absolute scores.
+Call the Skill tool with `verification-before-completion`. It owns verification requirements. Use `agent-evaluation` when the user requests scoring or a concrete uncertainty needs it; model scoring is not a default release gate.
 
 ```
 VALIDATION REPORT
 =================
 
 [component]
-  Before: [score if available, or "N/A (new)"]
-  After:  [score]
-  Delta:  [+N or new]
-  Grade:  [A/B/C/F]
+  Checks: [commands and results]
+  Findings: [fixed issues or remaining gaps]
+  Evaluation: [scores if requested, otherwise not run]
 ```
 
-**Step 2**: Flag any regressions (after < before). For regressions:
-- Report to user
-- Suggest fix or revert
-- Present the regression to the user and let them decide whether to revert
+**Step 2**: Fix confirmed regressions within scope and rerun affected checks. Report unresolved findings; blocking correctness or security issues prevent delivery. Ask when resolving a finding requires an unapproved tradeoff.
 
-**Step 3**: For hook modifications, run syntax check:
-```bash
-python3 -m py_compile hooks/[modified-hook].py
-```
-
-**Gate**: All components pass syntax check. No regressions (or user acknowledges regressions). Proceed to Phase 6.
+**Gate**: Required checks pass and blocking findings are resolved. Proceed to Phase 6.
 
 ---
 
 ### Phase 6: DEPLOY
 
-**Goal**: Commit changes, sync to ~/.claude, create PR.
+**Goal**: Deliver through the authorized PR workflow, then sync the accepted revision.
 
-**Step 1**: Sync modified files to `~/.claude/` (agents, skills, hooks, commands that were modified).
+**Step 1**: Call the Skill tool with `pr-workflow`. It owns selective staging, review reuse, commit, push, CI, and merge requirements. Stage only this task's files. Do not install an unreviewed feature branch into the live user configuration.
 
+**Step 2**: If merge and local sync are authorized, verify all required checks on the current PR head, merge, and update the designated integration checkout. With parallel workers, the coordinator alone syncs the main checkout and installed configuration. If the request ends at PR creation, report that state and leave live installation unchanged.
+
+**Step 3**: After successful integration and sync, record the accepted revision from that checkout:
 ```bash
-python3 hooks/sync-to-user-claude.py  # or call the sync script directly
-```
-
-**Step 2**: Stage and commit:
-```bash
-git add agents/ skills/ hooks/ commands/
-git commit -m "chore: system upgrade — [brief description of trigger]
-
-[List top 3 changes from Phase 3 plan]"
-```
-
-**Step 3**: Push and create PR using `pr-pipeline` skill.
-
-**Step 4**: Record upgrade SHA so the next run diffs incrementally:
-```bash
-python3 ~/.claude/scripts/upgrade-diff.py --record
+python3 scripts/upgrade-diff.py --record
 ```
 
 **Step 5**: Produce completion summary:
@@ -285,13 +261,13 @@ Changes Applied:
   ✓ [N] Important
   ○ [N] Minor (skipped/deferred)
 
-Validation: [N/N components scored, mean grade [X]]
+Validation: [required checks and results; scores only if requested]
 
 Next Upgrade: Run /system-upgrade after next Claude Code release
               or when /retro routing shows several weak routes
 ```
 
-**Gate**: Changes committed, synced to ~/.claude, PR created, and upgrade SHA recorded. Pipeline complete.
+**Gate**: The authorized delivery state is confirmed. Record the upgrade SHA only after integration and sync. Report a PR-only result as awaiting integration.
 
 ---
 

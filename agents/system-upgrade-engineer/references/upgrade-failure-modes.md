@@ -9,7 +9,7 @@
 ## Overview
 
 The system-upgrade workflow has mandatory gates and specialist dispatch rules. The most damaging
-failures are silent: implementing without user approval at Phase 3, making domain changes inline
+failures are silent: implementing outside authorized scope, making domain changes inline
 instead of delegating to specialists, and running full-repo audits for scoped changes. These
 produce either unauthorized bulk edits or subtly incorrect results that bypass domain validation.
 
@@ -18,28 +18,13 @@ produce either unauthorized bulk edits or subtly incorrect results that bypass d
 <!-- no-pair-required: section header, not a standalone failure mode block -->
 ## Failure Mode Catalog
 
-### Implementing Without Phase 3 Approval
+### Implementing Without Authorized Scope
 
-**Detection**:
-```bash
-# Check if task_plan.md has a PLAN section followed immediately by IMPLEMENT
-grep -n "^## Phase 3\|^## Phase 4\|PLAN\|IMPLEMENT" task_plan.md
-# If Phase 4 timestamp precedes user approval acknowledgment, gate was skipped
+**What it looks like**: Applying changes outside the user’s request or skipping the ranked PLAN presentation.
 
-# Check git log for commits that skip the plan-present step
-git log --oneline --since="1 hour ago" | grep "chore/system-upgrade"
-```
+**Why wrong**: The user must control which upgrades happen. Requiring a second approval for an accepted plan also blocks requested work.
 
-**What it looks like**: Moving from Phase 2 AUDIT directly to Phase 4 IMPLEMENT without
-presenting the ranked table and waiting for a response.
-
-**Why wrong**: Users lose control of what changes in their system. Bulk edits to governance
-infrastructure (hooks, routing tables, agent frontmatter) are hard to reverse and affect
-every subsequent session. The approval gate exists specifically because the agent cannot
-know which changes the user wants to prioritize or defer.
-
-Do instead: Present the Phase 3 table (Tier | Component | Change Type | Effort | Group)
-and wait for explicit acknowledgment before any writes.
+Do instead: Follow `skills/workflow/references/system-upgrade.md` Phase 3. Present the ranked table, continue within existing authorization, and ask about uncovered changes. Honor interactive and plan-only requests.
 
 ---
 
@@ -95,24 +80,13 @@ audit only with the explicit "comprehensive" keyword from the user.
 
 ---
 
-### Skipping Validation Scoring
+### Skipping Required Validation
 
-**Detection**:
-```bash
-# Check if VALIDATE phase ran agent-evaluation
-grep -n "agent-evaluation\|before.*score\|after.*score" task_plan.md
-# Should appear in Phase 5 section; if absent, validation was skipped
-```
+**What it looks like**: Shipping directly after IMPLEMENT without checking changed behavior and affected contracts.
 
-**What it looks like**: Creating PR directly after IMPLEMENT without running
-`agent-evaluation` on modified components.
+**Why wrong**: Neither a smaller file nor a model score proves correctness.
 
-**Why wrong**: An agent that scores lower after modification has regressed. Without the
-before/after delta, regressions are invisible until users report breakage. The upgrade
-pipeline exists to *improve* quality, not maintain it.
-
-Do instead: Call the Skill tool with `agent-evaluation`. Evaluate each modified component and report the numeric delta.
-If any component scores lower, surface it to the user and keep the modified component in place until they choose a rollback. Do not downgrade the regression as "necessary."
+Do instead: Follow the pipeline’s VALIDATE phase and report real checks and findings. Scoring is optional; required checks and blocking findings still govern delivery.
 
 ---
 
@@ -206,9 +180,9 @@ Use a single agent when:
 |-------|------|------------------------|
 | Phase 1 → Phase 2 | 0 signals check | Audit scans everything with no focus |
 | Phase 2 → Phase 3 | All components opened and checked | Plan tier assignments are wrong |
-| Phase 3 → Phase 4 | User approval received | Unauthorized bulk edits |
+| Phase 3 → Phase 4 | Plan presented and scope authorized | Unauthorized bulk edits |
 | Phase 4 → Phase 5 | Branch exists, not main | Risk of main commit or force push |
-| Phase 5 → Phase 6 | Validation delta reported | Regressions ship without user awareness |
+| Phase 5 → Phase 6 | Required checks pass and blocking findings resolved | Regressions ship without user awareness |
 
 ---
 
