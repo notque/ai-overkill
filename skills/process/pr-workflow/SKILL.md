@@ -142,23 +142,9 @@ Detect the user's intent and load the appropriate reference file:
 
 **Default action**: When invoked with no arguments or ambiguous intent, load `sync.md` (the most common PR use case).
 
-## Review Lanes by Risk
+## Review scope
 
-Before dispatching reviewers for any PR, run risk classification:
-
-```bash
-python3 scripts/pr-risk-classify.py --base "$MAIN_BRANCH" --head HEAD
-```
-
-Route to the appropriate review lane based on the `risk` field:
-
-| Risk | Lane | Action |
-|---|---|---|
-| `low` | Direct or single review | Review the diff directly; use one independent reviewer when useful |
-| `medium` | Full right-size-review roster | Run `right-size-review.py` for tier-appropriate wave composition |
-| `high` | Full roster + operator sign-off | Right-size-review roster + add `**Operator sign-off required**` note to PR body Notes section |
-
-When `recommend_split` is true, surface the recommendation to the user before dispatching review: "This PR has N lines changed (above the 800-line ceiling). Consider splitting into smaller PRs for faster, higher-quality review." Proceed with review if the user chooses to continue.
+Before dispatching reviewers, load `references/pr-risk-policy.md`. It owns risk classification, roster selection, and review reuse. Preserve explicit user and `/do` rosters and repository requirements; do not start a second review at each PR phase.
 
 ## PR body
 

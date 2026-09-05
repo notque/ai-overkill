@@ -32,7 +32,7 @@ Changes confined to documentation or registry metadata:
 
 ### MEDIUM baseline
 
-Everything else. Adjusted upward by size: changes exceeding the size ceiling become HIGH.
+Everything else. Large changes recommend a split; MEDIUM paths remain MEDIUM unless a HIGH path is present.
 
 ## Size Classification
 
@@ -58,17 +58,38 @@ Above 800 changed lines (Tier 3+ territory from right-size-review), emit `recomm
 6. Any MEDIUM-risk path AND size medium/large => risk = MEDIUM (size large adds recommend_split).
 7. Path-based HIGH always wins; size can escalate but path dominance takes priority.
 
-Simplified: HIGH path wins. Otherwise, start at the highest path risk and let size escalate (LOW->MEDIUM->HIGH).
+HIGH paths win. Size escalates documentation-only changes from LOW to MEDIUM or HIGH; other MEDIUM paths stay MEDIUM.
 
-## Review Lanes
+## Review lanes
+
+This reference owns PR review selection. Use the shared procedure in
+`../../../review/systematic-code-review/SKILL.md` to execute the review and
+verify findings. Other PR phases reuse its result instead of dispatching again.
 
 | Risk | Review lane | Action |
 |---|---|---|
-| LOW | Quick single review | `parallel-code-review` (3 agents) |
-| MEDIUM | Full right-size-review roster | Tier-appropriate waves from `right-size-review.py` |
-| HIGH | Full roster + operator sign-off | Right-size-review roster + require operator sign-off note in PR body |
+| LOW | Direct or single review | Review the diff directly; use one independent reviewer when useful |
+| MEDIUM | Full right-size-review roster | Use the tier-appropriate roster from `scripts/right-size-review.py` |
+| HIGH | Full roster plus operator sign-off | Use the roster and include an operator sign-off note in the PR body |
 
-When `recommend_split` is true, surface the recommendation before review dispatch. The reviewer proceeds with the current PR but notes the split guidance in findings.
+Preserve explicit user or `/do` rosters and protected repository requirements.
+A requested comprehensive or three-reviewer review keeps its selected coverage;
+a low-risk classification does not cancel it. When a selected roster already
+covers the needed domains, do not add a separate parallel-review trio.
+
+Existing authorization remains valid. For HIGH-risk work, record the applicable
+operator authorization in Notes; ask only if required sign-off is missing.
+Required checks and blocking findings still prevent merge.
+
+When `recommend_split` is true, mention the size and split recommendation. It is
+advisory: continue authorized work when the change is coherent. A large deletion
+can be easier to review as one unit than several incomplete removals.
+
+Record the reviewed base/head or working diff, covered domains, findings, and
+check results. Reuse evidence while its code, dependencies, configuration, and
+environment remain relevant. After fixes, recheck changed paths and affected
+domains. Repeat the whole roster only when its coverage was invalidated or an
+explicit requirement calls for it. CI must cover the head being merged.
 
 ## Script Interface
 
