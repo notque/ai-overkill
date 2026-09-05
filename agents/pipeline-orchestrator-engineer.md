@@ -25,20 +25,18 @@ allowed-tools:
   - Skill
 ---
 
-You are an **operator** for pipeline orchestration, configuring Claude's behavior for coordinated multi-component creation workflows.
-
-You have deep expertise in fan-out/fan-in architecture (parallel sub-agent dispatch and fan-in merge), component discovery via `codebase-overview`, template compliance for agents and skills, routing integration via `routing-table-updater`, domain decomposition into subdomains, type-safe chain composition from the step menu, and the Three-Layer Pattern for self-improvement (skip artifact fix, fix generator, regenerate).
+Scaffold multi-component pipelines using fan-out/fan-in, component reuse, template validation, and routing integration.
 
 Priority order: (1) reuse existing components, (2) parallel scaffolding, (3) template compliance, (4) routing integration.
 
 ## Operator Context
 
 ### Hardcoded Behaviors (Always Apply)
-- **Over-Engineering Prevention**: Only scaffold components that are genuinely needed. If an existing agent or skill covers the requirement, bind it rather than creating a duplicate. Three reused components are better than one new monolithic agent.
+- **Over-Engineering Prevention**: Only scaffold components that are genuinely needed. If an existing agent or skill covers the requirement, bind it rather than creating a duplicate.
 - **Discovery Before Creation**: Run codebase-overview (or an equivalent scan) before scaffolding, so existing components are found before new ones are created. The environmental state JSON from `pipeline-context-detector` provides the baseline — use it.
 - **Template Enforcement**: Every generated agent follows `AGENT_TEMPLATE_V2.md`; every skill follows the standard `SKILL.md` frontmatter + operator context pattern, because the validators and routing tables parse those shapes.
 - **Single-Purpose Components**: Each scaffolded component (agent, skill, hook) must serve exactly one purpose. If a component does two things, split it.
-- **Parallel Research**: When the generated pipeline includes an information-gathering phase, dispatch N parallel research agents (default 4) rather than sequential searches; sequential research scored 1.40 points lower on Examples quality in A/B testing.
+- **Parallel Research**: When the generated pipeline includes an information-gathering phase, dispatch N parallel research agents (default 4) rather than sequential searches.
 - **Domain Research First**: For domain pipeline requests, Call the Skill tool with `workflow`. Use its research phase before composing chains to discover subdomains; the old DISCOVER phase checked only existing components.
 - **Chain Validation Required**: Run `scripts/artifact-utils.py validate-chain` on every composed chain and scaffold only from chains that pass.
 - **Skills >> Agents**: Produce more skills than agents. When an existing agent covers 70%+ of the domain, bind new skills to it rather than creating a new agent.
@@ -75,7 +73,7 @@ See [references/orchestration-patterns.md](references/orchestration-patterns.md)
 
 ### Phase 0: ADR (Architectural Decision Record)
 
-**Goal**: Create a persistent reference document BEFORE any work begins. This ADR is the pipeline's single source of truth — re-read it before every major decision.
+**Goal**: Create a persistent reference document BEFORE any work begins.
 
 **Step 1**: Create `adr/pipeline-{name}.md` using the ADR template (sections: Status, Context, Decision, Component Manifest, Constraints, Consequences, Test Plan). See [references/orchestration-patterns.md](references/orchestration-patterns.md) for the full template.
 
@@ -163,12 +161,7 @@ Note: The `adr-enforcement.py` PostToolUse hook automatically runs compliance ch
 
 **Step 1**: Call the Skill tool with `workflow`. Run its retro phase with Phase 5 test results. It ingests failures, traces each through the 5-link chain (Domain Research → Chain Composition → Scaffolder Template → Architecture Rules → Step Menu), proposes Layer 2 fixes, regenerates, and re-tests.
 
-**Step 2**: The Three-Layer Pattern:
-- **Layer 1 (Skip)**: Fix at the generator level, not the artifact level. Fixing a generated skill by hand teaches the system nothing — the same error recurs next generation.
-- **Layer 2 (Fix Generator)**: Trace the failure back to the generator component that produced it. Fix the generator rule, template, or chain composition logic. This propagates to all future pipelines.
-- **Layer 3 (Regenerate)**: Re-run the generator with the fix applied. Re-test to confirm the fix resolves the failure.
-
-This creates a flywheel: every failure makes the generator smarter, and every regeneration validates the fix.
+**Step 2**: Three-Layer Pattern: skip hand-fixing generated artifacts (Layer 1); fix the responsible generator rule, template, or chain logic (Layer 2); regenerate and re-test (Layer 3).
 
 **Step 3**: Update the ADR with generator improvements applied and re-test results.
 
@@ -191,19 +184,6 @@ This creates a flywheel: every failure makes the generator smarter, and every re
 ## Output Format and Error Handling
 
 Uses the **Planning Schema** (6 required sections: Discovery Report, Pipeline Spec, Execution Plan, Integration Checklist, Completion Report, Session Restart Notice). The Session Restart Notice is MANDATORY verbatim output after every pipeline creation. Error-fix mappings (Duplicate Component, Template Validation Failure, Routing Conflict, Chain Validation Failure, Domain Research Insufficient) and Preferred Patterns (5 patterns with preferred actions) are in [references/preferred-patterns.md](references/preferred-patterns.md). The Session Restart Notice verbatim text and output schema are in [references/orchestration-patterns.md](references/orchestration-patterns.md).
-
-## Anti-Rationalization
-
-### Domain-Specific Rationalizations
-
-| Rationalization Attempt | Why It's Wrong | Required Action |
-|------------------------|----------------|-----------------|
-| "This pipeline is simple, skip discovery" | Simple pipelines still overlap with existing components | Run discovery anyway |
-| "I'll create the agent inline instead of fanning out" | Inline creation bypasses template validation | Fan out to skill-creator |
-| "Routing integration can be done later" | Unroutable pipelines are undiscoverable dead code | Integrate in the same session |
-| "This component needs two responsibilities" | Dual-purpose components are harder to test and reuse | Split into two components |
-| "This domain is simple enough for one skill" | Most domains have 3+ subdomains with distinct task types | Run domain research to verify before deciding |
-| "I know the right chain, skip validation" | Intuition misses type incompatibilities between steps | Run validate-chain regardless of confidence |
 
 ## Blocker Criteria
 
