@@ -223,3 +223,14 @@ def test_registered_in_pretooluse_agent_group() -> None:
     groups = [g for g in settings["hooks"]["PreToolUse"] if g.get("matcher") == "Agent"]
     commands = [h["command"] for g in groups for h in g["hooks"]]
     assert any("pretool-dispatch-spec-gate.py" in c for c in commands)
+
+
+@pytest.mark.parametrize("mode", ["summary", "files", "none"])
+@pytest.mark.parametrize("complexity", ["medium", "complex"])
+def test_inherited_model_context_modes_pass_strict_gate(mode, complexity):
+    build = _load_build_dispatch()
+    decision = {**_decision(complexity), "model": "inherit", "context_mode": mode}
+    prompt = build.build_preamble(decision, SETTINGS, repo_root=ROOT)
+    result = _run(_event(prompt), env={"DISPATCH_SPEC_GATE_MODE": "deny"})
+    assert result.returncode == 0
+    assert result.stdout == ""

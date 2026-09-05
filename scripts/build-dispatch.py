@@ -26,7 +26,9 @@ truth for every one of them ("LLMs orchestrate, programs execute"):
   6. Repo state block (on by default; `--no-gather` skips): git status, diff
      stat, last 5 commits, and a head or def/class outline of each existing
      file in `task_spec.files`. Wrapped in <untrusted-content>, capped at
-     12000 chars, sensitive paths skipped. Fixed repo state => fixed bytes.
+     12000 chars, sensitive paths skipped. context_mode=summary omits file
+     excerpts; none omits gathered context. Neither bypasses path validation.
+     Fixed repo state => fixed bytes.
   7. The four MANDATORY verbatim injections: reference loading,
      completeness, Dense-Complete Writing, base instructions.
   8. Optional worktree rules and LOCAL-ONLY block, on flags.
@@ -41,11 +43,12 @@ Input schema (missing optional fields degrade gracefully — block omitted):
                                                    // complex; trivial => skill=-
       "complexity": "medium",                      // required enum, case-insensitive:
                                                    // trivial|simple|medium|complex
-      "model": "opus",                             // required for medium/complex;
+      "model": "inherit",                          // required for medium/complex;
                                                    // optional for trivial/simple
-      "model_policy": "standard",                  // optional GPT-5.6 auto lane
-      "model_effort": "high",                      // required for explicit GPT-5.6 picks
+      "model_policy": null,                        // optional policy, not with inherit
+      "model_effort": null,                        // explicit picks only, not with inherit
       "manual_model_override": false,               // required for non-default GPT picks
+      "context_mode": "summary",                   // summary|files|none; default files
       "health": {"confidence": 0.72, "n": 6,       // optional; absent/blank
                  "failure": 0, "action": "keep",   // confidence => health=-
                  "alts": ["a:b", "c:d"]},
@@ -132,7 +135,8 @@ THINKING_FAST = "Prioritize responding quickly rather than thinking deeply. When
 THINKING_SLOW = "Think carefully and step-by-step before responding; this problem is harder than it looks."
 
 WORKTREE_RULES = (
-    "Worktree rules: Verify CWD contains .claude/worktrees/. Create feature branch before edits. "
+    "Worktree rules: Use the assigned worktree; verify its Git registration, top-level, and feature branch before edits. "
+    "Follow skills/meta/do/references/worktree-rules.md. "
     "Skip task_plan.md. Stage specific files only."
 )
 
@@ -155,7 +159,7 @@ VALID_COMPLEXITY = ("trivial", "simple", "medium", "complex")
 GPT_56_MODELS = ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")
 GPT_56_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 LEGACY_GPT_55 = "gpt-5.5"
-VALID_MODELS = ("sonnet", "opus", "codex", LEGACY_GPT_55, *GPT_56_MODELS)
+VALID_MODELS = ("inherit", "sonnet", "opus", "codex", LEGACY_GPT_55, *GPT_56_MODELS)
 VALID_PROVIDERS = ("anthropic", "openai", "other")
 ANTHROPIC_MODELS = ("opus", "sonnet")
 
@@ -184,9 +188,8 @@ AUTO_POLICIES_BY_PROVIDER = {
 # Backward compat: tests and the OpenAI-only path reference this name.
 AUTO_MODEL_POLICIES = OPENAI_AUTO_POLICIES
 VALID_MODEL_POLICIES = ("deterministic", *AUTO_MODEL_POLICIES)
-# Complexities that REQUIRE an explicit model pick (omission inherits the
-# session main-loop model — a silent cost leak when an expensive model
-# orchestrates). Trivial/simple may omit (inheritance risk is acceptable).
+# Medium/complex must choose a model or explicitly request inheritance.
+# Trivial/simple retain their existing optional-model behavior.
 _MODEL_REQUIRED_COMPLEXITY = frozenset({"medium", "complex"})
 VALID_ACTIONS = ("keep", "demote", "tiebreak")
 
@@ -235,6 +238,7 @@ _TASK_SPEC_FIELDS = (
     ("constraints", "Constraints"),
     ("acceptance", "Acceptance criteria"),
     ("files", "Relevant file locations"),
+    ("ownership", "File ownership"),
     ("decisions", "Decisions"),
     ("prior_results", "Prior results"),
     ("gaps", "Gaps"),
@@ -298,6 +302,11 @@ def resolve_model_selection(decision: dict, provider: str = "anthropic") -> tupl
     policy = str(policy_raw).strip().lower() if policy_raw is not None else ""
     model = _optional_model(decision.get("model"))
     effort = _optional_effort(decision.get("model_effort"))
+
+    if model == "inherit":
+        if policy or effort is not None or manual:
+            raise InputError("model='inherit' cannot include model_policy, model_effort, or manual_model_override=true")
+        return "inherit", None
 
     if policy:
         if policy not in VALID_MODEL_POLICIES:
@@ -611,7 +620,7 @@ def build_marker(decision: dict) -> str:
                 f"'model' is required for complexity={complexity} "
                 f"(allowed: {'/'.join(VALID_MODELS)}). "
                 f"Omitting model inherits the session main-loop model — "
-                f"set it explicitly per the Model Selection table."
+                f"set model=inherit deliberately or select a supported model/policy."
             )
         parts.append("model=-")
 
@@ -654,6 +663,19 @@ def build_marker(decision: dict) -> str:
         parts.append(f"fallback={fallback_reason}")
 
     return " ".join(parts)
+
+
+def build_model_instruction(decision: dict) -> str:
+    """Tell the dispatcher how to inherit; markers describe requests, not execution."""
+    model, _effort = resolve_model_selection(decision, _resolve_provider(decision))
+    if model != "inherit":
+        return ""
+    return (
+        "Model selection: inherit the current session model. Omit model and reasoning-effort "
+        "overrides from the agent tool call; do not pass the literal 'inherit' as a model name. "
+        "If the harness cannot inherit, report that limitation instead of choosing a substitute. "
+        "The route marker records this request; the actual worker model is unknown unless the harness reports it."
+    )
 
 
 def build_thinking(decision: dict) -> str:
@@ -910,6 +932,14 @@ def _cap_block(text: str, cap: int = _GATHER_BLOCK_CAP) -> str:
     return f"{body[: cap - len(note) - len(tail)]}{note}{tail}"
 
 
+def context_mode(decision: dict) -> str:
+    """Select optional repo context; legacy callers keep file excerpts."""
+    mode = decision.get("context_mode", "files")
+    if mode not in ("summary", "files", "none"):
+        raise InputError("'context_mode' must be summary/files/none")
+    return mode
+
+
 def build_gather_block(decision: dict, repo_root: Path | None = None) -> str:
     """Repo state block: git status, diff stat, recent log, then per-file outlines.
 
@@ -917,6 +947,13 @@ def build_gather_block(decision: dict, repo_root: Path | None = None) -> str:
     failure. Deterministic for a fixed repo state.
     """
     repo_root = repo_root or default_repo_root()
+    mode = context_mode(decision)
+    if mode == "none":
+        return (
+            "## Repo state\n\n"
+            "Gathering omitted by context_mode=none. No fresh repository state is asserted; "
+            "use supplied evidence only while its inputs remain valid, or inspect the relevant state. "
+        ).rstrip()
     spec = decision.get("task_spec") or {}
     tokens = _path_candidates(spec.get("files")) if isinstance(spec, dict) else []
     sections: list[str] = []
@@ -931,7 +968,7 @@ def build_gather_block(decision: dict, repo_root: Path | None = None) -> str:
         else:
             sections.append("\n".join([f"### {label}", *(lines or ["(empty)"])]))
     gathered = 0
-    for index, token in enumerate(tokens):
+    for index, token in enumerate(tokens if mode == "files" else []):
         if gathered >= _GATHER_MAX_FILES:
             sections.append(f"[{len(tokens) - index} more files not shown]")
             break
@@ -969,6 +1006,7 @@ def build_preamble(
     if not isinstance(flags, dict):
         raise InputError("'flags' must be an object")
 
+    context_mode(decision)
     marker = build_marker(decision)
     skill_calls = render_skill_calls(decision)
     thinking = build_thinking(decision)
@@ -977,6 +1015,7 @@ def build_preamble(
     validate_spec_paths(decision, repo_root)
     blocks = [
         marker,
+        build_model_instruction(decision),
         skill_calls,
         thinking,
         token_line,
