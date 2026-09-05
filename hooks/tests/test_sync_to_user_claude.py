@@ -1511,6 +1511,53 @@ class TestSyncCodexHookLinks:
         assert sync_mod._sync_codex_hook_links(repo_hooks, codex) == (1, 4, 0)
         assert (codex / "lib" / "new_lib.py").is_symlink()
 
+    def test_retired_links_removed_without_touching_user_entries(self, tmp_path: Path) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.mkdir(parents=True)
+        sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        (repo_hooks / "a-hook.py").unlink()
+        (repo_hooks / "lib" / "hook_utils.py").unlink()
+        copy = codex / "copied.py"
+        copy.write_text("user copy")
+        links = {
+            "custom.py": tmp_path / "missing.py",
+            "renamed.py": repo_hooks / "old-name.py",
+            "other-checkout.py": tmp_path / "other-repo" / "hooks" / "other-checkout.py",
+        }
+        for name, source in links.items():
+            (codex / name).symlink_to(source)
+        # A broken source link is not a retired source file.
+        (repo_hooks / "broken.py").symlink_to(tmp_path / "missing-source.py")
+        (codex / "broken.py").symlink_to(repo_hooks / "broken.py")
+        for _ in range(2):
+            assert sync_mod._sync_codex_hook_links(repo_hooks, codex) == (0, 2, 0)
+            assert not (codex / "a-hook.py").is_symlink()
+            assert not (codex / "lib" / "hook_utils.py").is_symlink()
+            assert copy.read_text() == "user copy"
+            assert (codex / "broken.py").is_symlink()
+            for name, source in links.items():
+                assert (codex / name).readlink() == source
+
+    @pytest.mark.parametrize("linked_directory", ["hooks", "lib"])
+    def test_cleanup_does_not_follow_directory_links(self, tmp_path: Path, linked_directory: str) -> None:
+        repo_hooks = self._repo_hooks(tmp_path)
+        codex = tmp_path / "codex" / "hooks"
+        codex.parent.mkdir(parents=True)
+        external = tmp_path / "external"
+        external.mkdir()
+        if linked_directory == "hooks":
+            codex.symlink_to(external, target_is_directory=True)
+            source = repo_hooks / "retired.py"
+        else:
+            codex.mkdir()
+            (codex / "lib").symlink_to(external, target_is_directory=True)
+            source = repo_hooks / "lib" / "retired.py"
+        retired = external / "retired.py"
+        retired.symlink_to(source)
+        sync_mod._sync_codex_hook_links(repo_hooks, codex)
+        assert retired.readlink() == source
+
     def test_summary_line_reports_codex_hooks(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         self._repo_hooks(tmp_path)
         repo_root = self._repo_root(tmp_path)
