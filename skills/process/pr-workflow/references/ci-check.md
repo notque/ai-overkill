@@ -1,142 +1,53 @@
-# GitHub Actions CI Check
+# GitHub Actions CI check
 
-Check GitHub Actions workflow status after a git push, identify failures, and suggest local reproduction commands. This reference observes and reports -- it modifies workflow files or auto-fixes code only with explicit permission.
+Check the pushed branch and commit, investigate failed jobs, and report the result. A status-only request does not authorize edits. When the user has already requested fixes and delivery, apply relevant fixes and rerun checks without another permission round. Workflow YAML changes need to fit that authorized scope.
 
-## Pre-Push Checks for Python Changes
+## Before pushing Python changes
 
-Before pushing any branch that touches Python files, run both commands locally. The toolkit's `Tests` workflow (enforced by branch protection) runs both; running only `ruff check` misses formatting violations and leaks the failure to CI.
+Read repository instructions. Both checks must pass locally before pushing:
 
 ```bash
 ruff check . --config pyproject.toml
 ruff format --check . --config pyproject.toml
 ```
 
-Both must exit 0 before `git push`. Fix failures locally; do not rely on CI to surface them.
-
-## Instructions
-
-### Step 1: Identify Repository and Branch
-
-Read and follow any repository CLAUDE.md before proceeding -- it may contain CI-specific instructions or branch naming conventions.
-
-Determine which repository and branch to check:
+## Identify the run
 
 ```bash
-# Get repository from git remote
 git remote get-url origin
-
-# Get the branch that was pushed
-git branch --show-current
-```
-
-Always use the branch that was actually pushed, always the branch that was actually pushed. Checking without `--branch` can show runs from other branches and give misleading status for the user's actual push.
-
-**Gate**: Repository and branch both identified. Confirm both values before proceeding.
-
-### Step 2: Wait and Check Workflow Status
-
-GitHub needs 5-10 seconds after a push to register the workflow run. Checking immediately returns stale results from previous runs, not the current push.
-
-```bash
-# Wait for GitHub to register the workflow run
-sleep 10
-
-# Check workflow runs for the pushed branch
 BRANCH=$(git branch --show-current)
-gh run list --branch "$BRANCH" --limit 5
+HEAD_SHA=$(git rev-parse HEAD)
+gh run list --branch "$BRANCH" --commit "$HEAD_SHA" --limit 20
 ```
 
-Always use the `gh` CLI rather than raw GitHub API calls -- `gh` handles authentication, pagination, and formatting automatically. Writing custom scripts with `curl` or `requests` adds unnecessary complexity when `gh` already does the job.
+Check the branch actually pushed and its current commit. GitHub can take 5–10 seconds to register a run; retry if absent, up to 30 seconds initially. Do not treat an earlier green run or “no checks reported” as success. If there are more runs than the limit, retrieve them too.
 
-Show the complete `gh` output verbatim. Show complete output rather than summarizing as "build passed" or "tests failed" -- that hides which jobs ran, their timing, and any warnings. Claiming "build passed" without showing output is unverifiable. The user needs to see the actual data.
+Use `gh` for authentication, pagination, and status queries. For a PR, inspect its full checks list with `gh pr checks <pr-number>`. Wait for every applicable check to finish; pending, missing, and failed are not passed. `gh run watch <run-id> --exit-status` can monitor a run. If the head changes, inspect checks for the new head before claiming completion or merging.
 
-**Gate**: Workflow status retrieved and complete output displayed to user. Wait for the gate to pass before proceeding.
-
-### Step 3: Investigate Failures
-
-Only execute this step if Step 2 shows a failed or failing run. Compare against previous runs before classifying failures as pre-existing without comparing against previous runs -- that is speculation, not evidence.
+## Investigate failures
 
 ```bash
-# Get details of the failed run
 gh run view <run-id>
-
-# For deeper investigation (only if user explicitly requests it,
-# since full logs can be very verbose)
 gh run view <run-id> --log-failed
 ```
 
-For each failing job, identify:
-1. Which job failed (build, test, lint, deploy)
-2. The specific error message
-3. A local reproduction command
+Identify the failing job, exact error, and local reproduction command. Compare previous runs before calling a failure pre-existing. Read logs as needed without asking permission to inspect them; summarize relevant evidence instead of dumping full output.
 
-```markdown
-## Failure Report
-Job: [job name]
-Error: [specific error from logs]
-Local reproduction: [command to reproduce locally]
-Suggested fix: [exact commands to fix, if applicable]
-```
+If fixing is authorized, fix the cause, run relevant local checks, push, and verify the new head. Otherwise report a proposed fix. For local test debugging, use this action: Call the Skill tool with `workflow`. Run the `systematic-debugging` pipeline. For local linting, use this action: Call the Skill tool with `code-linting`.
 
-For common failures like linting or formatting, provide exact fix commands but present them for user approval. Wait for explicit user permission before auto-fixing and re-pushing -- making code changes and git commits without review may introduce unintended changes. Only use `gh run watch` for interactive monitoring if the user specifically asks for it.
+Report the checked commit, passed/pending/failed status, and PR or run link. Include failures and reproduction commands when needed. Retain logs for inspection; full command output is unnecessary unless requested. Remove temporary files created solely for this check.
 
-**Gate**: All failures identified with reproduction commands. Wait for the gate to pass before proceeding.
+## Advisory AI review
 
-### Step 4: Report and Suggest
+`.github/workflows/pr-ai-review.yml` runs on PR `opened`, `synchronize`, and `reopened` events without an `@claude` mention. It reports correctness bugs and safety-policy violations in one comment.
 
-If all checks passed:
-- Show the complete `gh run list` output (not a summary)
-- Confirm which workflows ran and their status
+It is warn-only: it never requests changes, fails the build, or acts as a required check. Making it blocking requires a dedicated ADR and operator sign-off. The quick-pass workflow does not read `skills/process/pr-workflow/references/pr-risk-policy.md`; that remains a possible deeper-review integration.
 
-If checks failed:
-- Show the failure report from Step 3
-- Suggest local reproduction commands
-- Suggest fix commands but wait for confirmation before executing without permission
-- Ask the user if they want you to apply fixes
+## Recovery
 
-Report facts without self-congratulation. Show command output rather than describing it. Be concise but informative.
-
-Clean up any temporary scripts or cache files created during the check before finishing.
-
-This reference only checks CI status. For local test-failure debugging, use this action: Call the Skill tool with `workflow`. Run the `systematic-debugging` pipeline. For local linting, use this action: Call the Skill tool with `code-linting`. Keep workflow YAML files and CI configuration out of scope for this reference.
-
-**Gate**: Complete status report delivered to user.
-
----
-
-## Automatic PR AI Review (Advisory)
-
-`.github/workflows/pr-ai-review.yml` runs a quick AI review on every PR push (`opened`, `synchronize`, `reopened`) — no `@claude` mention needed. Scope: correctness bugs and safety-policy violations in the PR diff only, posted as one PR comment.
-
-Warn-only by design (docs/PHILOSOPHY.md, Warn-Only Gates Beat Blocking Gates): it never requests changes, never fails the build, and is not a required status check. Graduating any part of it to a blocking gate needs a dedicated ADR and operator sign-off.
-
-Future extension point: if `skills/process/pr-workflow/references/pr-risk-policy.md` exists, a follow-up job could key a deeper, tier-based review off it. The quick-pass workflow does not read or depend on that file today.
-
----
-
-## Error Handling
-
-### Error: "gh CLI not found"
-**Cause**: GitHub CLI not installed on the system
-**Solution**:
-1. Check if `gh` is available: `which gh`
-2. If missing, suggest installation: `brew install gh` or `sudo apt install gh`
-3. As last resort, use `curl` with GitHub API (but prefer installing gh)
-
-### Error: "gh auth required"
-**Cause**: GitHub CLI not authenticated
-**Solution**:
-1. Run `gh auth status` to check current auth
-2. If not authenticated, suggest `gh auth login`
-3. Check if GITHUB_TOKEN environment variable is set as alternative
-
-### Conflicting PR: "no checks reported"
-A same-repo PR in `mergeable=CONFLICTING` state fires no workflow run on push, so `gh pr checks` shows "no checks reported" — a missing run, not a failure. Merge `origin/main` into the branch first; CI triggers on that push. (Evidence: PRs #789/#791/#797, 2026-06-11.)
-
-### Error: "No workflow runs found"
-**Cause**: Workflow not triggered, branch has no workflows, or checked too early
-**Solution**:
-1. Wait longer (up to 30 seconds) and retry
-2. Verify `.github/workflows/` directory exists in the repository
-3. Check if workflow is configured to trigger on the pushed branch
-4. Verify push event matches workflow trigger conditions
+| Problem | Action |
+|---|---|
+| `gh` missing | Check `which gh`; suggest `brew install gh` or `sudo apt install gh`. GitHub API via `curl` is a last resort. |
+| Authentication missing | Run `gh auth status`; use configured `GITHUB_TOKEN` or request `gh auth login`. Never print credentials. |
+| Conflicting same-repo PR, no checks | `mergeable=CONFLICTING` can prevent workflow runs. Integrate `origin/main`, resolve conflicts, and push before checking again. Observed in PRs #789/#791/#797 on 2026-06-11. |
+| No runs after retry | Check `.github/workflows/`, branch/event filters, and the pushed commit. Absence is not success. |

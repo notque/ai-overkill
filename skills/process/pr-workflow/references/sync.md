@@ -22,9 +22,9 @@ Then determine repo type:
 REPO_TYPE=$(python3 ~/.claude/scripts/classify-repo.py --type-only)
 ```
 
-**Protected-org repos**: Every subsequent step (commit, push, PR creation) requires **explicit user confirmation**. Present the proposed action, show what will happen, and wait for approval before executing. Never auto-execute, because protected-org repos have CI gates and review policies that assume human oversight at each stage.
+**Protected-org repos**: Follow applicable organization requirements. Existing user authorization covers the requested commit, push, and PR creation; ask only when an action is not covered or an explicit repository rule requires separate approval.
 
-**Personal repos**: Run `/pr-review` comprehensive review before creating the PR. Auto-execute steps normally.
+**Personal repos**: Use the risk-selected review lanes in `../SKILL.md` before creating the PR. Reuse review already completed for current changes.
 
 ### Step 1: Detect Current State
 
@@ -92,7 +92,6 @@ git commit -m "type(scope): description"
 
 If no uncommitted changes exist, skip to Step 4.
 
-**Protected-org repos**: Before executing the commit, present the proposed commit message and list of files to the user. Wait for explicit approval before committing.
 
 ### Step 4: Push to Remote
 
@@ -105,7 +104,6 @@ CLAUDE_GATE_BYPASS=1 git push -u origin "$CURRENT_BRANCH"
 
 If the user requested a rebase before push, run `git pull --rebase origin $MAIN_BRANCH` first, but this is off by default.
 
-**Protected-org repos**: Before executing the push, present the branch name, remote, and commits that will be pushed. Wait for explicit approval before pushing.
 
 ### Step 4a: ADR Decision Coverage (conditional -- ADR-094)
 
@@ -119,52 +117,24 @@ python3 scripts/adr-decision-coverage.py --adr <active-adr-path> --diff-base mai
 
 If verdict is PARTIAL or FAIL, display uncovered decision points and ask whether to proceed or address gaps first. This runs once before the review loop, not on every iteration.
 
-### Step 4b: Review-Fix Loop (personal repos only)
+### Step 4b: Review and fix (personal repos)
 
-**Skip if**: `REPO_TYPE == "protected-org"` (protected-org repos use their own review gates).
+Use the risk-selected review lane in `../SKILL.md`. Reuse completed review; repeat only for new changes or unresolved findings. Fix confirmed issues and rerun affected checks. Document nonblocking unresolved issues in Notes; blocking correctness and security issues prevent merge.
 
-Iteratively review and fix issues before creating the PR. Up to 3 iterations of: `/pr-review` -> fix -> amend -> push.
-
-Never modify commits already on the remote except the tip commit just pushed by this workflow. The review-fix loop amends only the tip commit it just created, before any external review, and uses `--force-with-lease` (not `--force`) because lease-checking confirms no one else has pushed to the branch in the meantime.
-
-**Loop (max 3 iterations):**
-1. Run `/pr-review` comprehensive review
-2. If clean -> exit loop, proceed to Step 5
-3. Fix all reported issues
-4. `git add [fixes] && git commit --amend --no-edit && CLAUDE_GATE_BYPASS=1 git push --force-with-lease`
-5. Report iteration: `REVIEW-FIX [N/3]: X found, Y fixed, Z remaining`
-
-After 3 iterations, proceed to Step 5 with any remaining issues documented in the PR body.
+Never amend externally reviewed or shared commits. Only the tip created and pushed by this workflow may be amended before external review, using `--force-with-lease`. Stop if the lease fails; never use `--force`. Otherwise use a new fix commit. Protected-org repos retain their own review gates.
 
 ### Step 5: Create or Update PR
 
 Generate the PR title from the branch name or first commit when not provided by the user. Never create a PR with an empty description, because reviewers need context to understand the changes and a missing test plan signals incomplete work.
 
-**PR body structure is mandatory.** `gh pr create --body` bypasses `.github/pull_request_template.md` (GitHub applies that file only to the web UI and to a bare `gh pr create`). Reproduce the template's three sections in the `--body` string, in order: **Summary → Changes → Notes**. This keeps PR bodies consistent across models.
-
-**Write for density.** Each Changes line states one fact, declaratively (verb + what + where), so a reviewer scans the body fast; Summary states the goal and why. Write one line per change in Changes (give shape and count for many sub-items, like "add 21 trigger phrases", and let the diff enumerate them). Omit Notes for routine PRs and drop the section when nothing qualifies; note it, one terse line per point, when a reviewer cannot infer the signal from the diff (a non-obvious decision, a deliberate omission, a follow-up, a gotcha, "supersedes #N") or when a risk/verification trigger holds — manual verification was performed, part of the change sits outside CI coverage, migration/rollout ordering matters, or a security-sensitive surface changed (e.g. `Not covered by CI — terraform plan is manual`). Skip what is always true (a PR can be reverted; CI runs the tests). Tests run as GitHub Actions, so the Checks tab is the test record; leave command output to CI and keep it out of the body. See the SKILL.md "Write for Density" rules for the full vibe and worked example.
+Use the canonical **PR body** rules in `../SKILL.md`; preserve all material Notes caveats. Write and read back `$PR_BODY_FILE` using `gh-body-safety.md` before submitting.
 
 ```bash
-# Check if PR already exists for this branch
-EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' 2>/dev/null)
-
+EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number')
 if [[ -z "$EXISTING_PR" ]]; then
-    # Create new PR — --body follows .github/pull_request_template.md's section structure
-    CLAUDE_GATE_BYPASS=1 gh pr create --title "$PR_TITLE" --body "$(cat <<'EOF'
-## Summary
-[State the goal plainly: 1-3 sentences or a few crisp bullets, one fact per line. Name the ADR/issue if any.]
-
-## Changes
-- `path/or/area` — what changed [one line per change; give shape + count for many sub-items, e.g. "add 21 trigger phrases"]
-
-## Notes
-[Omit for routine PRs (drop the section when nothing qualifies). Note it, one terse line per point, when a reviewer cannot infer the signal from the diff: a non-obvious decision, a deliberate omission, a follow-up, a gotcha, "supersedes #N". Note it too when a risk/verification trigger holds — manual verification was performed; part of the change sits outside CI coverage; migration/rollout ordering matters; a security-sensitive surface changed (e.g. `Not covered by CI — terraform plan is manual`). Skip what is always true (a PR can be reverted; CI runs the tests).]
-EOF
-)"
+    CLAUDE_GATE_BYPASS=1 gh pr create --title "$PR_TITLE" --body-file "$PR_BODY_FILE"
 else
-    # PR exists, just pushed updates
-    echo "PR #$EXISTING_PR updated with new commits"
-    gh pr view "$EXISTING_PR" --web
+    gh pr view "$EXISTING_PR" --json url --jq .url
 fi
 ```
 
@@ -172,7 +142,6 @@ If the user requested a draft PR, add `--draft` to `gh pr create`. If auto-assig
 
 Always show the PR URL after creation for easy access.
 
-**Protected-org repos**: Before executing PR creation, present the PR title, body, and target branch. Wait for explicit approval. Do not run the review-fix loop -- protected-org repos rely on their own CI gates and human reviewers.
 
 ### Step 6: Post-Merge ADR Status Update (conditional -- ADR-095)
 
@@ -198,109 +167,9 @@ Report: `ADR updated: {name} -> Accepted, moved to completed/`
 
 This is local-only (ADR files are gitignored). No branch or PR needed.
 
-### Decision Tree
+### Report
 
-```
-/pr-sync invoked
-       |
-       v
-  Read CLAUDE.md + Classify repo (Step 0)
-       |
-       v
-  Has changes?
-   /        \
- YES         NO
-  |           |
-  v           v
-On main?    PR exists?
- / \         / \
-YES  NO    YES  NO
- |    |     |    |
- v    v     v    v
-Create  Stage  Show  Create
-branch  commit link  PR
-  |      |
-  v      v
-Stage & commit
-  |
-  v
-protected-org? ──YES──> Confirm commit msg with user
-  |                    |
-  NO                   v
-  |              Confirm push with user
-  v                    |
-Push to remote  <──────┘
-  |
-  v
-protected-org? ──YES──> Confirm PR creation with user
-  |                    |
-  NO                   v
-  |              Create PR, STOP (no merge)
-  v
-┌─> Run /pr-review (iteration N/3)
-|     |
-|     v
-|   Issues found?
-|    / \
-|  YES  NO ──────> Create PR
-|   |
-|   v
-|  Fix issues
-|   |
-|   v
-|  Amend commit, push
-|   |
-|   v
-|  N < 3? ──YES──┐
-|   |             |
-|   NO            |
-|   |             |
-|   v             |
-|  Create PR      |
-|  (note remaining)|
-└─────────────────┘
-```
-
-### Output Format
-
-**Personal repos:**
-```
-PR SYNC COMPLETE
-
-Status: [on main -> created branch | on feature branch]
-Changes: [N files modified]
-Review: /pr-review [N iterations] — [X issues found, Y fixed]
-
-Actions:
-  - Created branch: feature/your-feature (if from main)
-  - Staged N files
-  - Committed: "your commit message"
-  - Pushed to origin/feature/your-feature
-  - Review-fix loop: [N/3 iterations]
-    - Iteration 1: [X found, Y fixed]
-    - Iteration 2: [X found, Y fixed] (if needed)
-    - Iteration 3: [X found, Y fixed] (if needed)
-  - Created PR #123: "PR Title"
-    https://github.com/owner/repo/pull/123
-```
-
-**Protected-org repos:**
-```
-PR SYNC COMPLETE (protected-org repo — human-gated)
-
-Status: [on feature branch]
-Changes: [N files modified]
-
-Actions (each confirmed by user):
-  - Committed: "your commit message" (user confirmed)
-  - Pushed to origin/feature/your-feature (user confirmed)
-  - Created PR #123: "PR Title" (user confirmed)
-    https://github.com/your-org/your-repo/pull/123
-
-Next steps: Review and merge handled by org CI gates and human reviewers.
-```
-
----
+Return the PR URL, what changed, review result, and any unresolved issue. For protected-org repos, leave merge to the organization's reviewers unless separately authorized under its rules.
 
 ## Error Handling
 
