@@ -45,8 +45,8 @@ Full ID: `YYMMDD-xxx` (e.g., `260322-001`, `260322-00a`)
 **Solution**: Increment the sequence number. If STATE.md is corrupted, scan git log for `Quick task YYMMDD-` patterns to find the true next ID.
 
 ### Error: Scope Exceeds Quick Tier
-**Cause**: Task requires 15+ edits, multiple components, or parallel work
-**Solution**: Display upgrade suggestion. If user confirms, continue in quick mode. If user wants full ceremony, invoke `/do` with the original request.
+**Cause**: Task grows beyond the contained, single-threaded tier.
+**Solution**: Use `/do` for multiple components, architectural changes, or parallel work. More than 15 edits alone is advisory: suggest an upgrade and continue within existing authorization if the task remains contained.
 
 ### Error: Test Failure in --full Mode
 **Cause**: Quality gate found issues with the changes
