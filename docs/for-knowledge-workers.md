@@ -8,7 +8,7 @@ read_when:
 
 ## What This Gives You
 
-You describe work in plain English. The system routes it to the right pipeline, with quality checks built in. 122 skills behind a single command, and you never need to know which one fired.
+Describe your work in plain English. One command routes to 122 skills and their quality checks.
 
 ## Interface
 
@@ -16,7 +16,7 @@ You describe work in plain English. The system routes it to the right pipeline, 
 /do write a blog post about remote work burnout
 ```
 
-`/do` is the entry point. Plain language description goes after it. The router reads intent, selects the right agent and skill, executes. No menus. No configuration. You state what you need.
+Write your task after `/do`. The router selects an agent and skill, then runs the work.
 
 ```
 /do research the current state of supply chain AI
@@ -25,8 +25,6 @@ You describe work in plain English. The system routes it to the right pipeline, 
 /do moderate my subreddit
 /do brainstorm blog post ideas for next month
 ```
-
-Each hits a different specialized pipeline. You don't need to know which one.
 
 ## HTML Artifacts
 
@@ -38,7 +36,7 @@ Each hits a different specialized pipeline. You don't need to know which one.
 
 One self-contained `.html` file: report, slide deck, prototype, data viz, diagram. Opens in any browser, shares as a single attachment, needs no hosting and no tooling. Auto-detects which shape you need and styles it with a built-in design system. Decks can export to PowerPoint.
 
-Of everything in the toolkit, this is what non-engineers consistently love most. Pair it with research or analysis: do the work with `/do`, deliver it with `/html`.
+Use `/do` for research or analysis and `/html` to present the results.
 
 ## Writing & Content
 
@@ -64,7 +62,7 @@ Defines 6 research dimensions, launches 5 parallel agents, compiles findings, wr
 /do write a blog post about [topic] in the [voice-name] voice
 ```
 
-Voice profiles ship as private `voice-*` skills, installed automatically from `~/private-skills` when present. The `voice-writer` pipeline drafts in the calibrated voice and validates deterministically against the profile's metrics: sentence length distribution, contraction rate, punctuation density. Numbers, not vibes. Up to 3 revision iterations.
+Voice profiles ship as private `voice-*` skills, installed automatically from `~/private-skills` when present. The `voice-writer` pipeline drafts in the calibrated voice and validates deterministically against the profile's metrics: sentence length distribution, contraction rate, punctuation density. It allows up to 3 revision iterations.
 
 ### Anti-AI Editing
 
@@ -80,7 +78,7 @@ Scans for 397 AI patterns across 33 categories. Makes minimal targeted fixes. Sh
 /do turn this article into posts for each platform
 ```
 
-The content engine adapts one finished piece into platform-native social content. Write once, publish everywhere.
+The content engine adapts a finished piece to each social platform.
 
 ### Content Planning
 
@@ -198,4 +196,4 @@ Exponential backoff, timeouts, error handling. Describe what you're waiting for.
 
 ## Entry Point
 
-`/do` handles everything. Plain language in, correct workflow out. You think about the work. The routing is solved.
+Describe the work after `/do`; the router selects the workflow.

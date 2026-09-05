@@ -12,16 +12,16 @@ read_when:
 
 ## Installation
 
-Before using VexJoy Agent, run the installer:
+Run the installer:
 
 ```bash
 cd ~/vexjoy-agent
 ./install.sh
 ```
 
-Claude Code is the primary runtime. If you also use Codex CLI, Factory, or Reasonix, the same install mirrors toolkit skills (and agents where the harness supports them) into `~/.codex/`, `~/.factory/`, and `~/.reasonix/` so all the CLIs share the same skill library. Reasonix has no agent surface, so it gets skills + scripts + hooks only. Gemini CLI support was removed (deprecated upstream, transitioned to Antigravity CLI); Antigravity support pending CLI maturity — see README § "Gemini CLI / Antigravity CLI Support (removed)".
+Claude Code is the primary runtime. If you also use Codex CLI, Factory, or Reasonix, the same install mirrors toolkit skills (and agents where the harness supports them) into `~/.codex/`, `~/.factory/`, and `~/.reasonix/` so all the CLIs share the same skill library. Reasonix has no agent surface, so it gets skills + scripts + hooks only. Gemini CLI support was removed (deprecated upstream, transitioned to Antigravity CLI); Antigravity support awaits CLI maturity. See README § "Gemini CLI / Antigravity CLI Support (removed)".
 
-Codex hook support requires v0.144.1+. The six hooks shipped for v0.114 were correct for that Bash-only hook surface; current support covers 26 native and 35 adapter-backed registrations (61 supported), with 13 unsupported. The adapter covers `apply_patch`, not writes through `unified_exec` or other unmatched tools, and PreCompact/Stop hooks receive less telemetry than on Claude Code. After install or a hook update, run `/hooks` in Codex to review and trust changed definitions.
+Codex hook support requires v0.144.1+. The six hooks shipped for v0.114 were correct for that Bash-only hook surface; current support covers 26 native and 27 adapter-backed registrations (53 supported), with 9 unsupported. The adapter covers `apply_patch`, not writes through `unified_exec` or other unmatched tools, and PreCompact/Stop hooks receive less telemetry than on Claude Code. After install or a hook update, run `/hooks` in Codex to review and trust changed definitions.
 
 Command entry points:
 - Claude Code: `/do`
@@ -65,7 +65,7 @@ If Codex should pick up newly added skills or agents after a `git pull`, rerun `
 ╚════════════════════════════════════════════════════════════════╝
 ```
 
-That's it. You can stop reading here.
+Describe the task; the router selects the tools.
 
 ---
 
@@ -92,7 +92,7 @@ The system figures out which tools to use and tells you what it selected.
 
 ### Option B: Use the Router for Specific Workflows
 
-The router command routes your request to the right agent and skill automatically. Use `/do` in Claude Code and Factory, and `$do` in Codex:
+Use `/do` in Claude Code and Factory, or `$do` in Codex:
 
 | Want This? | Try This |
 |------------|----------|
@@ -156,7 +156,7 @@ These phrases automatically activate the right tools:
     └──────────┘    └──────────┘    └──────────┘
 ```
 
-**You don't need to understand this.** Just describe what you want.
+The router combines these components for your task.
 
 ---
 

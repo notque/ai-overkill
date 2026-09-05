@@ -1,16 +1,16 @@
 # Contributing
 
-The system has four component types, a quality bar, and a PR workflow. Everything else is implementation detail you discover by building things.
+Use this guide to add components, check your changes, and open a PR.
 
 ## Standards
 
-Every contribution passes through this filter. Not aspirational. Enforced.
+Keep contributions specific, testable, and concise.
 
 | Criterion | Pass | Fail |
 |-----------|------|------|
 | **Specific** | Actionable steps, exit criteria | Vague advice ("be careful") |
 | **Verifiable** | Evidence requirements | Trusts LLM confidence |
-| **Battle-tested** | Real workflows, A/B tested | Hypothetical "should work" |
+| **Battle-tested** | Real workflows, relevant checks | Hypothetical "should work" |
 | **Minimal** | What guides the agent, nothing else | Verbose human explanations |
 | **Dense** | Every word carries instruction | Prose where a table works |
 
@@ -23,7 +23,7 @@ Every contribution passes through this filter. Not aspirational. Enforced.
 | Hook | `hooks/{name}.py` | Python, JSON in/out | Event-driven automation |
 | Script | `scripts/{name}.py` | Python CLI | Deterministic operations |
 
-The constraint that separates them: agents know *what*, skills know *how*, hooks react to *events*, scripts do *mechanical work*. If it requires judgment, it belongs in an agent or skill. If it requires speed and determinism, it belongs in a script or hook.
+Put domain knowledge in agents, procedures in skills, event responses in hooks, and repeatable operations in scripts.
 
 ## Adding Components
 
@@ -56,8 +56,8 @@ The full cycle, in order:
 
 1. **Branch** from main (`feature/`, `fix/`, `refactor/`)
 2. **Implement** changes
-3. **Wave review** via `/pr-review` (parallel reviewer agents)
-4. **Fix** findings (up to 3 iterations)
+3. **Review** using the risk-selected lane in `pr-workflow`
+4. **Fix** confirmed findings and rerun affected checks
 5. **Record** any dead end in `docs/what-didnt-work.md` with its evidence location
 6. **Edit** the agent or skill file yourself when a finding should change behavior
 7. **Commit** (conventional format, no AI attribution)
