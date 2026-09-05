@@ -70,7 +70,7 @@ Parallel FIRST: 2+ failures / 3+ subtasks → multiple Agent tools. Research→r
 
 The routing manifest (`scripts/routing-manifest.py`) is the runtime form; `docs/routing-map.md` is the human-readable committed form of the same data. Both are generated from frontmatter, so frontmatter is the single source of truth. CI checks staleness via `scripts/generate-routing-map.py --check`.
 
-Resolve SDIR (this probe also identifies the harness for Phase 4 Model Selection), then read the manifest (hash-gated cache or regenerate):
+Resolve SDIR to locate installed scripts, then read the manifest (hash-gated cache or regenerate). This probe does not identify the active session model or provider:
 
 ```bash
 SDIR="${HOME}/.claude/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.hermes/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.factory/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.codex/scripts"; [ -d "$SDIR" ] || SDIR="${HOME}/.reasonix/scripts"
@@ -282,12 +282,14 @@ Check `pairs_with` before stacking. Skills with built-in verification gates may 
 
 anti-rationalization-core always + verification-checklist (code/debug) + anti-rationalization-review + anti-rationalization-security + anti-rationalization-testing; external: **untrusted-content-handling**. Max: load `verification-before-completion` references/anti-rationalization-enforcement.md.
 
-**Step G: GATHER (Simple+)** — fill the Task Spec before the Gate. Every thin handoff failure in the handoff context A/B (`scripts/routing-ab-results/handoff-context-v1/VERDICT.md`) was a fact the router knew and did not hand over.
+**Step G: GATHER (Simple+)** — fill the Task Spec before the Gate.
 
-1. `request_verbatim`: the user's message, unchanged.
-2. `constraints`: `git status -sb`, `git log -1 --format=%h`, and the CLAUDE.md rules that apply. Fill `decisions` (Phase 3 triage outcomes), `prior_results` (prior agent reports, verbatim), and `gaps` (what you could not find) as their own keys.
-3. `files`: Glob/Grep every named or implied file; record each as `path:lines — excerpt`.
-4. `acceptance`: commands with expected output, `command → expected`.
+1. Keep `request_verbatim` unchanged. State this worker's `intent`, `constraints` (including authority), `files`, ownership, and `acceptance`.
+2. Include decisions, prior results, and gaps when they affect this assignment. Summarize findings and link durable evidence; quote exact text only when its wording matters. Do not copy the whole investigation into every handoff.
+3. Verify named paths. Add excerpts only when they explain a decision or let the worker act; the builder validates paths even when gathering is off.
+4. Use `context_mode: "summary"` for current git status, diff stat, and recent commits. Use `files` when initial excerpts help, or `none` when the worker already has valid context. The legacy default is `files`; `--no-gather` also suppresses gathered output. These options never omit the supplied Task Spec or required injections.
+
+Reuse reads only while their source and task context remain unchanged; a fresh worker needs access to the relevant content or references. For worker transitions, use `session-handoff`. Verification evidence follows `verification-before-completion`; repeat checks when their inputs or relevant environment change, not just because a new phase starts.
 
 **Gate**: Enhancements applied, Task Spec filled. Phase 4.
 
@@ -312,84 +314,35 @@ python3 "$SDIR/build-dispatch.py" --json '{
   "agent": "<agent>", "skill": "<skill; omit when agent-only>",
   "pipeline": "<pipeline; omit when Phase 2 returned null>",
   "complexity": "<trivial|simple|medium|complex>",
-  "model": "<sonnet|opus|codex|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna>",
-  "model_policy": "<low-risk|standard|high-risk|max-power>",
-  "model_effort": "<low|medium|high|xhigh|max>",
+  "model": "inherit",
+  "context_mode": "summary",
   "provider": "<anthropic|openai|other>",
   "manual_model_override": false,
   "health": "-",
   "fallback_reason": "<REQUIRED when agent=general-purpose; omit otherwise>",
   "stack": ["s1","s2"],
   "task_spec": {"request_verbatim": "<user message, unchanged>", "intent": "...",
-                "constraints": "<branch, HEAD, CLAUDE.md rules>",
+                "constraints": "<applicable rules, limits, and authorization>",
                 "decisions": "...", "prior_results": "...", "gaps": "...",
                 "acceptance": "<command> → <expected>",
-                "files": "<path:line-range — excerpt>", "operator_context": "..."},
+                "files": "<owned paths; optional line ranges>", "ownership": "<worker scope>",
+                "operator_context": "..."},
   "flags": {"worktree": false, "local_only": false, "thinking_override": null},
   "token_remaining": 480000
 }'
 ```
 
-`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `pipeline`: the Phase 2 pick, passed so the marker carries it; omit when null. The builder validates each name against its index, then emits this exact action contract once per callable skill, primary first with ordered stack de-duplication: `Call the Skill tool with \`skill-name\`.` Shared-pattern stack entries remain prompt injections. Agents and pipelines stay out of Skill-tool calls. Fan-out: one call per agent, same `skill`/`pipeline`. `model`: **required Medium+** (`-` trivial/simple). Use `model_policy` for automatic selection — resolves via the harness-native provider lane. `model_effort` identifies the benchmark point; advisory for Claude lanes (Agent tool has no per-call effort). `provider`: harness detection (anthropic|openai|other, default anthropic). A manual model change must set both `manual_model_override=true` and `model_effort`; never inherit the policy effort silently. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `fallback_reason`: **required when `agent=general-purpose`** — the one-line reason from the Agent-greediness gate, any prose; `build-dispatch.py` slugifies it and appends `fallback=<slug>` to the marker so every fallback is countable. Dispatch fails without it. `stack`: Phase 3. `task_spec`: mandatory Simple+ (Phase 3 Step G); the script rejects an empty spec at Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
+`agent`/`skill`/`complexity`: Phase 2 (null→`-`). `pipeline`: the Phase 2 pick, passed so the marker carries it; omit when null. The builder validates each name against its index, then emits this exact action contract once per callable skill, primary first with ordered stack de-duplication: `Call the Skill tool with \`skill-name\`.` Shared-pattern stack entries remain prompt injections. Agents and pipelines stay out of Skill-tool calls. Fan-out: one call per agent, same `skill`/`pipeline`. `model`: **required Medium+**; use `inherit` by default. Explicit overrides follow `references/model-selection.md`. `provider` describes the active harness (anthropic|openai|other), not an installed directory. `health`: `-` (in-context weights read retired — `docs/route-loop-validation.md`). `fallback_reason`: **required when `agent=general-purpose`** — the one-line reason from the Agent-greediness gate, any prose; `build-dispatch.py` slugifies it and appends `fallback=<slug>` to the marker so every fallback is countable. Dispatch fails without it. `stack`: Phase 3. `task_spec`: mandatory Simple+ (Phase 3 Step G); the script rejects an empty spec at Medium+; creation+"match ADR". `thinking_override`: slow=security/arch/5+files; fast=lookups.
 
 `[do-route]` = SOLE signal for `routing-decision-recorder`. Sub-agents excluded.
 
 **Fallback:** `[do-route] agent={a} skill={s|-} complexity={c}[ pipeline={p}] health=- model={m|-}`, Task Spec inline, dispatch.
 
-**Model Selection (ADR `model-selection-policy`).**
+**Model selection.** Default to `model: "inherit"`. Omit `model_policy`, `model_effort`, and tool-level model/effort overrides. Do not pass the word `inherit` to an agent tool as a model name. This uses the current session model when the harness supports inheritance. If it cannot, report the limitation rather than silently selecting another model.
 
-**Harness-native routing.** The SDIR probe (Phase 2 pre-route) identifies the harness: `~/.claude` → provider `anthropic`, `~/.codex` → provider `openai`, `~/.hermes`/`.factory`/`.reasonix` → provider `other`. Default when absent: `anthropic` (Claude Code is primary). Each provider lane has its own automatic policy table; cross-provider dispatch is manual-only (explicit tool invocation, never a silent default).
+The marker records the requested selection, not an observed worker model. The actual model remains unknown unless the harness reports it. Do not infer session identity from installed script directories or historical model tables.
 
-Run deterministic work with scripts, not an LLM. Three decision axes: (1) the owner-directed default — Opus 5 (`opus`) for every Anthropic-lane task class. The dispatch model and the session model are separate choices: `build-dispatch.py` accepts only `opus`/`sonnet` for the Anthropic lane, so re-check this default when the session model changes. (2) DeepSWE Pass@1 / cost / tokens / steps — agentic task completion rate, the quantitative source for models that have been measured. (3) Owner-observed felt quality — opus > gpt-5.5 (marginal). Benchmark ties or near-ties resolve in favor of felt quality. Cells: `Pass@1 / cost / output tokens / steps`; cost = avg USD per task, written as a plain number — slash-command templating substitutes dollar-digit positional parameters in this injected body, so a literal dollar sign before a digit corrupts on every argful invocation. Higher Pass@1 better, other three lower-is-better. Opus 5 has no DeepSWE run yet, so its cells read `n/a — not yet benchmarked` and its pts/USD cannot be computed until it is measured; it is selected on the owner-directive grounds above, not on a benchmark figure.
-
-**Start low, escalate on miss.** Task-class tables are ceilings by risk class, not starting points. Default = lowest tier whose risk class matches; escalate one tier only when output misses the acceptance bar. High tiers cost 3-6x per Pass@1 point where measured (see the OpenAI lane's pts/$ column; the Anthropic lane's is pending an Opus 5 benchmark) — pre-paying for xhigh/max "to be safe" wastes the 200 USD/month plan budget. Fan-out rule: parallel readers use the lane's low-risk point; one synthesis agent may run one tier higher. User-facing output (docs, prose, reviews the owner reads, design) leans opus one tier up from the task class; bulk/mechanical/parse-heavy work is where the OpenAI lane's cheaper points earn their keep (under Codex harness or explicit cross-provider call).
-
-**Anthropic lane** (automatic under Claude Code). Effort is advisory — recorded in marker as model@effort for telemetry; the Agent tool has no per-call effort parameter.
-
-Current default: **Opus 5** (`opus`) at every task class, by owner directive.
-
-| Variant | max | xhigh | high | medium | low |
-|---|---|---|---|---|---|
-| Opus-5 (current default, unmeasured) | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked | n/a — not yet benchmarked |
-| Opus-4.8 (prior measurement) | 59 / 13.22 / 135k / 120 | 54 / 8.01 / 86k / 95 | 52 / 4.28 / 50k / 73 | 49 / 3.44 / 41k / 66 | 41 / 2.29 / 29k / 54 |
-| Sonnet-5 (prior measurement) | 54 / 26.40 / 214k / 268 | 50 / 11.89 / 121k / 186 | 48 / 7.43 / 87k / 147 | 40 / 4.08 / 57k / 108 | 31 / 2.19 / 36k / 77 |
-
-| Task class | Selection | pts/$ | Why |
-|---|---|---|---|
-| deterministic | no LLM | — | Run the script directly. |
-| low-risk | `opus` / `low` | n/a | Current session model, owner-directed default; effort floor per start-low. |
-| standard | `opus` / `medium` | n/a | Current session model, owner-directed default; one tier up for standard work. |
-| high-risk | `opus` / `high` | n/a | Current session model, owner-directed default; high effort for risk-bearing work. |
-| max-power | `opus` / `xhigh` | n/a | Current session model, owner-directed default; `manual_model_override=true`; state justification in task_spec intent. |
-
-Effort selection still follows **start low, escalate on miss** — the effort column is a ceiling by risk class, and a miss against the acceptance bar is what buys the next tier. Opus 5 at `max` stays manual-only pending measurement. Sonnet-5 and Opus-4.8 points are the manual-only ones: they need `manual_model_override=true` plus `model_effort`, and stay available for cost, latency, context-window, and fan-out breadth constraints the benchmark does not measure. Haiku is retired.
-
-**OpenAI lane** (automatic under Codex CLI).
-
-| Variant | max | xhigh | high | medium | low |
-|---|---|---|---|---|---|
-| GPT-5.6 Sol | 73 / 8.39 / 60k / 61 | 71 / 4.70 / 41k / 44 | 69 / 3.47 / 28k / 37 | 61 / 1.86 / 18k / 31 | 45 / 1.07 / 11k / 23 |
-| GPT-5.6 Terra | 70 / 4.95 / 72k / 76 | 60 / 2.13 / 40k / 43 | 54 / 1.13 / 22k / 34 | 35 / 0.58 / 12k / 25 | 24 / 0.43 / 8.6k / 21 |
-| GPT-5.6 Luna | 67 / 3.03 / 73k / 102 | 57 / 1.54 / 45k / 71 | 44 / 0.78 / 26k / 49 | 11 / 0.22 / 8.2k / 24 | 2 / 0.07 / 3.1k / 12 |
-| GPT-5.5 legacy | n/a | 67 / 7.23 / 46k / 82 | 64 / 5.10 / 31k / 62 | 54 / 2.75 / 20k / 46 | 27 / 1.20 / 9.4k / 28 |
-
-| Task class | Selection | pts/$ | Why |
-|---|---|---|---|
-| deterministic | no LLM | — | Run the script directly. |
-| low-risk | `gpt-5.6-terra` / `high` | 47.8 | 54 Pass@1 at 1.13, 22k tokens, 34 steps. |
-| standard | `gpt-5.6-sol` / `high` | 19.9 | 69 Pass@1 at 3.47, 28k tokens, 37 steps. |
-| high-risk | `gpt-5.6-sol` / `xhigh` | 15.1 | 71 Pass@1 at 4.70, 41k tokens, 44 steps. |
-| max-power | `gpt-5.6-sol` / `max` | 8.7 | 73 Pass@1 at 8.39, 60k tokens, 61 steps; `manual_model_override=true`; state justification in task_spec intent. |
-
-All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, Terra max/xhigh/medium/low, all Luna) are manual-only — some are cost trade-offs, not dominated; use with `manual_model_override=true` for a stated constraint.
-
-**Other harnesses** (provider=`other`): `model_policy` is unavailable — choose the highest non-dominated Pass@1 point among models the harness exposes, applying the same start-low-escalate-on-miss discipline. Set model explicitly.
-
-**Cross-provider escalation** — manual only, never automatic. Escalating anthropic → sol is a cost/limits lever or independent-second-opinion lever, not a quality upgrade. Under Claude Code, codex-wrapper dispatches (`codex` skill, pr-workflow codex second-opinion review) remain valid as EXPLICIT tools — deliberate cross-provider calls, not defaults. Escalation targets: anthropic max-power miss → sol/xhigh or sol/max (second opinion, cheaper per point); openai max-power miss → opus/xhigh (the Anthropic-lane default). Manual-pick ordering among legacy/manual points: opus-4.8 above gpt-5.5 where they otherwise tie.
-
-**Coordinator model.** The main-thread coordinator routes and evaluates but never executes; its cost is input-dominated (largest context, short outputs), and DeepSWE Pass@1 measures execution it never does. Picks: anthropic harness → `opus` (Opus 5, the session model — it replaces the prior sonnet pick); openai harness → `gpt-5.6-terra`/`high`. Safe because deterministic scripts (pre-route, manifest, build-dispatch, health weights) absorb routing complexity and the learning loop bounds misroute cost. Downgrade the anthropic coordinator to `sonnet` only as a deliberate plan-limit measure. Session model is set via harness config (`/model`), not per-turn.
-
-**Medium+ must set a model or policy.** Codex prompts stay read-only and public unless a task requires otherwise.
+Medium+ must provide `model: "inherit"`, a supported explicit model, or a policy. For a deliberate override, load `references/model-selection.md`; existing provider policies and explicit choices remain supported. Use scripts for deterministic work. Change model or effort only for a concrete task need or a missed acceptance criterion. Session configuration stays under the user's control. Codex prompts stay read-only and public unless the task requires otherwise.
 
 **Complex (3+ sources):**
 
@@ -400,7 +353,7 @@ All GPT-5.5 choices are manual-only. Off-policy GPT-5.6 points (Sol medium/low, 
 
 Simple/Medium: direct. Feature-branch; mods commit. `isolation:"worktree"`→`flags.worktree`. Non-org: 3 reviews→fix→PR. Org: confirm git.
 
-**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Each agent gets its own `files` and scope. Sequential stages pass the previous report verbatim as `prior_results`; the synthesis agent gets every stage report. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
+**Step 3: Multi-part / fan-out** — deps sequential; independent parallel (max 10). Phase 2 `agents` → ONE `build-dispatch.py` call and ONE Agent dispatch per agent: N agents = N calls = N markers, one marker each. Emit the parallel Agent calls in a single message. Each agent gets its own `files` and scope. Sequential stages pass relevant prior results and evidence locations; synthesis receives the findings and access to evidence from every required stage. Packing several markers into one Bash/Workflow script keeps them recorded but forfeits route-fit scoring, which reads a lone marker per event.
 
 **Step 4: Auto-Pipeline Fallback** (no match, Simple+) — `auto-pipeline`. None → closest+`objective-loop`. Never empty skill.
 

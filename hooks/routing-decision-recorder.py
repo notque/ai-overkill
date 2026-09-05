@@ -117,6 +117,7 @@ _STACK_RE = re.compile(r"\bstack=\{([a-z0-9:_,-]*)\}", re.IGNORECASE)
 # token, nothing read it, so evidence_route_decisions.pipeline stayed NULL.
 _PIPELINE_RE = re.compile(r"\bpipeline=([a-z0-9-]+)", re.IGNORECASE)
 
+# Requested selection, not an observed worker model. inherit means no override.
 # Model token on the marker line: `model=opus` or `model=-`. GPT-5.6 selections
 # carry an additional `effort=` token. Valid values match build-dispatch.py;
 # `model=-` or absent => null. Old markers remain readable.
@@ -124,6 +125,7 @@ _MODEL_RE = re.compile(r"\bmodel=([a-z0-9.-]+|-)", re.IGNORECASE)
 _EFFORT_RE = re.compile(r"\beffort=(low|medium|high|xhigh|max)", re.IGNORECASE)
 _VALID_MODELS = frozenset(
     {
+        "inherit",
         "sonnet",
         "opus",
         "codex",
@@ -360,7 +362,7 @@ def parse_model_effort(marker_text: str) -> str | None:
     """
     line = _marker_line(marker_text)
     model = parse_model(line)
-    if model is None:
+    if model is None or model == "inherit":
         return None
     match = _EFFORT_RE.search(line)
     return match.group(1).lower() if match else None

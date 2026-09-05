@@ -760,9 +760,9 @@ def _parse_cell(cell: str) -> tuple[int, float, int, int]:
 
 
 def _documented_claude_points() -> dict[tuple[str, str], tuple[int, float, int, int]]:
-    """Read the Anthropic-lane benchmark table out of skills/meta/do/SKILL.md."""
+    """Read the retained Anthropic benchmark table."""
     points: dict[tuple[str, str], tuple[int, float, int, int]] = {}
-    for line in _DO_SKILL_PATH.read_text(encoding="utf-8").splitlines():
+    for line in (_DO_SKILL_PATH.parent / "references" / "model-selection.md").read_text(encoding="utf-8").splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         model = _DOCUMENTED_ROW_MODELS.get(cells[0]) if cells else None
         if model is None or len(cells) != len(_DOCUMENTED_EFFORTS) + 1:
@@ -824,14 +824,14 @@ def test_opus_max_requires_manual_override():
 
 
 def test_supplied_points_match_the_documented_benchmark_table():
-    """The table in skills/meta/do/SKILL.md is the source; this dict must track it.
+    """The table in the model-selection reference is the source; this dict must track it.
 
     Without this the dict is a private copy: an edit to the doc table (or a
     deleted row) leaves the Opus-5-has-no-benchmark-point check above asserting
     against numbers the toolkit no longer publishes.
     """
     assert _documented_claude_points() == SUPPLIED_CLAUDE_POINTS, (
-        "SUPPLIED_CLAUDE_POINTS drifted from the Anthropic-lane table in skills/meta/do/SKILL.md"
+        "SUPPLIED_CLAUDE_POINTS drifted from the model-selection reference"
     )
 
 
@@ -1175,3 +1175,77 @@ def test_decisions_prior_results_gaps_emit_in_order():
     block = bd.build_task_spec(_decision(task_spec=spec))
     labels = [line.split(":**")[0] for line in block.splitlines() if line.startswith("**")]
     assert labels == ["**Intent", "**Decisions", "**Prior results", "**Gaps", "**Operator context"]
+
+
+@pytest.mark.parametrize("complexity", bd.VALID_COMPLEXITY)
+@pytest.mark.parametrize("provider", bd.VALID_PROVIDERS)
+def test_inherit_requests_no_tool_override_and_round_trips(complexity, provider):
+    prompt = _preamble(_decision(model="inherit", complexity=complexity, provider=provider))
+    marker = prompt.splitlines()[0]
+    assert recorder.parse_model(marker) == "inherit"
+    assert recorder.parse_model_effort(marker) is None
+    assert "effort=" not in marker
+    assert "Omit model and reasoning-effort overrides from the agent tool call" in prompt
+    assert "actual worker model is unknown unless the harness reports it" in prompt
+    assert "do not pass the literal 'inherit' as a model name" in prompt
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [{"model_policy": "standard"}, {"model_effort": "high"}, {"manual_model_override": True}],
+)
+def test_inherit_rejects_conflicting_overrides(conflict):
+    with pytest.raises(bd.InputError, match="cannot include"):
+        _preamble(_decision(model="inherit", **conflict))
+
+
+def test_inherit_never_records_effort_even_from_malformed_external_marker():
+    marker = "[do-route] agent=claude skill=quick complexity=simple model=inherit effort=high health=-"
+    assert recorder.parse_model(marker) == "inherit"
+    assert recorder.parse_model_effort(marker) is None
+
+
+def test_summary_context_omits_file_reads_but_preserves_handoff(tmp_path):
+    source = tmp_path / "source.md"
+    source.write_text("File contents should only appear in files mode.\n")
+    spec = {
+        "request_verbatim": "Make the requested fix.",
+        "intent": "Fix this file.",
+        "constraints": "Do not publish.",
+        "acceptance": "The link resolves.",
+        "files": "source.md",
+        "ownership": "Only source.md",
+        "prior_results": "Evidence: report.md at the reviewed revision.",
+    }
+    decision = _decision(task_spec=spec, context_mode="summary")
+    with patch.object(bd, "_gather_file", side_effect=AssertionError("unneeded file read")):
+        prompt = bd.build_preamble(decision, repo_root=tmp_path)
+    assert "File contents should only appear" not in prompt
+    for value in spec.values():
+        assert value in prompt
+    assert bd._GATHER_SECURITY in prompt
+    assert "</untrusted-content>" in prompt
+    assert bd.INJ_REFERENCE_LOADING in prompt
+    files = bd.build_preamble({**decision, "context_mode": "files"}, repo_root=tmp_path)
+    assert "File contents should only appear" in files
+
+
+@pytest.mark.parametrize("mode", ["summary", "none"])
+def test_reduced_context_still_rejects_missing_paths(tmp_path, mode):
+    with pytest.raises(bd.InputError, match="does not exist"):
+        bd.build_preamble(_decision(context_mode=mode, task_spec={"files": "missing.py"}), repo_root=tmp_path)
+
+
+def test_none_context_does_not_gather_or_drop_task_spec(tmp_path):
+    decision = _decision(context_mode="none", task_spec={"intent": "Complete authorized task"})
+    with patch.object(bd, "_run_git", side_effect=AssertionError("unexpected gather")):
+        prompt = bd.build_preamble(decision, repo_root=tmp_path)
+    assert bd._GATHER_HEADING not in prompt
+    assert "Complete authorized task" in prompt
+    assert bd.INJ_BASE_INSTRUCTIONS in prompt
+
+
+@pytest.mark.parametrize("mode", ["", "everything", None, [], {}])
+def test_invalid_context_mode_fails_even_without_gather(mode):
+    with pytest.raises(bd.InputError, match="context_mode"):
+        _preamble(_decision(context_mode=mode))
