@@ -11,7 +11,7 @@ A check the orchestrator runs against an agent's "done" claim before accepting i
 This file fills ONE gap: laziness — an agent stops at partial progress and declares done. The other two agentic failure modes are already covered elsewhere; this file does NOT re-cover them:
 
 - **Goal drift** → `skills/meta/do/references/quality-loop.md` PHASE 5 (INTENT VERIFY): adversarial check that the diff matches the original request.
-- **Self-preferential bias** → quality-loop PHASE 7 (FIX): a fresh agent, not the original author, so anchoring bias toward its own work is broken.
+- **Self-preferential bias** → quality-loop PHASE 7 (FIX): use independent context when a specific blind spot warrants it; fresh-agent fixing is not mandatory.
 
 Do not duplicate those controls here.
 
