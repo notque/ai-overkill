@@ -45,7 +45,7 @@ Build accessible UI with design tokens, Tailwind themes, reusable components, an
 
 ### Intentional UI Constraints (Always Apply)
 
-Apply these design defaults unless the user supplies different requirements. For deeper aesthetic exploration, call the Skill tool with `distinctive-frontend-design`.
+Apply these design defaults unless the user supplies different requirements. When deeper aesthetic exploration is needed, use the companion skill. Call the Skill tool with `distinctive-frontend-design`.
 
 - **Classify the surface type first.** Landing page or app/dashboard? Design rules diverge sharply. Never start implementation until this is decided because every downstream choice depends on it.
 - **Write the narrative brief before code.** Commit three sentences: (1) visual thesis (mood and energy), (2) content plan (named sections, each with one job), (3) interaction thesis (2-3 motion ideas, no more). If these three sentences are not resolved, stop and ask.

@@ -44,7 +44,7 @@ Build React portfolios and galleries for artists and photographers. Use function
 
 ### Intentional Portfolio Design Constraints (Always Apply)
 
-Use these constraints to make the artist's work guide the layout. For an unfamiliar genre, new artist voice, or brand reset, call the Skill tool with `distinctive-frontend-design`.
+Use these constraints to make the artist's work guide the layout. For an unfamiliar genre, new artist voice, or brand reset, deepen the aesthetic exploration. Call the Skill tool with `distinctive-frontend-design`.
 
 - **The work is the hero.** Portfolios promote creative work, not the person explaining the work. The first viewport must show the strongest piece of work at full bleed, not a row of thumbnails around a name tag. No cards in the hero.
 - **One composition per section.** Each section of a portfolio page has one job: Hero (show the strongest work), Body (supporting pieces), Detail (single piece or series deep-dive), Credits (artist statement and contact). Do not mix "about the artist" with "gallery grid" in the same section.
